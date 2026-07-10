@@ -1,0 +1,1056 @@
+# MASTER PROMPT — Tripistic Business Analysis + Phase-Based Product Build
+
+You are acting as a senior SaaS product architect, technical co-founder, full-stack engineer, and business systems analyst.
+
+I am building **Tripistic**, an AI-native tour operations platform for independent guides, solo tour operators, and small/mid-size tour businesses.
+
+Before writing production code, you must deeply analyze the business system from the Markdown strategy files included in this repo.
+
+## Important Rule
+
+Do **not** start building immediately.
+
+First, analyze the business, product model, market positioning, competitor gaps, pricing, MVP scope, technical architecture, risk, and execution roadmap from the MD files.
+
+After the analysis, create a complete implementation plan with clear phases.
+
+Only after that, begin **Phase 1**.
+
+---
+
+# Source Files To Read First
+
+Read and analyze these files carefully:
+
+* `00_README.md`
+* `01_Business_Plan.md`
+* `02_Product_System.md`
+* `03_MVP_Roadmap.md`
+* `04_AI_Features_Strategy.md`
+* `05_Pricing_And_Packaging.md`
+* `06_GTM_And_Sales_System.md`
+* `07_Competitive_Analysis.md`
+* `08_Technical_Architecture.md`
+* `09_Compliance_And_Risk.md`
+* `10_Landing_Page_Copy.md`
+* `11_Execution_Checklist.md`
+
+If these files are not in the repo yet, stop and tell me exactly where to place them.
+
+---
+
+# Main Product Vision
+
+Tripistic is not just another booking system.
+
+Tripistic should become:
+
+> An AI-native growth and operations platform for independent tour guides and small tour operators.
+
+The product must combine:
+
+* Booking engine
+* Availability management
+* Tour/package management
+* Payments
+* Deposits and installments
+* Digital waivers
+* Guide/staff scheduling
+* Customer CRM
+* Automated communication
+* OTA/channel sync foundation
+* AI Growth Dashboard
+* AI booking agent foundation
+* AI itinerary/package builder foundation
+* AI marketing/content assistant foundation
+* Compliance-ready data structure
+
+The main differentiator is:
+
+> 0% direct booking commission + affordable subscription pricing + AI growth intelligence.
+
+---
+
+# Strategic Positioning
+
+Tripistic must be positioned against tools like:
+
+* FareHarbor
+* Peek Pro
+* Rezdy
+* Bókun
+* Checkfront
+* Xola
+* TrekkSoft
+* Regiondo
+* Ventrata
+* WeTravel
+* CaptainBook
+
+But do not copy them.
+
+Tripistic should win through:
+
+* Transparent pricing
+* No consumer-facing direct-booking surcharge
+* AI-native growth recommendations
+* Simple setup for small operators
+* Better business insights
+* Automation-first workflow
+* Direct-booking growth
+* Multi-language guest communication
+* Future agent-commerce readiness
+
+---
+
+# Required First Output: Business Analysis Report
+
+Before coding, generate a file:
+
+`docs/00_BUSINESS_ANALYSIS_REPORT.md`
+
+This report must include:
+
+## 1. Business Summary
+
+Explain what Tripistic is, who it serves, and why it can win.
+
+## 2. Target Customer Segments
+
+Analyze:
+
+* Solo tour guides
+* Small local tour operators
+* Multi-guide operators
+* Activity/rental businesses
+* Multi-day trip/package operators
+* Fee-frustrated users of FareHarbor/Peek/Rezdy/Bókun
+* Offline operators using spreadsheets/WhatsApp/manual systems
+
+## 3. Pain Point Map
+
+Create a detailed table:
+
+| Pain | Severity | Current Workaround | Tripistic Solution | MVP or Later |
+
+## 4. Competitor Gap Analysis
+
+Create a table:
+
+| Competitor | Strength | Weakness | Tripistic Advantage |
+
+## 5. Pricing Strategy
+
+Analyze the pricing model:
+
+* Solo: around $19–$29/month
+* Operator: around $69–$99/month
+* Growth/Agency/Advanced: later
+* 0% direct booking commission
+* Optional paid AI usage/add-ons later
+
+Also identify risks around underpricing.
+
+## 6. MVP Scope
+
+Separate features into:
+
+* Must-have MVP
+* Should-have MVP
+* Phase 2
+* Phase 3
+* Avoid for now
+
+## 7. AI Strategy
+
+Define the AI layers:
+
+* AI Growth Dashboard
+* Demand forecasting
+* AI booking assistant
+* AI itinerary builder
+* AI marketing assistant
+* AI review response assistant
+* AI no-show prediction
+* AI guide/staff scheduling optimization
+
+Rank these by:
+
+* Business value
+* Technical complexity
+* Data requirement
+* MVP priority
+
+## 8. Compliance and Risk
+
+Analyze:
+
+* PCI
+* GDPR
+* CCPA
+* Digital waivers
+* Data retention
+* Payment tokenization
+* AI hallucination risk
+* Booking liability risk
+* Dynamic pricing backlash risk
+
+## 9. Recommended Build Order
+
+Give the final recommended phase list.
+
+## 10. Critical Warnings
+
+Clearly list what not to build too early.
+
+---
+
+# Required Second Output: Product Requirement Documents
+
+After the business analysis, create these files:
+
+`docs/01_PRODUCT_REQUIREMENTS.md`
+`docs/02_MVP_FEATURE_SPEC.md`
+`docs/03_DATABASE_AND_DATA_MODEL.md`
+`docs/04_API_SPEC.md`
+`docs/05_AUTH_AND_MULTI_TENANCY_SPEC.md`
+`docs/06_AI_SYSTEM_SPEC.md`
+`docs/07_COMPLIANCE_SECURITY_SPEC.md`
+`docs/08_PHASE_ROADMAP.md`
+
+These must be detailed enough for engineering execution.
+
+---
+
+# Product Architecture Assumption
+
+Use a SaaS-ready multi-tenant architecture.
+
+Recommended structure:
+
+* Marketing site: Tripistic.com
+* App: app.tripistic.com
+* API: api.tripistic.com
+* Optional AI gateway: ai.wpistic.cloud or ai.tripistic.com
+* Optional future MCP: mcp.wpistic.cloud
+* Optional future brain/RAG: brain.wpistic.cloud
+
+Assume the app will support multiple workspaces/businesses.
+
+Every core record must belong to:
+
+* `workspace_id`
+* `owner_id` or `created_by`
+* proper timestamps
+* status flags
+* soft delete where needed
+
+---
+
+# Core Modules To Plan
+
+## Admin / SaaS Owner
+
+* Platform dashboard
+* Users
+* Workspaces
+* Plans
+* Subscriptions
+* Billing status
+* Feature limits
+* AI usage
+* Support tickets
+* Audit logs
+
+## Operator Dashboard
+
+* Overview
+* Revenue summary
+* Bookings
+* Upcoming departures
+* AI recommendations
+* No-show risk
+* Recent customers
+* Channel/source performance
+
+## Tour/Product Management
+
+* Tours
+* Activities
+* Packages
+* Multi-day trips
+* Add-ons
+* Availability
+* Capacity
+* Pricing
+* Schedule
+* Blackout dates
+* Pickup/drop-off info
+* Cancellation policy
+* Waiver requirement
+
+## Booking Engine
+
+* Public booking widget/page
+* Calendar availability
+* Guest details
+* Participant details
+* Payment
+* Deposit/installment option
+* Confirmation
+* Reminder automation
+* Admin/manual booking
+
+## Payments
+
+* Stripe first
+* Payment intents
+* Deposits
+* Partial payments
+* Refund records
+* Transaction logs
+* Never store raw card data
+
+## Customers / CRM
+
+* Customer profile
+* Booking history
+* Notes
+* Tags
+* Source/channel
+* Communication timeline
+
+## Guide / Staff Management
+
+* Guides
+* Availability
+* Assigned departures
+* Certifications
+* Internal notes
+* Guide mobile view
+* Daily manifest
+
+## Digital Waivers
+
+* Waiver templates
+* Signature records
+* Participant association
+* Timestamp
+* IP/user agent
+* PDF/export later
+
+## Communication Automation
+
+* Booking confirmation
+* Reminder before trip
+* Weather/update message
+* Post-tour review request
+* Cancellation/refund messages
+* Email first
+* SMS/WhatsApp later
+
+## AI Growth Dashboard
+
+This is the first core AI feature.
+
+It should analyze:
+
+* Bookings
+* Revenue
+* Tour performance
+* Empty capacity
+* Cancellation/no-show patterns
+* Customer source/channel
+* High-performing days
+* Underperforming tours
+* Pricing opportunities
+* Review/reputation signals later
+
+It should output:
+
+* Plain-English recommendations
+* Priority score
+* Expected impact
+* Suggested action
+* Reasoning based on business data
+* Action status: new, accepted, dismissed, completed
+
+---
+
+# Technical Build Expectations
+
+Follow production-ready standards.
+
+## Code Quality
+
+* Modular architecture
+* Clean naming
+* Strong validation
+* Secure auth
+* Multi-tenant isolation
+* API-first design
+* Reusable components
+* Error handling
+* Loading states
+* Empty states
+* Audit logs for sensitive actions
+
+## Security
+
+* Validate all input
+* Protect tenant data
+* Never expose secret keys
+* Use environment variables
+* Use role-based permissions
+* Use payment tokenization
+* Use webhook signature verification
+* Use safe AI prompts
+* Prevent cross-tenant access
+
+## UX
+
+Design should feel:
+
+* Premium SaaS
+* Clean dashboard
+* Simple for non-technical operators
+* Mobile-friendly
+* Clear next actions
+* No clutter
+* Fast onboarding
+
+Use a premium style similar to:
+
+* Linear
+* Stripe
+* Vercel
+* modern AI SaaS dashboards
+
+---
+
+# Phase List
+
+Create and follow this build plan.
+
+## Phase 0 — Business + Product Analysis
+
+Goal: understand the business deeply before building.
+
+Deliverables:
+
+* Business analysis report
+* Product requirements
+* MVP feature spec
+* Database/data model spec
+* API spec
+* AI system spec
+* Compliance/security spec
+* Phase roadmap
+
+No production feature coding yet unless required for documentation structure.
+
+## Phase 1 — SaaS Foundation
+
+Goal: create the core multi-tenant SaaS foundation.
+
+Build:
+
+* Project structure cleanup
+* Environment structure
+* Auth foundation
+* User model
+* Workspace model
+* Roles/permissions foundation
+* Dashboard shell
+* Navigation
+* Settings layout
+* Empty-state pages
+* Admin/SaaS owner foundation
+* Database schema/migrations
+* Seed data
+* Audit log foundation
+
+Phase 1 must create a stable base for all future modules.
+
+## Phase 2 — Tour + Availability System
+
+Build:
+
+* Tour/activity CRUD
+* Package structure
+* Availability rules
+* Capacity rules
+* Schedules
+* Blackout dates
+* Pricing fields
+* Add-ons
+* Public/private status
+* Tour media placeholders
+* Cancellation policy fields
+
+## Phase 3 — Booking Engine MVP
+
+Build:
+
+* Public booking page/widget foundation
+* Calendar availability
+* Guest/participant forms
+* Booking creation
+* Booking statuses
+* Admin/manual booking
+* Confirmation screen
+* Booking management dashboard
+
+## Phase 4 — Stripe Payments
+
+Build:
+
+* Stripe integration
+* Payment intents
+* Deposits
+* Partial payment tracking
+* Webhooks
+* Refund records
+* Transaction logs
+* Secure payment status sync
+
+## Phase 5 — Customer CRM + Communication
+
+Build:
+
+* Customer profiles
+* Booking history
+* Customer source
+* Notes/tags
+* Email templates
+* Automated booking confirmation
+* Reminder workflow foundation
+* Review request foundation
+
+## Phase 6 — Guide/Staff + Waivers
+
+Build:
+
+* Guide/staff profiles
+* Guide assignment
+* Daily manifest
+* Guide mobile view
+* Waiver templates
+* Waiver signing records
+* Participant-waiver relation
+
+## Phase 7 — AI Growth Dashboard MVP
+
+Build:
+
+* AI recommendation data model
+* Business metrics analyzer
+* Rule-based insight engine first
+* LLM-generated recommendation summaries later
+* Recommendation priority scoring
+* Accepted/dismissed/completed statuses
+* Dashboard widgets
+
+Important: use rule-based logic first so the product works without expensive AI calls.
+
+## Phase 8 — AI Booking Agent Foundation
+
+Build:
+
+* Knowledge base structure
+* Tour Q&A source mapping
+* Live availability guardrails
+* Guest conversation logs
+* Human handoff
+* Payment-link handoff later
+
+## Phase 9 — OTA/Channel Sync Foundation
+
+Build:
+
+* Channel connection model
+* External listing mapping
+* Inventory sync queue foundation
+* Import/export structure
+* Viator/GetYourGuide/Google Things To Do placeholders
+
+## Phase 10 — SaaS Billing + Plans
+
+Build:
+
+* Plan model
+* Subscription model
+* Feature limits
+* Trial logic
+* Stripe subscription integration
+* Usage limits
+* AI credit tracking
+
+## Phase 11 — Production Hardening
+
+Build:
+
+* Security review
+* Tenant isolation tests
+* Error boundaries
+* Logging
+* Performance optimization
+* Backup strategy
+* Compliance checklist
+* Deployment docs
+
+---
+
+# Start Phase 1 After Analysis
+
+After Phase 0 documents are completed, start **Phase 1 — SaaS Foundation**.
+
+But before writing Phase 1 code, create:
+
+`docs/09_PHASE_1_IMPLEMENTATION_PLAN.md`
+
+This file must include:
+
+* Existing repo audit
+* Current stack detection
+* Folder structure
+* Database approach
+* Auth approach
+* Workspace/multi-tenancy approach
+* Role system
+* Routes/pages to create
+* Components to create
+* Migrations/models to create
+* Risks
+* Testing checklist
+
+Then begin Phase 1 implementation.
+
+---
+
+# Phase 1 Required Implementation
+
+Implement the SaaS foundation based on the detected stack.
+
+## Required Entities
+
+Create or prepare these models/tables/collections:
+
+* users
+* workspaces
+* workspace_members
+* roles or role enum
+* invitations
+* audit_logs
+* settings
+* plans
+* subscriptions
+* feature_flags
+
+If the stack already has equivalents, preserve and extend them instead of duplicating.
+
+## Required Pages
+
+Create dashboard pages:
+
+* `/dashboard`
+* `/dashboard/onboarding`
+* `/dashboard/bookings`
+* `/dashboard/tours`
+* `/dashboard/customers`
+* `/dashboard/ai-growth`
+* `/dashboard/settings`
+* `/dashboard/billing`
+* `/admin`
+* `/admin/workspaces`
+* `/admin/users`
+* `/admin/plans`
+* `/admin/audit-logs`
+
+For pages not ready yet, create premium empty states with clear copy.
+
+## Required Components
+
+Create reusable components:
+
+* App shell
+* Sidebar navigation
+* Topbar
+* Workspace switcher
+* Metric card
+* Empty state
+* Page header
+* Status badge
+* Role badge
+* Loading state
+* Error state
+* Upgrade prompt
+* AI recommendation card placeholder
+
+## Required Permissions
+
+Roles:
+
+* platform_admin
+* workspace_owner
+* workspace_admin
+* guide
+* staff
+* viewer
+
+Rules:
+
+* Platform admin can view platform-level admin pages.
+* Workspace owner controls billing/settings.
+* Workspace admin manages tours/bookings/customers.
+* Guide sees assigned tours/manifests.
+* Staff can manage daily operations.
+* Viewer is read-only.
+
+## Required Audit Logs
+
+Track:
+
+* user login
+* workspace creation
+* workspace update
+* member invitation
+* role change
+* billing change
+* sensitive settings update
+* admin action
+
+## Required Environment File
+
+Create or update `.env.example` with:
+
+* app URL
+* API URL
+* database URL
+* auth secrets
+* Stripe placeholders
+* email provider placeholders
+* AI provider placeholders
+* storage placeholders
+* logging config
+
+Do not include real secrets.
+
+---
+
+# Output Format Required
+
+When you finish each stage, report:
+
+## Completed
+
+List completed files and features.
+
+## Changed Files
+
+List exact files changed.
+
+## Business Notes
+
+Explain any product/business decisions made.
+
+## Technical Notes
+
+Explain implementation choices.
+
+## Risks / Warnings
+
+List anything that could block future phases.
+
+## Next Phase
+
+Recommend next step.
+
+---
+
+# Final Instruction
+
+Be strict.
+
+Do not overbuild.
+
+Do not create fake finished features.
+
+Do not hardcode secrets.
+
+Do not break existing code.
+
+Do not skip business analysis.
+
+Do not move to Phase 2 until Phase 1 is stable.
+
+Start now with Phase 0 business analysis from the MD files, then create the Phase 1 implementation plan, then begin Phase 1 foundation.
+# START PHASE 1 — Tripistic SaaS Foundation
+
+You have already completed the Tripistic business analysis and product planning documents.
+
+Now start:
+
+# Phase 1 — SaaS Foundation
+
+Goal:
+
+Build the stable multi-tenant SaaS foundation for Tripistic before building booking, payments, AI, or OTA features.
+
+Do not build Phase 2 features yet.
+
+---
+
+# Required Before Coding
+
+First create:
+
+`docs/09_PHASE_1_IMPLEMENTATION_PLAN.md`
+
+Include:
+
+* Existing repo audit
+* Current stack detection
+* Folder structure
+* Database approach
+* Auth approach
+* Workspace/multi-tenancy approach
+* Role system
+* Routes/pages to create
+* Components to create
+* Migrations/models to create
+* Risks
+* Testing checklist
+
+Then begin implementation.
+
+---
+
+# Phase 1 Scope
+
+Build only the foundation:
+
+## Data Models / Tables
+
+Create or extend:
+
+* users
+* workspaces
+* workspace_members
+* invitations
+* audit_logs
+* settings
+* plans
+* subscriptions
+* feature_flags
+
+Every workspace-owned record must support tenant isolation.
+
+Core fields should include:
+
+* id
+* workspace_id where applicable
+* created_by where applicable
+* status
+* created_at
+* updated_at
+* deleted_at if supported
+
+---
+
+# Roles
+
+Implement these roles:
+
+* platform_admin
+* workspace_owner
+* workspace_admin
+* guide
+* staff
+* viewer
+
+Rules:
+
+* `platform_admin`: can access `/admin`
+* `workspace_owner`: can manage workspace, members, billing
+* `workspace_admin`: can manage operations
+* `guide`: can access assigned guide views later
+* `staff`: can manage daily operations later
+* `viewer`: read-only
+
+---
+
+# Required App Routes
+
+Create or stabilize:
+
+* `/dashboard`
+* `/dashboard/onboarding`
+* `/dashboard/bookings`
+* `/dashboard/tours`
+* `/dashboard/customers`
+* `/dashboard/ai-growth`
+* `/dashboard/settings`
+* `/dashboard/billing`
+* `/admin`
+* `/admin/workspaces`
+* `/admin/users`
+* `/admin/plans`
+* `/admin/audit-logs`
+
+For unfinished feature pages, create premium empty states.
+
+Do not fake working bookings/tours/payments yet.
+
+---
+
+# Required UI Components
+
+Create reusable components:
+
+* App shell
+* Sidebar navigation
+* Topbar
+* Workspace switcher
+* Metric card
+* Empty state
+* Page header
+* Status badge
+* Role badge
+* Loading state
+* Error state
+* Upgrade prompt
+* AI recommendation placeholder card
+
+Design style:
+
+* Premium SaaS
+* Clean dashboard
+* Mobile responsive
+* Easy for non-technical tour operators
+* Similar quality to Linear / Stripe / Vercel dashboard patterns
+
+---
+
+# Dashboard Home
+
+The dashboard home should show foundation widgets only:
+
+* Total bookings placeholder
+* Revenue placeholder
+* Upcoming tours placeholder
+* AI recommendations placeholder
+* Setup progress
+* Onboarding checklist
+
+Use empty/demo-safe states only unless real data exists.
+
+---
+
+# Onboarding Page
+
+Create onboarding checklist:
+
+* Create workspace
+* Add first tour
+* Set availability
+* Connect Stripe
+* Customize booking page
+* Invite staff/guide
+* Enable AI Growth Dashboard
+
+Only make checklist UI now. Do not build all actions unless foundation already supports them.
+
+---
+
+# Admin Foundation
+
+Create admin shell:
+
+* Workspaces list placeholder
+* Users list placeholder
+* Plans placeholder
+* Audit logs placeholder
+
+Only `platform_admin` should access admin area.
+
+---
+
+# Environment
+
+Create/update `.env.example`.
+
+Include placeholders only:
+
+* `APP_URL`
+* `NEXT_PUBLIC_APP_URL`
+* `NEXT_PUBLIC_API_URL`
+* `DATABASE_URL`
+* `AUTH_SECRET`
+* `STRIPE_SECRET_KEY`
+* `STRIPE_WEBHOOK_SECRET`
+* `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+* `EMAIL_PROVIDER`
+* `EMAIL_FROM`
+* `OPENAI_API_KEY`
+* `OPENROUTER_API_KEY`
+* `AI_GATEWAY_URL`
+* `STORAGE_BUCKET`
+* `LOG_LEVEL`
+
+Do not include real secrets.
+
+---
+
+# Security Requirements
+
+* No hardcoded secrets
+* Validate auth before protected pages
+* Prevent cross-tenant access
+* Use role checks for admin pages
+* Prepare audit logging helper
+* Keep billing and payment placeholders safe
+
+---
+
+# Required Documentation Updates
+
+Update:
+
+* `README.md`
+* `docs/09_PHASE_1_IMPLEMENTATION_PLAN.md`
+* `docs/10_PHASE_1_COMPLETION_REPORT.md`
+
+The completion report must include:
+
+* Completed work
+* Changed files
+* Routes created
+* Models/tables created
+* Components created
+* Security notes
+* Known gaps
+* Next recommended phase
+
+---
+
+# Output After Completion
+
+Report using this format:
+
+## Completed
+
+## Changed Files
+
+## Routes Added
+
+## Data Models Added
+
+## Security Notes
+
+## Risks / Gaps
+
+## Next Step
+
+Do not move to Phase 2 until I approve.
+
