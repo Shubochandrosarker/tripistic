@@ -11,7 +11,11 @@ export type OnboardingItem = {
 export function buildOnboardingChecklist(input: {
   hasWorkspace: boolean;
   memberCount: number;
+  tourCount?: number;
+  upcomingSlotCount?: number;
 }): OnboardingItem[] {
+  const tourCount = input.tourCount ?? 0;
+  const upcomingSlotCount = input.upcomingSlotCount ?? 0;
   return [
     {
       key: "create_workspace",
@@ -24,17 +28,15 @@ export function buildOnboardingChecklist(input: {
       key: "add_first_tour",
       title: "Add your first tour",
       description: "Define what guests can book: title, duration, capacity, and price.",
-      href: "/dashboard/tours",
-      done: false,
-      phase: "Phase 2",
+      href: tourCount > 0 ? "/dashboard/tours" : "/dashboard/tours/new",
+      done: tourCount > 0,
     },
     {
       key: "set_availability",
       title: "Set your availability",
-      description: "Open dates and time slots so bookings can flow in.",
+      description: "Add a recurring schedule and generate upcoming departures.",
       href: "/dashboard/tours",
-      done: false,
-      phase: "Phase 2",
+      done: upcomingSlotCount > 0,
     },
     {
       key: "connect_stripe",

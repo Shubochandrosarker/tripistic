@@ -83,6 +83,43 @@ enum SubscriptionStatus {
   @@map("subscription_status")
 }
 
+enum TourKind {
+  tour
+  activity
+  package
+
+  @@map("tour_kind")
+}
+
+enum TourStatus {
+  draft
+  active
+  archived
+
+  @@map("tour_status")
+}
+
+enum TourVisibility {
+  public
+  private
+
+  @@map("tour_visibility")
+}
+
+enum ScheduleStatus {
+  active
+  paused
+
+  @@map("schedule_status")
+}
+
+enum AvailabilityStatus {
+  scheduled
+  cancelled
+
+  @@map("availability_status")
+}
+
 model User {
   id              String     @id @default(cuid())
   name            String
@@ -103,6 +140,7 @@ model User {
   ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
   invitationsSent Invitation[]      @relation("InvitationInviter")
   auditLogs       AuditLog[]
+  toursCreated    Tour[]            @relation("TourCreatedBy")
 
   @@map("users")
 }
@@ -122,13 +160,18 @@ model Workspace {
   updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?       @map("deleted_at") @db.Timestamptz(6)
 
-  owner         User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  members       WorkspaceMember[]
-  invitations   Invitation[]
-  settings      Setting[]
-  subscriptions Subscription[]
-  featureFlags  FeatureFlag[]
-  auditLogs     AuditLog[]
+  owner          User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members        WorkspaceMember[]
+  invitations    Invitation[]
+  settings       Setting[]
+  subscriptions  Subscription[]
+  featureFlags   FeatureFlag[]
+  auditLogs      AuditLog[]
+  tours          Tour[]
+  tourAddons     TourAddon[]
+  tourSchedules  TourSchedule[]
+  availabilities Availability[]
+  blackoutDates  BlackoutDate[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -254,6 +297,130 @@ model Subscription {
   @@index([workspaceId])
   @@index([planId])
   @@map("subscriptions")
+}
+
+model Tour {
+  id                      String         @id @default(cuid())
+  workspaceId             String         @map("workspace_id")
+  title                   String
+  slug                    String
+  kind                    TourKind       @default(tour)
+  description             String?
+  durationMinutes         Int            @map("duration_minutes")
+  durationDays            Int?           @map("duration_days")
+  location                String?
+  meetingPoint            String?        @map("meeting_point")
+  capacity                Int            @default(10)
+  basePrice               Int            @map("base_price")
+  currency                String         @default("USD")
+  visibility              TourVisibility @default(public)
+  status                  TourStatus     @default(draft)
+  cancellationPolicy      String?        @map("cancellation_policy")
+  cancellationNoticeHours Int?           @map("cancellation_notice_hours")
+  waiverRequired          Boolean        @default(false) @map("waiver_required")
+  coverImageUrl           String?        @map("cover_image_url")
+  createdById             String?        @map("created_by")
+  createdAt               DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt               DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy      User?          @relation("TourCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  addons         TourAddon[]
+  schedules      TourSchedule[]
+  availabilities Availability[]
+  blackoutDates  BlackoutDate[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, status])
+  @@map("tours")
+}
+
+model TourAddon {
+  id            String   @id @default(cuid())
+  workspaceId   String   @map("workspace_id")
+  tourId        String   @map("tour_id")
+  name          String
+  description   String?
+  price         Int
+  maxPerBooking Int?     @map("max_per_booking")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tour      Tour      @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([tourId])
+  @@map("tour_addons")
+}
+
+model TourSchedule {
+  id              String         @id @default(cuid())
+  workspaceId     String         @map("workspace_id")
+  tourId          String         @map("tour_id")
+  name            String?
+  daysOfWeek      Int[]          @map("days_of_week")
+  startTime       String         @map("start_time")
+  durationMinutes Int?           @map("duration_minutes")
+  capacity        Int?
+  startsOn        DateTime       @map("starts_on") @db.Date
+  endsOn          DateTime?      @map("ends_on") @db.Date
+  status          ScheduleStatus @default(active)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tour           Tour           @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  availabilities Availability[]
+
+  @@index([workspaceId])
+  @@index([tourId])
+  @@map("tour_schedules")
+}
+
+model Availability {
+  id            String             @id @default(cuid())
+  workspaceId   String             @map("workspace_id")
+  tourId        String             @map("tour_id")
+  scheduleId    String?            @map("schedule_id")
+  startsAt      DateTime           @map("starts_at") @db.Timestamptz(6)
+  endsAt        DateTime           @map("ends_at") @db.Timestamptz(6)
+  capacity      Int
+  bookedCount   Int                @default(0) @map("booked_count")
+  priceOverride Int?               @map("price_override")
+  guideId       String?            @map("guide_id")
+  status        AvailabilityStatus @default(scheduled)
+  notes         String?
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tour      Tour          @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  schedule  TourSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@unique([tourId, startsAt])
+  @@index([workspaceId, startsAt])
+  @@index([tourId, startsAt])
+  @@map("availabilities")
+}
+
+model BlackoutDate {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  tourId      String?  @map("tour_id")
+  startsOn    DateTime @map("starts_on") @db.Date
+  endsOn      DateTime @map("ends_on") @db.Date
+  reason      String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tour      Tour?     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("blackout_dates")
 }
 
 model FeatureFlag {

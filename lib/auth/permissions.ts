@@ -22,6 +22,11 @@ export function canViewAuditLogs(role: WorkspaceRole): boolean {
   return role === "workspace_owner" || role === "workspace_admin";
 }
 
+/** Tour catalog, schedules, availability, and blackout management (Phase 2). */
+export function canManageTours(role: WorkspaceRole): boolean {
+  return role === "workspace_owner" || role === "workspace_admin";
+}
+
 /** Which roles may `actorRole` grant when inviting or changing a member? */
 export function grantableRoles(actorRole: WorkspaceRole): WorkspaceRoleValue[] {
   if (actorRole === "workspace_owner") {

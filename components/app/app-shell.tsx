@@ -69,7 +69,7 @@ export function AppShell({
         <p className="px-1 text-[11px] leading-relaxed text-muted-foreground/70">
           {variant === "admin"
             ? "Platform administration — actions here are audited."
-            : "Phase 1 foundation — bookings, payments, and AI modules arrive in later phases."}
+            : "Tours & availability are live — bookings, payments, and AI modules arrive in later phases."}
         </p>
       </div>
     </>
