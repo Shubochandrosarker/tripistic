@@ -1,0 +1,168 @@
+export const BUSINESS_TYPES = [
+  "solo_guide",
+  "small_operator",
+  "multi_guide_operator",
+  "rental_activity_business",
+  "multi_day_tour_operator",
+  "agency",
+] as const;
+
+export type BusinessTypeValue = (typeof BUSINESS_TYPES)[number];
+
+export const BUSINESS_TYPE_LABELS: Record<BusinessTypeValue, string> = {
+  solo_guide: "Solo guide",
+  small_operator: "Small operator",
+  multi_guide_operator: "Multi-guide operator",
+  rental_activity_business: "Rental / activity business",
+  multi_day_tour_operator: "Multi-day tour operator",
+  agency: "Agency",
+};
+
+export const WORKSPACE_ROLES = [
+  "workspace_owner",
+  "workspace_admin",
+  "guide",
+  "staff",
+  "viewer",
+] as const;
+
+export type WorkspaceRoleValue = (typeof WORKSPACE_ROLES)[number];
+
+export const ROLE_LABELS: Record<WorkspaceRoleValue, string> = {
+  workspace_owner: "Owner",
+  workspace_admin: "Admin",
+  guide: "Guide",
+  staff: "Staff",
+  viewer: "Viewer",
+};
+
+export const ROLE_DESCRIPTIONS: Record<WorkspaceRoleValue, string> = {
+  workspace_owner: "Full control including billing and members",
+  workspace_admin: "Manages daily operations and team",
+  guide: "Sees assigned trips and manifests (from Phase 6)",
+  staff: "Handles bookings and guest support (from Phase 3)",
+  viewer: "Read-only access to dashboards and reports",
+};
+
+/** Roles an admin (non-owner) is allowed to grant or manage. */
+export const ADMIN_MANAGEABLE_ROLES: WorkspaceRoleValue[] = ["guide", "staff", "viewer"];
+
+export const FEATURE_KEYS = [
+  "ai_growth_dashboard",
+  "booking_engine",
+  "stripe_payments",
+  "digital_waivers",
+  "guide_scheduling",
+  "ota_sync",
+  "white_label",
+  "custom_domain",
+] as const;
+
+export type FeatureKeyValue = (typeof FEATURE_KEYS)[number];
+
+/** Workspace key-value settings the API will accept (Phase 1 allow-list). */
+export const SETTING_KEYS = [
+  "business_name",
+  "default_language",
+  "booking_notice_period",
+  "cancellation_policy",
+  "email_from_name",
+  "brand_color",
+] as const;
+
+export type SettingKeyValue = (typeof SETTING_KEYS)[number];
+
+export const CURRENCIES = [
+  "USD",
+  "EUR",
+  "GBP",
+  "CAD",
+  "AUD",
+  "NZD",
+  "CHF",
+  "SEK",
+  "NOK",
+  "DKK",
+  "JPY",
+  "SGD",
+  "AED",
+  "THB",
+  "MXN",
+  "BRL",
+  "ZAR",
+  "INR",
+  "BDT",
+] as const;
+
+export const TIMEZONES = [
+  "UTC",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Phoenix",
+  "America/Los_Angeles",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/Toronto",
+  "America/Vancouver",
+  "America/Mexico_City",
+  "America/Sao_Paulo",
+  "Europe/London",
+  "Europe/Dublin",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Europe/Madrid",
+  "Europe/Rome",
+  "Europe/Amsterdam",
+  "Europe/Lisbon",
+  "Europe/Athens",
+  "Europe/Istanbul",
+  "Africa/Cairo",
+  "Africa/Johannesburg",
+  "Asia/Dubai",
+  "Asia/Karachi",
+  "Asia/Dhaka",
+  "Asia/Kolkata",
+  "Asia/Bangkok",
+  "Asia/Singapore",
+  "Asia/Hong_Kong",
+  "Asia/Tokyo",
+  "Australia/Sydney",
+  "Pacific/Auckland",
+] as const;
+
+export const COUNTRIES: Array<{ code: string; name: string }> = [
+  { code: "US", name: "United States" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "CA", name: "Canada" },
+  { code: "AU", name: "Australia" },
+  { code: "NZ", name: "New Zealand" },
+  { code: "IE", name: "Ireland" },
+  { code: "FR", name: "France" },
+  { code: "DE", name: "Germany" },
+  { code: "ES", name: "Spain" },
+  { code: "IT", name: "Italy" },
+  { code: "PT", name: "Portugal" },
+  { code: "NL", name: "Netherlands" },
+  { code: "GR", name: "Greece" },
+  { code: "CH", name: "Switzerland" },
+  { code: "AT", name: "Austria" },
+  { code: "SE", name: "Sweden" },
+  { code: "NO", name: "Norway" },
+  { code: "DK", name: "Denmark" },
+  { code: "MX", name: "Mexico" },
+  { code: "BR", name: "Brazil" },
+  { code: "AE", name: "United Arab Emirates" },
+  { code: "TH", name: "Thailand" },
+  { code: "SG", name: "Singapore" },
+  { code: "JP", name: "Japan" },
+  { code: "ZA", name: "South Africa" },
+  { code: "IN", name: "India" },
+  { code: "BD", name: "Bangladesh" },
+];
+
+export const ACTIVE_WORKSPACE_COOKIE = "tripistic_active_workspace";
+
+export const TRIAL_DAYS = 14;
+
+export const DEFAULT_PLAN_SLUG = "solo";

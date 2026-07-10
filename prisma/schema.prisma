@@ -1,0 +1,275 @@
+// Tripistic — Phase 1 SaaS Foundation schema
+// Multi-tenancy: shared database, workspace_id row isolation.
+// Conventions: cuid ids, money in integer cents, snake_case DB names, soft deletes where history matters.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  active
+  suspended
+  deactivated
+
+  @@map("user_status")
+}
+
+enum WorkspaceStatus {
+  active
+  suspended
+  archived
+
+  @@map("workspace_status")
+}
+
+enum BusinessType {
+  solo_guide
+  small_operator
+  multi_guide_operator
+  rental_activity_business
+  multi_day_tour_operator
+  agency
+
+  @@map("business_type")
+}
+
+enum WorkspaceRole {
+  workspace_owner
+  workspace_admin
+  guide
+  staff
+  viewer
+
+  @@map("workspace_role")
+}
+
+enum MemberStatus {
+  active
+  suspended
+
+  @@map("member_status")
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  expired
+  revoked
+
+  @@map("invitation_status")
+}
+
+enum SettingType {
+  string
+  number
+  boolean
+  json
+
+  @@map("setting_type")
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  cancelled
+  expired
+
+  @@map("subscription_status")
+}
+
+model User {
+  id              String     @id @default(cuid())
+  name            String
+  email           String     @unique
+  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz(6)
+  passwordHash    String?    @map("password_hash")
+  authProviderId  String?    @map("auth_provider_id")
+  avatarUrl       String?    @map("avatar_url")
+  isPlatformAdmin Boolean    @default(false) @map("is_platform_admin")
+  status          UserStatus @default(active)
+  lastLoginAt     DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  memberships     WorkspaceMember[] @relation("MemberUser")
+  invitedMembers  WorkspaceMember[] @relation("MemberInviter")
+  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
+  invitationsSent Invitation[]      @relation("InvitationInviter")
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id           String          @id @default(cuid())
+  name         String
+  slug         String          @unique
+  businessType BusinessType    @default(solo_guide) @map("business_type")
+  ownerId      String          @map("owner_id")
+  timezone     String          @default("UTC")
+  currency     String          @default("USD")
+  country      String?
+  status       WorkspaceStatus @default(active)
+  trialEndsAt  DateTime?       @map("trial_ends_at") @db.Timestamptz(6)
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  owner         User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members       WorkspaceMember[]
+  invitations   Invitation[]
+  settings      Setting[]
+  subscriptions Subscription[]
+  featureFlags  FeatureFlag[]
+  auditLogs     AuditLog[]
+
+  @@index([ownerId])
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String        @map("workspace_id")
+  userId      String        @map("user_id")
+  role        WorkspaceRole @default(viewer)
+  status      MemberStatus  @default(active)
+  invitedById String?       @map("invited_by")
+  joinedAt    DateTime      @default(now()) @map("joined_at") @db.Timestamptz(6)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation("MemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy User?     @relation("MemberInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@index([workspaceId])
+  @@map("workspace_members")
+}
+
+model Invitation {
+  id          String           @id @default(cuid())
+  workspaceId String           @map("workspace_id")
+  email       String
+  role        WorkspaceRole    @default(viewer)
+  token       String           @unique
+  status      InvitationStatus @default(pending)
+  invitedById String           @map("invited_by")
+  expiresAt   DateTime         @map("expires_at") @db.Timestamptz(6)
+  acceptedAt  DateTime?        @map("accepted_at") @db.Timestamptz(6)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User      @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, email])
+  @@index([workspaceId])
+  @@map("invitations")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  workspaceId String?  @map("workspace_id")
+  userId      String?  @map("user_id")
+  action      String
+  entityType  String?  @map("entity_type")
+  entityId    String?  @map("entity_id")
+  metadata    Json?
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([userId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+model Setting {
+  id          String      @id @default(cuid())
+  workspaceId String      @map("workspace_id")
+  key         String
+  value       String
+  type        SettingType @default(string)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId])
+  @@map("settings")
+}
+
+model Plan {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  description  String?
+  priceMonthly Int      @map("price_monthly")
+  priceYearly  Int      @map("price_yearly")
+  currency     String   @default("USD")
+  features     Json     @default("[]")
+  limits       Json     @default("{}")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  subscriptions Subscription[]
+  featureFlags  FeatureFlag[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                     String             @id @default(cuid())
+  workspaceId            String             @map("workspace_id")
+  planId                 String             @map("plan_id")
+  status                 SubscriptionStatus @default(trialing)
+  billingProvider        String?            @map("billing_provider")
+  providerCustomerId     String?            @map("provider_customer_id")
+  providerSubscriptionId String?            @map("provider_subscription_id")
+  trialEndsAt            DateTime?          @map("trial_ends_at") @db.Timestamptz(6)
+  currentPeriodStart     DateTime?          @map("current_period_start") @db.Timestamptz(6)
+  currentPeriodEnd       DateTime?          @map("current_period_end") @db.Timestamptz(6)
+  cancelAt               DateTime?          @map("cancel_at") @db.Timestamptz(6)
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan      Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId])
+  @@index([planId])
+  @@map("subscriptions")
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  workspaceId String?  @map("workspace_id")
+  planId      String?  @map("plan_id")
+  featureKey  String   @map("feature_key")
+  enabled     Boolean  @default(false)
+  limitValue  Int?     @map("limit_value")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan      Plan?      @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, featureKey])
+  @@index([planId, featureKey])
+  @@map("feature_flags")
+}
