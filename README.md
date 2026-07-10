@@ -2,7 +2,7 @@
 
 **AI-native tour operations platform** for independent guides and small tour operators — bookings, payments, guides, waivers, guest communication, and AI growth insights in one dashboard, with **0% commission on direct bookings**.
 
-> **Status: Phase 1 (SaaS Foundation) complete.** Multi-tenant accounts, auth, workspaces, roles, dashboard + admin shells, plans/subscriptions/feature-flags foundation, and audit logging are live. Tours, bookings, payments, and AI modules ship in Phases 2–11 — see [`docs/08_PHASE_ROADMAP.md`](docs/08_PHASE_ROADMAP.md).
+> **Status: Phase 2 (Tour + Availability System) complete.** On top of the Phase 1 multi-tenant foundation (auth, workspaces, roles, admin, audit logging), operators can now create tours/activities/packages with add-ons, recurring schedules, timezone-correct departure generation, one-off departures, and blackout dates. Bookings, payments, and AI modules ship in Phases 3–11 — see [`docs/08_PHASE_ROADMAP.md`](docs/08_PHASE_ROADMAP.md).
 
 ## Stack
 
@@ -68,8 +68,8 @@ Strategy source documents (business plan, product system, roadmap, etc.) live at
 | [`docs/00_BUSINESS_ANALYSIS_REPORT.md`](docs/00_BUSINESS_ANALYSIS_REPORT.md) | Market, segments, pain map, competitor gaps, pricing, AI strategy, risks |
 | [`docs/01–07`](docs) | PRD, MVP spec, data model, API spec, auth/tenancy, AI system, compliance |
 | [`docs/08_PHASE_ROADMAP.md`](docs/08_PHASE_ROADMAP.md) | Build phases 0–11 with gates |
-| [`docs/09_PHASE_1_IMPLEMENTATION_PLAN.md`](docs/09_PHASE_1_IMPLEMENTATION_PLAN.md) | Phase 1 workflow (written before coding) |
-| [`docs/10_PHASE_1_COMPLETION_REPORT.md`](docs/10_PHASE_1_COMPLETION_REPORT.md) | What shipped, testing results, known gaps |
+| [`docs/09`](docs/09_PHASE_1_IMPLEMENTATION_PLAN.md) / [`docs/10`](docs/10_PHASE_1_COMPLETION_REPORT.md) | Phase 1 plan (written before coding) + completion report |
+| [`docs/11`](docs/11_PHASE_2_IMPLEMENTATION_PLAN.md) / [`docs/12`](docs/12_PHASE_2_COMPLETION_REPORT.md) | Phase 2 plan + completion report (tours & availability) |
 | [`docs/growth/`](docs/growth) | USA/UK/EU market research, SEO keyword strategy, competitor pages, AI demand analysis, free-tools plan, growth roadmap |
 
 ## License

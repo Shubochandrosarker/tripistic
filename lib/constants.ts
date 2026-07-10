@@ -161,6 +161,34 @@ export const COUNTRIES: Array<{ code: string; name: string }> = [
   { code: "BD", name: "Bangladesh" },
 ];
 
+export const TOUR_KINDS = ["tour", "activity", "package"] as const;
+
+export type TourKindValue = (typeof TOUR_KINDS)[number];
+
+export const TOUR_KIND_LABELS: Record<TourKindValue, string> = {
+  tour: "Tour",
+  activity: "Activity",
+  package: "Multi-day package",
+};
+
+export const TOUR_STATUSES = ["draft", "active", "archived"] as const;
+
+export const TOUR_VISIBILITIES = ["public", "private"] as const;
+
+export const DAYS_OF_WEEK: Array<{ value: number; label: string; short: string }> = [
+  { value: 0, label: "Sunday", short: "Sun" },
+  { value: 1, label: "Monday", short: "Mon" },
+  { value: 2, label: "Tuesday", short: "Tue" },
+  { value: 3, label: "Wednesday", short: "Wed" },
+  { value: 4, label: "Thursday", short: "Thu" },
+  { value: 5, label: "Friday", short: "Fri" },
+  { value: 6, label: "Saturday", short: "Sat" },
+];
+
+/** Default and maximum window (days) for materializing schedule slots. */
+export const SLOT_GENERATION_DEFAULT_DAYS = 90;
+export const SLOT_GENERATION_MAX_DAYS = 365;
+
 export const ACTIVE_WORKSPACE_COOKIE = "tripistic_active_workspace";
 
 export const TRIAL_DAYS = 14;

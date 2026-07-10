@@ -49,6 +49,37 @@ export function formatDateTime(date: Date | string | null | undefined) {
   }).format(d);
 }
 
+/** Format an instant as wall time in a specific IANA timezone. */
+export function formatDateTimeInTz(
+  date: Date | string | null | undefined,
+  timeZone: string,
+) {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(d);
+  } catch {
+    return formatDateTime(d);
+  }
+}
+
+/** "1h 30m" style duration label from minutes. */
+export function formatDuration(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 export function initials(name: string) {
   return name
     .split(/\s+/)

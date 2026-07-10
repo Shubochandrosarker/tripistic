@@ -32,14 +32,30 @@ export default async function DashboardPage() {
   const active = await getActiveWorkspace(user.id);
   if (!active) redirect("/workspaces/new");
 
-  const [subscription, memberCount] = await Promise.all([
+  const [subscription, memberCount, tourCount, upcomingSlotCount] = await Promise.all([
     getWorkspaceSubscription(active.workspace.id),
     prisma.workspaceMember.count({
       where: { workspaceId: active.workspace.id, status: "active" },
     }),
+    prisma.tour.count({
+      where: { workspaceId: active.workspace.id, deletedAt: null },
+    }),
+    prisma.availability.count({
+      where: {
+        workspaceId: active.workspace.id,
+        status: "scheduled",
+        startsAt: { gt: new Date() },
+        tour: { deletedAt: null },
+      },
+    }),
   ]);
 
-  const checklist = buildOnboardingChecklist({ hasWorkspace: true, memberCount });
+  const checklist = buildOnboardingChecklist({
+    hasWorkspace: true,
+    memberCount,
+    tourCount,
+    upcomingSlotCount,
+  });
   const progress = onboardingProgress(checklist);
   const trialDays = daysUntil(subscription?.trialEndsAt ?? null);
 
@@ -78,8 +94,12 @@ export default async function DashboardPage() {
         <MetricCard
           icon={CalendarClock}
           label="Upcoming departures"
-          value="—"
-          pendingPhase="Phase 2"
+          value={String(upcomingSlotCount)}
+          hint={
+            upcomingSlotCount === 0
+              ? "Add a tour schedule to open your calendar"
+              : `Across ${tourCount} tour${tourCount === 1 ? "" : "s"}`
+          }
         />
         <MetricCard
           icon={Users}

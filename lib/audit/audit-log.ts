@@ -15,7 +15,22 @@ export type AuditAction =
   | "member_removed"
   | "settings_updated"
   | "billing_updated"
-  | "admin_action";
+  | "admin_action"
+  | "tour_created"
+  | "tour_updated"
+  | "tour_archived"
+  | "addon_created"
+  | "addon_updated"
+  | "addon_deleted"
+  | "schedule_created"
+  | "schedule_updated"
+  | "schedule_deleted"
+  | "availability_generated"
+  | "availability_created"
+  | "availability_updated"
+  | "availability_cancelled"
+  | "blackout_created"
+  | "blackout_deleted";
 
 export interface AuditEventInput {
   action: AuditAction;

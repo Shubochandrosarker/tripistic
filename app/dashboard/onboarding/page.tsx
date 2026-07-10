@@ -17,11 +17,29 @@ export default async function OnboardingPage() {
   const active = await getActiveWorkspace(user.id);
   if (!active) redirect("/workspaces/new");
 
-  const memberCount = await prisma.workspaceMember.count({
-    where: { workspaceId: active.workspace.id, status: "active" },
-  });
+  const [memberCount, tourCount, upcomingSlotCount] = await Promise.all([
+    prisma.workspaceMember.count({
+      where: { workspaceId: active.workspace.id, status: "active" },
+    }),
+    prisma.tour.count({
+      where: { workspaceId: active.workspace.id, deletedAt: null },
+    }),
+    prisma.availability.count({
+      where: {
+        workspaceId: active.workspace.id,
+        status: "scheduled",
+        startsAt: { gt: new Date() },
+        tour: { deletedAt: null },
+      },
+    }),
+  ]);
 
-  const checklist = buildOnboardingChecklist({ hasWorkspace: true, memberCount });
+  const checklist = buildOnboardingChecklist({
+    hasWorkspace: true,
+    memberCount,
+    tourCount,
+    upcomingSlotCount,
+  });
   const progress = onboardingProgress(checklist);
 
   return (
@@ -47,8 +65,10 @@ export default async function OnboardingPage() {
       <SectionCard title="What happens next?">
         <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
           <li>
-            <span className="font-medium text-foreground">Phase 2 — Tours & availability:</span>{" "}
-            create your tour products, capacity, and schedules.
+            <span className="font-medium text-foreground">
+              Tours & availability — live now:
+            </span>{" "}
+            create your tour products, schedules, and departures from the Tours page.
           </li>
           <li>
             <span className="font-medium text-foreground">Phase 3 — Booking engine:</span> your
