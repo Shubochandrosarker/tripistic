@@ -144,7 +144,11 @@ describe("public API routes", () => {
   });
 
   it("public booking creation succeeds, rejects the honeypot, and replays idempotently", async () => {
-    const { workspace, availability } = await createBookableFixture({ tour: { capacity: 5 } });
+    // basePrice: 0 — this test is about the route's honeypot/idempotency
+    // behavior, not payment; a non-zero total would route the booking
+    // through a real Stripe Checkout Session call. The payment-gated path
+    // is covered separately with a mocked Stripe client (payment-flow.test.ts).
+    const { workspace, availability } = await createBookableFixture({ tour: { capacity: 5, basePrice: 0 } });
     const idempotencyKey = randomUUID();
     const payload = {
       availabilityId: availability.id,
@@ -192,7 +196,9 @@ describe("public API routes", () => {
   });
 
   it("public confirmation lookup only returns that booking's own data, 404 for a bogus token", async () => {
-    const { workspace, availability } = await createBookableFixture();
+    // basePrice: 0 — avoids a real Stripe Checkout Session call; see the
+    // comment on the honeypot/idempotency test above.
+    const { workspace, availability } = await createBookableFixture({ tour: { basePrice: 0 } });
     const payload = {
       availabilityId: availability.id,
       participantCount: 1,

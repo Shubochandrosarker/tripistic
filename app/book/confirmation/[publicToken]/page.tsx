@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/utils";
 import { serializePublicBookingConfirmation } from "@/lib/bookings/serializers";
+import { getLatestPaymentForBooking } from "@/lib/payments/service";
+import { serializePublicPayment } from "@/lib/payments/serializers";
+import { PAYMENT_STATUS_LABELS } from "@/lib/constants";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { PaymentRetryButton } from "@/components/booking/payment-retry-button";
 
 type Params = { params: Promise<{ publicToken: string }> };
 
@@ -22,6 +26,7 @@ export default async function BookingConfirmationPage({ params }: Params) {
   });
   if (!record) notFound();
   const booking = serializePublicBookingConfirmation(record);
+  const payment = serializePublicPayment(await getLatestPaymentForBooking(record.workspaceId, record.id));
 
   const departureLocal = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
@@ -32,13 +37,24 @@ export default async function BookingConfirmationPage({ params }: Params) {
     minute: "2-digit",
   }).format(new Date(booking.departureStartsAt));
 
+  const awaitingPayment = booking.status === "pending" && payment != null;
+  const paymentDidNotSucceed = payment != null && (payment.status === "failed" || payment.status === "cancelled");
+  const heading = awaitingPayment
+    ? "Awaiting payment"
+    : booking.status === "confirmed"
+      ? "Booking confirmed"
+      : booking.status === "cancelled"
+        ? "Booking cancelled"
+        : "Booking received";
+  const Icon = awaitingPayment ? Clock : booking.status === "cancelled" ? XCircle : CheckCircle2;
+
   return (
     <div className="space-y-4 print:space-y-2">
       <div className="flex flex-col items-center gap-2 py-4 text-center">
         <span className="flex size-12 items-center justify-center rounded-full bg-accent/10 text-accent">
-          <CheckCircle2 className="size-6" aria-hidden />
+          <Icon className="size-6" aria-hidden />
         </span>
-        <h1 className="text-lg font-semibold text-foreground">Booking {booking.status === "confirmed" ? "confirmed" : "received"}</h1>
+        <h1 className="text-lg font-semibold text-foreground">{heading}</h1>
         <p className="text-sm text-muted-foreground">
           Reference{" "}
           <span data-testid="booking-reference" className="font-mono font-medium text-foreground">
@@ -47,6 +63,44 @@ export default async function BookingConfirmationPage({ params }: Params) {
         </p>
         <StatusBadge status={booking.status} />
       </div>
+
+      {payment ? (
+        <SectionCard title="Payment">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <StatusBadge status={payment.status} label={PAYMENT_STATUS_LABELS[payment.status as keyof typeof PAYMENT_STATUS_LABELS]} />
+              <span className="text-sm font-semibold text-foreground">{formatMoney(payment.amount, payment.currency)}</span>
+            </div>
+            {payment.status === "requires_payment" || payment.status === "processing" ? (
+              payment.checkoutUrl ? (
+                <a
+                  href={payment.checkoutUrl}
+                  className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto"
+                >
+                  Complete payment
+                </a>
+              ) : (
+                <PaymentRetryButton publicToken={booking.publicToken} />
+              )
+            ) : null}
+            {paymentDidNotSucceed ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  {booking.status === "pending"
+                    ? "Your payment didn't go through. Your seats are still held — try again below."
+                    : "This booking was cancelled because payment wasn't completed in time. Its seats have been released."}
+                </p>
+                {booking.status === "pending" ? <PaymentRetryButton publicToken={booking.publicToken} /> : null}
+              </div>
+            ) : null}
+            {payment.status === "succeeded" && payment.receiptUrl ? (
+              <a href={payment.receiptUrl} target="_blank" rel="noreferrer" className="text-sm text-accent hover:underline">
+                View payment receipt
+              </a>
+            ) : null}
+          </div>
+        </SectionCard>
+      ) : null}
 
       <SectionCard title={booking.tourTitle}>
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
@@ -121,7 +175,7 @@ export default async function BookingConfirmationPage({ params }: Params) {
       ) : null}
 
       <p className="rounded-lg border border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground print:hidden">
-        Online payment and automated confirmation emails aren&apos;t available yet — this page is your confirmation.
+        Automated confirmation emails aren&apos;t available yet — this page is your confirmation and receipt.
         Save or bookmark this link.
       </p>
     </div>

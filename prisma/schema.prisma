@@ -137,6 +137,18 @@ enum BookingSource {
   @@map("booking_source")
 }
 
+enum PaymentStatus {
+  requires_payment
+  processing
+  succeeded
+  failed
+  cancelled
+  refunded
+  partially_refunded
+
+  @@map("payment_status")
+}
+
 model User {
   id              String     @id @default(cuid())
   name            String
@@ -192,6 +204,8 @@ model Workspace {
   availabilities Availability[]
   blackoutDates  BlackoutDate[]
   bookings       Booking[]
+  payments       Payment[]
+  paymentEvents  PaymentEvent[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -542,6 +556,7 @@ model Booking {
   participants    BookingParticipant[]
   addonSelections BookingAddonSelection[]
   statusEvents    BookingStatusEvent[]
+  payments        Payment[]
 
   @@unique([workspaceId, reference])
   @@unique([workspaceId, idempotencyKey])
@@ -613,4 +628,84 @@ model BookingStatusEvent {
 
   @@index([workspaceId, bookingId, createdAt])
   @@map("booking_status_events")
+}
+
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * Phase 4 — Stripe payments
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+/// One booking may accumulate more than one Payment row over its life (a
+/// failed or expired attempt followed by a retry creates a fresh row rather
+/// than mutating a settled one). "The current payment" for a booking is the
+/// latest row by `createdAt`. `booking` uses the same composite
+/// (workspace_id, ...) foreign key pattern as the rest of the booking
+/// subtree, so a payment can never reference a booking from another tenant.
+model Payment {
+  id                        String        @id @default(cuid())
+  workspaceId               String        @map("workspace_id")
+  bookingId                 String        @map("booking_id")
+  provider                  String        @default("stripe")
+  providerPaymentIntentId   String?       @map("provider_payment_intent_id")
+  providerCheckoutSessionId String?       @map("provider_checkout_session_id")
+  amount                    Int
+  currency                  String
+  status                    PaymentStatus @default(requires_payment)
+  paymentMethod             String?       @map("payment_method")
+  receiptUrl                String?       @map("receipt_url")
+  failureCode               String?       @map("failure_code")
+  failureMessage            String?       @map("failure_message")
+  refundedAmount            Int?          @map("refunded_amount")
+  /// End of this payment attempt's window (Checkout Session expiry / our own
+  /// unpaid-booking hold). The expiration sweep in lib/payments/expiration.ts
+  /// targets rows where this has passed and status is still unsettled.
+  expiresAt                 DateTime?     @map("expires_at") @db.Timestamptz(6)
+  /// Non-sensitive cache only — e.g. the last-created Checkout Session URL,
+  /// so a guest reloading the confirmation page doesn't require a fresh
+  /// Stripe API call to redisplay the same link. Never card data.
+  metadata                  Json?
+  createdAt                 DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  booking   Booking        @relation(fields: [workspaceId, bookingId], references: [workspaceId, id], onDelete: Cascade)
+  events    PaymentEvent[]
+
+  @@index([workspaceId, bookingId])
+  @@index([providerPaymentIntentId])
+  @@index([providerCheckoutSessionId])
+  @@map("payments")
+}
+
+/// Append-only webhook receipt log. `providerEventId` is globally unique per
+/// Stripe event and is the sole idempotency guard for webhook processing —
+/// a redelivered event hits this constraint and is a safe no-op, the same
+/// "prove exactly-once via a DB unique constraint" pattern used for booking
+/// idempotency keys. `workspaceId`/`paymentId`/`bookingId` are nullable so an
+/// event that cannot be mapped to a known payment (wrong Stripe
+/// account/mode, an event type we don't track a payment for) is still
+/// recorded rather than silently dropped.
+model PaymentEvent {
+  id              String    @id @default(cuid())
+  workspaceId     String?   @map("workspace_id")
+  paymentId       String?   @map("payment_id")
+  bookingId       String?   @map("booking_id")
+  provider        String    @default("stripe")
+  providerEventId String    @unique @map("provider_event_id")
+  eventType       String    @map("event_type")
+  payload         Json
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  payment   Payment?   @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([paymentId])
+  @@index([bookingId])
+  @@map("payment_events")
 }

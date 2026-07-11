@@ -7,12 +7,14 @@ import { getActiveWorkspace } from "@/lib/tenancy/workspace";
 import { canManageBookings, canViewBookings } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/db";
 import { serializeBookingDetail } from "@/lib/bookings/serializers";
-import { BOOKING_SOURCE_LABELS, BOOKING_STATUS_LABELS } from "@/lib/constants";
+import { serializePaymentDetail, serializePaymentSummary } from "@/lib/payments/serializers";
+import { BOOKING_SOURCE_LABELS, BOOKING_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/constants";
 import { formatDateTimeInTz, formatMoney } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { BookingStatusActions } from "@/components/bookings/booking-status-actions";
+import { PaymentLinkAction } from "@/components/bookings/payment-link-action";
 
 type Params = { params: Promise<{ bookingId: string }> };
 
@@ -33,12 +35,21 @@ export default async function BookingDetailPage({ params }: Params) {
       participants: true,
       addonSelections: true,
       statusEvents: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true } } } },
+      payments: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: { events: { orderBy: { createdAt: "asc" } } },
+      },
     },
   });
   if (!record) notFound();
 
   const booking = serializeBookingDetail(record, active.role);
   const manage = canManageBookings(active.role);
+  const paymentRecord = record.payments[0] ?? null;
+  const payment = serializePaymentSummary(paymentRecord);
+  const paymentDetail = serializePaymentDetail(paymentRecord, active.role);
+  const canGeneratePaymentLink = manage && booking.status === "pending" && booking.totalAmount > 0;
 
   return (
     <>
@@ -163,6 +174,67 @@ export default async function BookingDetailPage({ params }: Params) {
               <BookingStatusActions workspaceId={active.workspace.id} bookingId={booking.id} currentStatus={booking.status} />
             </SectionCard>
           ) : null}
+
+          <SectionCard title="Payment">
+            {payment ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <StatusBadge
+                    status={payment.status}
+                    label={PAYMENT_STATUS_LABELS[payment.status as keyof typeof PAYMENT_STATUS_LABELS]}
+                  />
+                  <span className="text-sm font-semibold text-foreground">{formatMoney(payment.amount, payment.currency)}</span>
+                </div>
+                {payment.refundedAmount ? (
+                  <p className="text-xs text-muted-foreground">
+                    Refunded: {formatMoney(payment.refundedAmount, payment.currency)}
+                  </p>
+                ) : null}
+                {paymentDetail ? (
+                  <dl className="space-y-1.5 text-xs text-muted-foreground">
+                    {paymentDetail.providerPaymentIntentId ? (
+                      <div className="flex justify-between gap-2">
+                        <dt>Payment intent</dt>
+                        <dd className="truncate font-mono">{paymentDetail.providerPaymentIntentId}</dd>
+                      </div>
+                    ) : null}
+                    {paymentDetail.failureMessage ? (
+                      <div className="flex justify-between gap-2">
+                        <dt>Failure reason</dt>
+                        <dd className="text-right">{paymentDetail.failureMessage}</dd>
+                      </div>
+                    ) : null}
+                    {paymentDetail.receiptUrl ? (
+                      <div>
+                        <a href={paymentDetail.receiptUrl} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                          View Stripe receipt
+                        </a>
+                      </div>
+                    ) : null}
+                  </dl>
+                ) : null}
+                {paymentDetail && paymentDetail.events.length > 0 ? (
+                  <ol className="space-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
+                    {paymentDetail.events.map((event, i) => (
+                      <li key={i} className="flex items-center justify-between">
+                        <span>{event.eventType}</span>
+                        <time>{formatDateTimeInTz(event.createdAt, active.workspace.timezone)}</time>
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {booking.totalAmount > 0 ? "No payment has been started for this booking yet." : "This booking has nothing to charge."}
+              </p>
+            )}
+            {canGeneratePaymentLink ? (
+              <div className="mt-3 border-t border-border pt-3">
+                <PaymentLinkAction workspaceId={active.workspace.id} bookingId={booking.id} />
+              </div>
+            ) : null}
+          </SectionCard>
 
           <SectionCard title="Pricing">
             <dl className="space-y-1.5 text-sm">

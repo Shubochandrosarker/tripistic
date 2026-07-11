@@ -88,10 +88,20 @@
 | GET/PATCH | `/api/workspaces/:id/bookings/:bookingId` | owner-admin-staff-viewer (GET, PII gated) / owner-admin-staff (PATCH) | PATCH is limited to non-reservation fields (notes, contact info) — departure, price, and participant count are not editable outside the reservation service; audit `booking_updated` |
 | POST | `/api/workspaces/:id/bookings/:bookingId/status` | owner-admin-staff | state-machine-enforced transition; releases capacity exactly once on cancellation; audit `booking_confirmed`/`booking_cancelled`/`booking_completed`/`booking_marked_no_show` |
 
-## 5. Future endpoint map (reserved, later phases)
+## 5. Phase 4 endpoints (implemented — Stripe payments)
+
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| POST | `/api/stripe/webhook` | Stripe only — verified signature, no session auth | Verifies `Stripe-Signature` against the raw body; idempotent per Stripe `event.id` (unique DB constraint); atomically marks a payment succeeded and confirms its booking in one transaction |
+| POST | `/api/public/bookings/:publicToken/payment/retry` | public, no auth | Reuses a still-open Checkout Session or opens a fresh one for a `pending` booking whose payment failed/expired; 409 once the booking has left `pending` |
+| POST | `/api/workspaces/:id/bookings/:bookingId/payment-link` | owner-admin-staff | Generates a real Stripe Checkout Session for a `pending` manual booking so an operator can collect payment for a phone/walk-in guest; never a fake capture |
+| POST | `/api/admin/payments/expire-pending` | platform_admin only | Cancels every still-`pending` booking whose payment window has passed and releases its seats, across all workspaces; the "admin-safe cleanup endpoint" — no in-process scheduler exists yet, so wiring a recurring trigger is a deployment-time task |
+
+`POST /api/public/:workspaceSlug/bookings` and `GET /api/public/bookings/:publicToken` (§4) are unchanged in shape but now also return a `payment` object (`status`, `checkoutUrl`, `amount`, `currency`) — `null` for a free booking that confirmed immediately. `GET/POST /api/workspaces/:id/bookings` and `GET .../bookings/:bookingId` (§4) now also return `payment` (non-PII summary, visible to every role that can view the booking) and `paymentDetail` (Stripe references/failure detail/event timeline, gated by `canViewBookingPII` — same tier as guest contact info).
+
+## 6. Future endpoint map (reserved, later phases)
 
 ```text
-/api/integrations/stripe/webhook              Phase 4
 /api/workspaces/:id/customers…                Phase 5
 /api/workspaces/:id/messages…                 Phase 5
 /api/workspaces/:id/guides|manifests…         Phase 6
@@ -104,11 +114,11 @@
 
 Versioning: URL stays unversioned inside the app; when the public/partner API ships (agent-commerce readiness), expose `api.tripistic.com/v1/**` with the same resource shapes.
 
-## 6. Security requirements (all endpoints)
+## 7. Security requirements (all endpoints)
 
-1. Authenticate first (`requireUser`), then authorize (role/membership), then validate input (zod), then act, then audit.
-2. Tenant lookups filter by `workspace_id` from the *verified membership*, never from client-supplied trust. Public booking routes resolve workspace/tour by slug via `lib/tenancy/public.ts` and re-verify every write inside the reservation transaction — never trusting ids the client sent earlier in the flow.
+1. Authenticate first (`requireUser`), then authorize (role/membership), then validate input (zod), then act, then audit. The Stripe webhook is the sole exception — its trust boundary is the verified signature, not a session.
+2. Tenant lookups filter by `workspace_id` from the *verified membership*, never from client-supplied trust. Public booking routes resolve workspace/tour by slug via `lib/tenancy/public.ts` and re-verify every write inside the reservation transaction — never trusting ids the client sent earlier in the flow. The webhook route resolves tenant scope from the `Payment`/`Booking` rows it looks up (written earlier by our own server), never from anything the webhook payload itself claims.
 3. 404 (not 403) for resources outside the caller's tenancy where existence itself is sensitive; the same 404-not-403 rule applies to public routes for any paused/private/archived/nonexistent workspace or tour.
 4. Rate limiting + CSRF: NextAuth covers auth CSRF; the public booking endpoint has a honeypot field and a request-body size cap; platform-wide rate limiting is still a Phase 11 hardening item (document, don't block MVP) — see `README.md`'s deployment recommendations for an edge/proxy-level stopgap.
-5. Never echo secrets or internal errors; log server-side instead.
-6. Public responses use a dedicated serializer (`lib/bookings/serializers.ts`) that never includes guest email/phone, operator notes, or internal database ids — only the opaque `publicToken` and booking reference identify a booking outside its tenant.
+5. Never echo secrets or internal errors; log server-side instead. `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` never appear in any API response.
+6. Public responses use dedicated serializers (`lib/bookings/serializers.ts`, `lib/payments/serializers.ts`) that never include guest email/phone, operator notes, or internal database/Stripe ids — only the opaque `publicToken`, booking reference, and (once succeeded) Stripe's own guest-facing receipt URL identify a booking or payment outside its tenant.

@@ -6,6 +6,7 @@ import { canManageBookings, canViewBookings } from "@/lib/auth/permissions";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { updateBookingSchema } from "@/lib/validation";
 import { serializeBookingDetail } from "@/lib/bookings/serializers";
+import { serializePaymentDetail, serializePaymentSummary } from "@/lib/payments/serializers";
 
 type Params = { params: Promise<{ id: string; bookingId: string }> };
 
@@ -16,6 +17,11 @@ async function requireBooking(workspaceId: string, bookingId: string) {
       participants: true,
       addonSelections: true,
       statusEvents: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true } } } },
+      payments: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: { events: { orderBy: { createdAt: "asc" } } },
+      },
     },
   });
   if (!booking) throw notFound("Booking not found");
@@ -31,7 +37,12 @@ export async function GET(_request: Request, { params }: Params) {
       throw forbidden("You do not have permission to view bookings.");
     }
     const booking = await requireBooking(id, bookingId);
-    return json({ booking: serializeBookingDetail(booking, membership.role) });
+    const payment = booking.payments[0] ?? null;
+    return json({
+      booking: serializeBookingDetail(booking, membership.role),
+      payment: serializePaymentSummary(payment),
+      paymentDetail: serializePaymentDetail(payment, membership.role),
+    });
   } catch (error) {
     return handleApiError(error);
   }

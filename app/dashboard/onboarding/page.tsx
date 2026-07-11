@@ -86,8 +86,9 @@ export default async function OnboardingPage() {
             tour and share its link to start taking direct reservations.
           </li>
           <li>
-            <span className="font-medium text-foreground">Phase 4 — Stripe payments:</span> take
-            full payments and deposits with 0% Tripistic commission.
+            <span className="font-medium text-foreground">Stripe payments — live now:</span>{" "}
+            guests pay securely at checkout and bookings confirm automatically once payment
+            succeeds. Direct payouts to your own bank account are a future upgrade.
           </li>
           <li>
             <span className="font-medium text-foreground">Phase 5–7:</span> guest communication,

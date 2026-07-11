@@ -14,7 +14,7 @@ import { getActiveWorkspace } from "@/lib/tenancy/workspace";
 import { getWorkspaceSubscription } from "@/lib/plans/limits";
 import { prisma } from "@/lib/db";
 import { buildOnboardingChecklist, onboardingProgress } from "@/lib/onboarding";
-import { daysUntil } from "@/lib/utils";
+import { daysUntil, formatMoney } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -32,41 +32,53 @@ export default async function DashboardPage() {
   const active = await getActiveWorkspace(user.id);
   if (!active) redirect("/workspaces/new");
 
-  const [subscription, memberCount, tourCount, upcomingSlotCount, bookingCount, upcomingBookingCount, publicBookableTourCount] =
-    await Promise.all([
-      getWorkspaceSubscription(active.workspace.id),
-      prisma.workspaceMember.count({
-        where: { workspaceId: active.workspace.id, status: "active" },
-      }),
-      prisma.tour.count({
-        where: { workspaceId: active.workspace.id, deletedAt: null },
-      }),
-      prisma.availability.count({
-        where: {
-          workspaceId: active.workspace.id,
-          status: "scheduled",
-          startsAt: { gt: new Date() },
-          tour: { deletedAt: null, status: { not: "archived" } },
-        },
-      }),
-      prisma.booking.count({ where: { workspaceId: active.workspace.id } }),
-      prisma.booking.count({
-        where: {
-          workspaceId: active.workspace.id,
-          status: { in: ["pending", "confirmed"] },
-          departureStartsAt: { gt: new Date() },
-        },
-      }),
-      prisma.tour.count({
-        where: {
-          workspaceId: active.workspace.id,
-          status: "active",
-          visibility: "public",
-          deletedAt: null,
-          availabilities: { some: { status: "scheduled", startsAt: { gt: new Date() } } },
-        },
-      }),
-    ]);
+  const [
+    subscription,
+    memberCount,
+    tourCount,
+    upcomingSlotCount,
+    bookingCount,
+    upcomingBookingCount,
+    publicBookableTourCount,
+    revenue,
+  ] = await Promise.all([
+    getWorkspaceSubscription(active.workspace.id),
+    prisma.workspaceMember.count({
+      where: { workspaceId: active.workspace.id, status: "active" },
+    }),
+    prisma.tour.count({
+      where: { workspaceId: active.workspace.id, deletedAt: null },
+    }),
+    prisma.availability.count({
+      where: {
+        workspaceId: active.workspace.id,
+        status: "scheduled",
+        startsAt: { gt: new Date() },
+        tour: { deletedAt: null, status: { not: "archived" } },
+      },
+    }),
+    prisma.booking.count({ where: { workspaceId: active.workspace.id } }),
+    prisma.booking.count({
+      where: {
+        workspaceId: active.workspace.id,
+        status: { in: ["pending", "confirmed"] },
+        departureStartsAt: { gt: new Date() },
+      },
+    }),
+    prisma.tour.count({
+      where: {
+        workspaceId: active.workspace.id,
+        status: "active",
+        visibility: "public",
+        deletedAt: null,
+        availabilities: { some: { status: "scheduled", startsAt: { gt: new Date() } } },
+      },
+    }),
+    prisma.payment.aggregate({
+      where: { workspaceId: active.workspace.id, status: "succeeded" },
+      _sum: { amount: true },
+    }),
+  ]);
 
   const checklist = buildOnboardingChecklist({
     hasWorkspace: true,
@@ -113,7 +125,12 @@ export default async function DashboardPage() {
               : `${upcomingBookingCount} upcoming`
           }
         />
-        <MetricCard icon={DollarSign} label="Revenue" value="—" pendingPhase="Phase 4" />
+        <MetricCard
+          icon={DollarSign}
+          label="Revenue"
+          value={formatMoney(revenue._sum.amount ?? 0, active.workspace.currency)}
+          hint="Sum of succeeded Stripe payments"
+        />
         <MetricCard
           icon={CalendarClock}
           label="Upcoming departures"

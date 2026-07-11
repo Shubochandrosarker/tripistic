@@ -123,10 +123,10 @@ export default async function BillingPage() {
           <Info className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
           <div className="text-sm text-muted-foreground">
             <p>
-              <span className="font-medium text-foreground">Stripe is not connected yet.</span>{" "}
-              Guest payments (deposits, installments) arrive in Phase 4, and self-serve plan
-              upgrades with Stripe subscriptions arrive in Phase 10. No payment details are
-              collected during the foundation phase.
+              <span className="font-medium text-foreground">Guest payments are live.</span> Guests
+              pay securely through Stripe Checkout and bookings confirm automatically on success.
+              Direct payouts to your own connected Stripe account (instead of via Tripistic) and
+              self-serve plan upgrades with Stripe subscriptions arrive in a later phase.
             </p>
             {!billingAllowed ? (
               <p className="mt-2 flex items-center gap-1.5 text-xs">

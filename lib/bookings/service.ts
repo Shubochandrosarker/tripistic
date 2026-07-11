@@ -2,6 +2,7 @@ import { Prisma, type Booking, type BookingSource, type BookingStatus } from "@p
 import { prisma } from "@/lib/db";
 import { badRequest, conflict, notFound } from "@/lib/api";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
+import { uniqueViolationTargets } from "@/lib/prisma-errors";
 import { generateBookingReference, generatePublicToken } from "./reference";
 
 export type BookingParticipantInput = {
@@ -54,15 +55,6 @@ export type CreateBookingResult = {
 const MAX_REFERENCE_ATTEMPTS = 5;
 
 const BOOKING_INCLUDE = { participants: true, addonSelections: true } as const;
-
-function uniqueViolationTargets(error: unknown): string[] {
-  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-    const target = error.meta?.target;
-    if (Array.isArray(target)) return target.map(String);
-    if (typeof target === "string") return [target];
-  }
-  return [];
-}
 
 function isIdempotencyKeyViolation(error: unknown): boolean {
   return uniqueViolationTargets(error).some((t) => /idempotency/i.test(t));
@@ -216,7 +208,15 @@ async function reserveAndCreate(
     );
   }
 
-  const status: BookingStatus = input.source === "public_direct" ? "confirmed" : input.status ?? "confirmed";
+  // Phase 4: a public booking with something to charge starts `pending` and
+  // is only moved to `confirmed` by a verified Stripe webhook (see
+  // lib/payments/webhook-service.ts) — never on form submission. A free
+  // booking (totalAmount === 0) has nothing to wait for and confirms
+  // immediately, exactly as every public booking did before Phase 4. Manual
+  // (operator) bookings are unaffected — they keep landing in whatever
+  // status the operator explicitly chose.
+  const status: BookingStatus =
+    input.source === "public_direct" ? (totalAmount > 0 ? "pending" : "confirmed") : input.status ?? "confirmed";
   const now = new Date();
 
   const booking = await tx.booking.create({

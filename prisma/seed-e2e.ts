@@ -47,13 +47,20 @@ async function main() {
     update: { role: "workspace_owner", status: "active" },
   });
 
+  // basePrice/addon price are deliberately 0 — this sandbox has no real
+  // Stripe test-mode credentials, so a non-zero total (which would route
+  // the booking through a real Stripe Checkout Session) can't be driven end
+  // to end by Playwright here. A free booking still exercises the full
+  // form/reservation/confirmation/dashboard/cancellation UI; the paid
+  // Stripe flow itself is covered by the mocked-Stripe-client and
+  // real-signed-webhook integration tests instead (see docs/17 §12).
   const existingTour = await prisma.tour.findFirst({
     where: { workspaceId: workspace.id, slug: E2E_TOUR_SLUG },
   });
   const tour = existingTour
     ? await prisma.tour.update({
         where: { id: existingTour.id },
-        data: { status: "active", visibility: "public", deletedAt: null },
+        data: { status: "active", visibility: "public", deletedAt: null, basePrice: 0 },
       })
     : await prisma.tour.create({
         data: {
@@ -63,7 +70,7 @@ async function main() {
           description: "A guided jeep tour through the desert backcountry.",
           durationMinutes: 120,
           capacity: 4,
-          basePrice: 5000,
+          basePrice: 0,
           currency: "USD",
           status: "active",
           visibility: "public",
@@ -76,9 +83,11 @@ async function main() {
   const existingAddon = await prisma.tourAddon.findFirst({
     where: { tourId: tour.id, name: "Water & Snacks" },
   });
-  if (!existingAddon) {
+  if (existingAddon) {
+    await prisma.tourAddon.update({ where: { id: existingAddon.id }, data: { price: 0 } });
+  } else {
     await prisma.tourAddon.create({
-      data: { workspaceId: workspace.id, tourId: tour.id, name: "Water & Snacks", price: 500 },
+      data: { workspaceId: workspace.id, tourId: tour.id, name: "Water & Snacks", price: 0 },
     });
   }
 
