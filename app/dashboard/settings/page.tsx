@@ -4,6 +4,7 @@ import { requireUserPage } from "@/lib/auth/session";
 import { getActiveWorkspace } from "@/lib/tenancy/workspace";
 import {
   canManageMembers,
+  canManageWaiverTemplate,
   canManageWorkspace,
   canModifyMemberWithRole,
   grantableRoles,
@@ -11,11 +12,13 @@ import {
 import { prisma } from "@/lib/db";
 import { BUSINESS_TYPE_LABELS, type WorkspaceRoleValue } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
+import { listWaiverVersions } from "@/lib/waivers/service";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { RoleBadge } from "@/components/ui/role-badge";
 import { WorkspaceSettingsForm } from "@/components/settings/workspace-settings-form";
 import { MembersPanel } from "@/components/settings/members-panel";
+import { WaiverPanel } from "@/components/settings/waiver-panel";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -29,8 +32,9 @@ export default async function SettingsPage() {
   const role = active.role;
   const showMembers = true;
   const manageMembers = canManageMembers(role);
+  const manageWaiver = canManageWaiverTemplate(role);
 
-  const [members, invitations] = await Promise.all([
+  const [members, invitations, waiverVersions] = await Promise.all([
     prisma.workspaceMember.findMany({
       where: { workspaceId: active.workspace.id },
       include: { user: { select: { id: true, name: true, email: true } } },
@@ -46,6 +50,7 @@ export default async function SettingsPage() {
           orderBy: { createdAt: "desc" },
         })
       : Promise.resolve([]),
+    listWaiverVersions(active.workspace.id),
   ]);
 
   return (
@@ -105,6 +110,24 @@ export default async function SettingsPage() {
           />
         </SectionCard>
       ) : null}
+
+      <SectionCard
+        id="waiver"
+        title="Waiver"
+        description="The liability waiver guests sign for any tour marked 'Waiver required.' Editing publishes a new, immutable version — Tripistic helps collect and store waivers but never claims guaranteed legal enforceability."
+      >
+        <WaiverPanel
+          workspaceId={active.workspace.id}
+          canManage={manageWaiver}
+          currentVersion={waiverVersions[0] ? { title: waiverVersions[0].title, bodyText: waiverVersions[0].bodyText, versionNumber: waiverVersions[0].versionNumber } : null}
+          versions={waiverVersions.map((v) => ({
+            id: v.id,
+            versionNumber: v.versionNumber,
+            title: v.title,
+            createdAt: v.createdAt.toISOString(),
+          }))}
+        />
+      </SectionCard>
 
       <SectionCard
         title="Workspace details"

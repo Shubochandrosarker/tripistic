@@ -75,6 +75,7 @@ export async function createTestTour(
     status: "draft" | "active" | "archived";
     visibility: "public" | "private";
     durationMinutes: number;
+    waiverRequired: boolean;
   }> = {},
 ) {
   const suffix = uniqueSuffix();
@@ -89,6 +90,7 @@ export async function createTestTour(
       currency: overrides.currency ?? "USD",
       status: overrides.status ?? "active",
       visibility: overrides.visibility ?? "public",
+      waiverRequired: overrides.waiverRequired ?? false,
     },
   });
 }

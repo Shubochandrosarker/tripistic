@@ -66,7 +66,7 @@ export default async function TourBookingPage({ params }: Params) {
               <div>
                 <dt className="font-medium text-foreground">Waiver</dt>
                 <dd className="mt-0.5 text-muted-foreground">
-                  This experience requires a signed waiver. You&apos;ll be contacted with details after booking.
+                  This experience requires a signed waiver. You&apos;ll sign from your booking confirmation page right after you book.
                 </dd>
               </div>
             ) : null}

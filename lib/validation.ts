@@ -7,13 +7,16 @@ import {
   CONSENT_STATUSES,
   CUSTOMERS_PAGE_SIZE_DEFAULT,
   CUSTOMERS_PAGE_SIZE_MAX,
+  GUIDE_CERTIFICATIONS_MAX,
   MAX_PARTICIPANTS_PER_BOOKING,
+  MAX_SIGNATURE_IMAGE_LENGTH,
   SETTING_KEYS,
   SLOT_GENERATION_DEFAULT_DAYS,
   SLOT_GENERATION_MAX_DAYS,
   TOUR_KINDS,
   TOUR_STATUSES,
   TOUR_VISIBILITIES,
+  WAIVER_BODY_TEXT_MAX,
   WORKSPACE_ROLES,
 } from "@/lib/constants";
 
@@ -263,6 +266,8 @@ export const createAvailabilitySchema = z.object({
   durationMinutes: optionalInt(15, 43200),
   priceOverride: optionalInt(0, 100_000_000),
   notes: optionalText(500),
+  /** Eligibility (active member, not viewer) is re-verified server-side — see lib/guides/service.ts. */
+  guideId: optionalText(64),
 });
 
 export const updateAvailabilitySchema = z
@@ -270,6 +275,7 @@ export const updateAvailabilitySchema = z
     capacity: optionalInt(1, 1000),
     priceOverride: z.union([z.coerce.number().int().min(0).max(100_000_000), z.null()]).optional(),
     notes: optionalText(500),
+    guideId: z.union([z.string().min(1).max(64), z.null()]).optional(),
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Nothing to update",
@@ -464,3 +470,27 @@ export const updateCustomerSchema = z
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Nothing to update",
   });
+
+/* ------------------------------------------------------------------------ */
+/* Phase 6 — Guides & waivers                                               */
+/* ------------------------------------------------------------------------ */
+
+export const updateGuideProfileSchema = z
+  .object({
+    certifications: z.array(z.string().trim().min(1).max(80)).max(GUIDE_CERTIFICATIONS_MAX).optional(),
+    notes: optionalText(2000),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const publishWaiverVersionSchema = z.object({
+  title: z.string().trim().min(2, "Title is too short").max(200),
+  bodyText: z.string().trim().min(20, "Waiver text is too short").max(WAIVER_BODY_TEXT_MAX),
+});
+
+export const signWaiverSchema = z.object({
+  participantId: z.string().trim().min(1).max(64),
+  signerName: z.string().trim().min(2, "Enter the signer's full name").max(120),
+  signatureImage: z.string().min(1).max(MAX_SIGNATURE_IMAGE_LENGTH),
+});

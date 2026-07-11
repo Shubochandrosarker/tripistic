@@ -2,7 +2,9 @@ import type { LucideIcon } from "lucide-react";
 import {
   Building2,
   CalendarCheck,
+  ClipboardList,
   CreditCard,
+  HardHat,
   LayoutDashboard,
   Layers,
   Map,
@@ -40,6 +42,8 @@ export const dashboardNav: NavSection[] = [
       { href: "/dashboard/bookings", label: "Bookings", icon: CalendarCheck },
       { href: "/dashboard/tours", label: "Tours", icon: Map },
       { href: "/dashboard/customers", label: "Customers", icon: Users },
+      { href: "/dashboard/guides", label: "Guides", icon: HardHat },
+      { href: "/dashboard/manifest", label: "My Manifest", icon: ClipboardList },
       { href: "/dashboard/ai-growth", label: "AI Growth", icon: Sparkles, badge: "Phase 7" },
     ],
   },

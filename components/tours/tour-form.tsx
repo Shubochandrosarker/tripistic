@@ -317,7 +317,7 @@ export function TourForm({
               defaultChecked={tour?.waiverRequired ?? false}
               className="size-4 rounded border-border accent-[var(--accent)]"
             />
-            Waiver required (signing flow arrives in Phase 6)
+            Waiver required — guests sign after booking, from their confirmation page
           </label>
           {isEdit ? (
             <Field label="Status" htmlFor="tour-status">

@@ -9,6 +9,7 @@ import {
   E2E_OWNER_EMAIL,
   E2E_OWNER_PASSWORD,
   E2E_TOUR_SLUG,
+  E2E_WAIVER_TOUR_SLUG,
   E2E_WORKSPACE_SLUG,
 } from "./e2e-fixture-constants";
 
@@ -111,7 +112,72 @@ async function main() {
     });
   }
 
-  console.log(`✓ e2e fixture ready — workspace "${E2E_WORKSPACE_SLUG}", tour "${E2E_TOUR_SLUG}"`);
+  // A second, waiver-required tour + a published waiver version, for the
+  // Playwright waiver-signing spec — kept separate from the primary tour
+  // above so that spec's selectors never interact with the base
+  // booking-flow spec's assumptions.
+  const existingWaiverTour = await prisma.tour.findFirst({
+    where: { workspaceId: workspace.id, slug: E2E_WAIVER_TOUR_SLUG },
+  });
+  const waiverTour = existingWaiverTour
+    ? await prisma.tour.update({
+        where: { id: existingWaiverTour.id },
+        data: { status: "active", visibility: "public", deletedAt: null, basePrice: 0, waiverRequired: true },
+      })
+    : await prisma.tour.create({
+        data: {
+          workspaceId: workspace.id,
+          title: "Canyon Rappel Tour",
+          slug: E2E_WAIVER_TOUR_SLUG,
+          description: "A guided rappel down a slot canyon — requires a signed waiver.",
+          durationMinutes: 180,
+          capacity: 4,
+          basePrice: 0,
+          currency: "USD",
+          status: "active",
+          visibility: "public",
+          waiverRequired: true,
+        },
+      });
+
+  const waiverStartsAt = new Date(Date.now() + 7 * 86_400_000);
+  waiverStartsAt.setUTCHours(17, 0, 0, 0);
+  const existingWaiverSlot = await prisma.availability.findFirst({
+    where: { tourId: waiverTour.id, status: "scheduled", startsAt: { gt: new Date() } },
+  });
+  if (!existingWaiverSlot) {
+    await prisma.availability.create({
+      data: {
+        workspaceId: workspace.id,
+        tourId: waiverTour.id,
+        startsAt: waiverStartsAt,
+        endsAt: new Date(waiverStartsAt.getTime() + waiverTour.durationMinutes * 60_000),
+        capacity: 4,
+        bookedCount: 0,
+        status: "scheduled",
+      },
+    });
+  }
+
+  const waiverTemplate = await prisma.waiverTemplate.upsert({
+    where: { workspaceId: workspace.id },
+    create: { workspaceId: workspace.id },
+    update: {},
+  });
+  const existingVersion = await prisma.waiverVersion.findFirst({ where: { templateId: waiverTemplate.id } });
+  if (!existingVersion) {
+    await prisma.waiverVersion.create({
+      data: {
+        workspaceId: workspace.id,
+        templateId: waiverTemplate.id,
+        versionNumber: 1,
+        title: "Liability Waiver",
+        bodyText: "I acknowledge the risks of this activity, including but not limited to injury, and release the operator from liability to the extent permitted by law.",
+      },
+    });
+  }
+
+  console.log(`✓ e2e fixture ready — workspace "${E2E_WORKSPACE_SLUG}", tour "${E2E_TOUR_SLUG}", waiver tour "${E2E_WAIVER_TOUR_SLUG}"`);
 }
 
 main()

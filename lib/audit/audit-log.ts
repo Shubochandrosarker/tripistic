@@ -45,7 +45,10 @@ export type AuditAction =
   | "payment_expired"
   | "customer_updated"
   | "customer_unsubscribed"
-  | "member_invitation_emailed";
+  | "member_invitation_emailed"
+  | "guide_profile_updated"
+  | "waiver_version_published"
+  | "waiver_signed";
 
 export interface AuditEventInput {
   action: AuditAction;
@@ -65,7 +68,8 @@ function firstForwardedIp(value: string | null): string | null {
   return first || null;
 }
 
-async function getRequestContext(request?: Request) {
+/** Exported for callers that need the client IP/UA for their own record (not just the audit log) — e.g. WaiverSignature. */
+export async function getRequestContext(request?: Request) {
   try {
     const h = request ? request.headers : await headers();
     return {

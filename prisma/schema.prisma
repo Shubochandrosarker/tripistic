@@ -196,14 +196,15 @@ model User {
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
-  memberships         WorkspaceMember[]    @relation("MemberUser")
-  invitedMembers      WorkspaceMember[]    @relation("MemberInviter")
-  ownedWorkspaces     Workspace[]          @relation("WorkspaceOwner")
-  invitationsSent     Invitation[]         @relation("InvitationInviter")
-  auditLogs           AuditLog[]
-  toursCreated        Tour[]               @relation("TourCreatedBy")
-  bookingsCreated     Booking[]            @relation("BookingCreatedBy")
-  bookingStatusEvents BookingStatusEvent[] @relation("BookingStatusActor")
+  memberships           WorkspaceMember[]    @relation("MemberUser")
+  invitedMembers        WorkspaceMember[]    @relation("MemberInviter")
+  ownedWorkspaces       Workspace[]          @relation("WorkspaceOwner")
+  invitationsSent       Invitation[]         @relation("InvitationInviter")
+  auditLogs             AuditLog[]
+  toursCreated          Tour[]               @relation("TourCreatedBy")
+  bookingsCreated       Booking[]            @relation("BookingCreatedBy")
+  bookingStatusEvents   BookingStatusEvent[] @relation("BookingStatusActor")
+  waiverVersionsCreated WaiverVersion[]
 
   @@map("users")
 }
@@ -223,23 +224,27 @@ model Workspace {
   updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?       @map("deleted_at") @db.Timestamptz(6)
 
-  owner          User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  members        WorkspaceMember[]
-  invitations    Invitation[]
-  settings       Setting[]
-  subscriptions  Subscription[]
-  featureFlags   FeatureFlag[]
-  auditLogs      AuditLog[]
-  tours          Tour[]
-  tourAddons     TourAddon[]
-  tourSchedules  TourSchedule[]
-  availabilities Availability[]
-  blackoutDates  BlackoutDate[]
-  bookings       Booking[]
-  payments       Payment[]
-  paymentEvents  PaymentEvent[]
-  customers      Customer[]
-  messages       Message[]
+  owner            User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members          WorkspaceMember[]
+  invitations      Invitation[]
+  settings         Setting[]
+  subscriptions    Subscription[]
+  featureFlags     FeatureFlag[]
+  auditLogs        AuditLog[]
+  tours            Tour[]
+  tourAddons       TourAddon[]
+  tourSchedules    TourSchedule[]
+  availabilities   Availability[]
+  blackoutDates    BlackoutDate[]
+  bookings         Booking[]
+  payments         Payment[]
+  paymentEvents    PaymentEvent[]
+  customers        Customer[]
+  messages         Message[]
+  guideProfiles    GuideProfile[]
+  waiverTemplate   WaiverTemplate?
+  waiverVersions   WaiverVersion[]
+  waiverSignatures WaiverSignature[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -260,7 +265,14 @@ model WorkspaceMember {
   user      User      @relation("MemberUser", fields: [userId], references: [id], onDelete: Cascade)
   invitedBy User?     @relation("MemberInviter", fields: [invitedById], references: [id], onDelete: SetNull)
 
+  guideProfile         GuideProfile?
+  guidedAvailabilities Availability[] @relation("AvailabilityGuide")
+
   @@unique([workspaceId, userId])
+  /// Lets Availability.guide and GuideProfile.member use the same
+  /// composite-FK-for-tenant-safety pattern as the rest of the booking
+  /// subtree (see Tour.@@unique([workspaceId, id])).
+  @@unique([workspaceId, id])
   @@index([userId])
   @@index([workspaceId])
   @@map("workspace_members")
@@ -476,10 +488,17 @@ model Availability {
   createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  tour      Tour          @relation(fields: [tourId], references: [id], onDelete: Cascade)
-  schedule  TourSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tour      Tour             @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  schedule  TourSchedule?    @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
   bookings  Booking[]
+  /// Phase 6: one guide per departure (reserved since Phase 2, wired up
+  /// here). `onDelete: Restrict`, not `SetNull` — same reason as
+  /// Booking.customer: a composite FK cannot null a required column
+  /// (workspace_id). Member removal explicitly clears this field first
+  /// (see app/api/workspaces/[id]/members/[memberId]/route.ts) so Restrict
+  /// never actually blocks removing a former guide.
+  guide     WorkspaceMember? @relation("AvailabilityGuide", fields: [workspaceId, guideId], references: [workspaceId, id], onDelete: Restrict)
 
   @@unique([tourId, startsAt])
   /// See the matching comment on Tour.@@unique([workspaceId, id]) — same
@@ -586,16 +605,17 @@ model Booking {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  workspace       Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  tour            Tour                    @relation(fields: [workspaceId, tourId], references: [workspaceId, id], onDelete: Restrict)
-  availability    Availability            @relation(fields: [workspaceId, availabilityId], references: [workspaceId, id], onDelete: Restrict)
-  createdBy       User?                   @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  customer        Customer?               @relation(fields: [workspaceId, customerId], references: [workspaceId, id], onDelete: Restrict)
-  participants    BookingParticipant[]
-  addonSelections BookingAddonSelection[]
-  statusEvents    BookingStatusEvent[]
-  payments        Payment[]
-  messages        Message[]
+  workspace        Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  tour             Tour                    @relation(fields: [workspaceId, tourId], references: [workspaceId, id], onDelete: Restrict)
+  availability     Availability            @relation(fields: [workspaceId, availabilityId], references: [workspaceId, id], onDelete: Restrict)
+  createdBy        User?                   @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  customer         Customer?               @relation(fields: [workspaceId, customerId], references: [workspaceId, id], onDelete: Restrict)
+  participants     BookingParticipant[]
+  addonSelections  BookingAddonSelection[]
+  statusEvents     BookingStatusEvent[]
+  payments         Payment[]
+  messages         Message[]
+  waiverSignatures WaiverSignature[]
 
   @@unique([workspaceId, reference])
   @@unique([workspaceId, idempotencyKey])
@@ -623,8 +643,12 @@ model BookingParticipant {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  booking Booking @relation(fields: [workspaceId, bookingId], references: [workspaceId, id], onDelete: Cascade)
+  booking         Booking          @relation(fields: [workspaceId, bookingId], references: [workspaceId, id], onDelete: Cascade)
+  waiverSignature WaiverSignature?
 
+  /// Lets WaiverSignature.participant use the same composite-FK-for-
+  /// tenant-safety pattern as the rest of the booking subtree.
+  @@unique([workspaceId, id])
   @@index([workspaceId, bookingId])
   @@map("booking_participants")
 }
@@ -821,4 +845,114 @@ model Message {
   /// the dedupe guard the reminder sweep and each send-site check first.
   @@index([workspaceId, templateKey, bookingId])
   @@map("messages")
+}
+
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * Phase 6 — Guides & waivers
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+/// Certifications/notes for a workspace member who leads tours. Deliberately
+/// not restricted to role: guide — an owner or staff member who personally
+/// guides trips (docs/01's "Sofia — solo guide" persona) can have one too.
+/// Created lazily (upsert) the first time an operator records anything for
+/// a member.
+model GuideProfile {
+  id             String   @id @default(cuid())
+  workspaceId    String   @map("workspace_id")
+  memberId       String   @map("member_id")
+  certifications String[] @default([])
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member    WorkspaceMember @relation(fields: [workspaceId, memberId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@unique([workspaceId, memberId])
+  @@map("guide_profiles")
+}
+
+/// One per workspace — a true singleton, get-or-create on first write.
+/// Holds no text itself; every version of the actual waiver text lives on
+/// WaiverVersion below.
+model WaiverTemplate {
+  id          String   @id @default(cuid())
+  workspaceId String   @unique @map("workspace_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions  WaiverVersion[]
+
+  /// Redundant with the column-level @unique above for uniqueness purposes;
+  /// required so WaiverVersion.template can use the same composite-FK
+  /// pattern as the rest of the booking subtree.
+  @@unique([workspaceId, id])
+  @@map("waiver_templates")
+}
+
+/// Immutable once created — no update route exists for this model at all.
+/// Editing the waiver creates a new version; old versions are retained
+/// forever so an already-signed WaiverSignature keeps pointing at the exact
+/// text its signer actually agreed to (docs/07 §4: "Waiver text versions
+/// are immutable; edits create new versions"). "The active version" is
+/// derived (highest versionNumber for the template), never a separate
+/// isActive flag that could drift out of sync.
+model WaiverVersion {
+  id            String   @id @default(cuid())
+  workspaceId   String   @map("workspace_id")
+  templateId    String   @map("template_id")
+  versionNumber Int      @map("version_number")
+  title         String
+  bodyText      String   @map("body_text")
+  createdById   String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace  Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  template   WaiverTemplate    @relation(fields: [workspaceId, templateId], references: [workspaceId, id], onDelete: Cascade)
+  createdBy  User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  signatures WaiverSignature[]
+
+  @@unique([workspaceId, templateId, versionNumber])
+  @@unique([workspaceId, id])
+  @@index([workspaceId, templateId])
+  @@map("waiver_versions")
+}
+
+/// One per participant, permanently (docs/02 §6 AC: "signed waiver attaches
+/// to participant") — a participant who signs stays signed even if the
+/// template is later revised; there is no forced-re-sign flow. signerName
+/// is whoever actually held the pen (e.g. a parent signing for a minor
+/// participant), not necessarily identical to the participant's own name.
+/// signatureImage is a `data:image/png;base64,...` data URL — no object
+/// storage integration exists anywhere in this app yet (.env.example's
+/// STORAGE_* vars are still placeholders), so this follows the same
+/// pragmatic shortcut Tour.coverImageUrl already takes.
+model WaiverSignature {
+  id              String   @id @default(cuid())
+  workspaceId     String   @map("workspace_id")
+  bookingId       String   @map("booking_id")
+  participantId   String   @map("participant_id")
+  waiverVersionId String   @map("waiver_version_id")
+  signerName      String   @map("signer_name")
+  signatureImage  String   @map("signature_image")
+  signedAt        DateTime @map("signed_at") @db.Timestamptz(6)
+  ipAddress       String?  @map("ip_address")
+  userAgent       String?  @map("user_agent")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  booking       Booking            @relation(fields: [workspaceId, bookingId], references: [workspaceId, id], onDelete: Restrict)
+  participant   BookingParticipant @relation(fields: [workspaceId, participantId], references: [workspaceId, id], onDelete: Restrict)
+  waiverVersion WaiverVersion      @relation(fields: [workspaceId, waiverVersionId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, participantId])
+  @@index([workspaceId, bookingId])
+  @@map("waiver_signatures")
 }
