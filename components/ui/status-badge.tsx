@@ -17,10 +17,13 @@ const toneClasses: Record<Tone, string> = {
 const statusTones: Record<string, Tone> = {
   active: "green",
   accepted: "green",
+  confirmed: "green",
   trialing: "blue",
+  completed: "blue",
   pending: "amber",
   past_due: "orange",
   suspended: "orange",
+  no_show: "orange",
   cancelled: "red",
   expired: "red",
   revoked: "red",

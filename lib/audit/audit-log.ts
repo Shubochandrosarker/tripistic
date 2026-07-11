@@ -30,7 +30,14 @@ export type AuditAction =
   | "availability_updated"
   | "availability_cancelled"
   | "blackout_created"
-  | "blackout_deleted";
+  | "blackout_deleted"
+  | "booking_created"
+  | "booking_created_manual"
+  | "booking_updated"
+  | "booking_confirmed"
+  | "booking_cancelled"
+  | "booking_completed"
+  | "booking_marked_no_show";
 
 export interface AuditEventInput {
   action: AuditAction;

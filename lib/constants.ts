@@ -189,6 +189,47 @@ export const DAYS_OF_WEEK: Array<{ value: number; label: string; short: string }
 export const SLOT_GENERATION_DEFAULT_DAYS = 90;
 export const SLOT_GENERATION_MAX_DAYS = 365;
 
+/** Maximum date-range width accepted by any availability query (internal or public). */
+export const AVAILABILITY_QUERY_MAX_DAYS = 365;
+
+/* ------------------------------------------------------------------------ */
+/* Phase 3 — bookings                                                        */
+/* ------------------------------------------------------------------------ */
+
+/** Absolute safe upper bound on a single booking's party size, regardless of tour capacity. */
+export const MAX_PARTICIPANTS_PER_BOOKING = 50;
+
+export const BOOKING_STATUSES = [
+  "pending",
+  "confirmed",
+  "cancelled",
+  "completed",
+  "no_show",
+] as const;
+
+export type BookingStatusValue = (typeof BOOKING_STATUSES)[number];
+
+export const BOOKING_STATUS_LABELS: Record<BookingStatusValue, string> = {
+  pending: "Pending",
+  confirmed: "Confirmed",
+  cancelled: "Cancelled",
+  completed: "Completed",
+  no_show: "No-show",
+};
+
+export const BOOKING_SOURCES = ["public_direct", "manual"] as const;
+
+export type BookingSourceValue = (typeof BOOKING_SOURCES)[number];
+
+export const BOOKING_SOURCE_LABELS: Record<BookingSourceValue, string> = {
+  public_direct: "Direct booking",
+  manual: "Manual (operator)",
+};
+
+/** Default page size and hard cap for paginated booking list endpoints. */
+export const BOOKINGS_PAGE_SIZE_DEFAULT = 20;
+export const BOOKINGS_PAGE_SIZE_MAX = 100;
+
 export const ACTIVE_WORKSPACE_COOKIE = "tripistic_active_workspace";
 
 export const TRIAL_DAYS = 14;

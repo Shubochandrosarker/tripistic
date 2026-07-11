@@ -132,7 +132,8 @@ export default async function SettingsPage() {
           <div className="flex justify-between gap-4 sm:block">
             <dt className="text-muted-foreground">Booking page & policies</dt>
             <dd className="font-medium text-muted-foreground">
-              Configurable from Phase 3 (booking notice, cancellation policy, branding)
+              Live now, per tour — cancellation policy is set on each tour. Workspace-wide branding is on the
+              roadmap.
             </dd>
           </div>
         </dl>

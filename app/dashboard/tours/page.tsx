@@ -55,7 +55,7 @@ export default async function ToursPage() {
         <EmptyState
           icon={Map}
           title="Create your first tour"
-          description="Define what guests can book — title, duration, capacity, and price — then add a recurring schedule to open your calendar. Bookings start flowing when the booking engine ships in Phase 3."
+          description="Define what guests can book — title, duration, capacity, and price — then add a recurring schedule to open your calendar. Publish it as active and public to start taking direct bookings."
           actions={
             manage ? (
               <ButtonLink href="/dashboard/tours/new">

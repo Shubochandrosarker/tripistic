@@ -32,29 +32,48 @@ export default async function DashboardPage() {
   const active = await getActiveWorkspace(user.id);
   if (!active) redirect("/workspaces/new");
 
-  const [subscription, memberCount, tourCount, upcomingSlotCount] = await Promise.all([
-    getWorkspaceSubscription(active.workspace.id),
-    prisma.workspaceMember.count({
-      where: { workspaceId: active.workspace.id, status: "active" },
-    }),
-    prisma.tour.count({
-      where: { workspaceId: active.workspace.id, deletedAt: null },
-    }),
-    prisma.availability.count({
-      where: {
-        workspaceId: active.workspace.id,
-        status: "scheduled",
-        startsAt: { gt: new Date() },
-        tour: { deletedAt: null },
-      },
-    }),
-  ]);
+  const [subscription, memberCount, tourCount, upcomingSlotCount, bookingCount, upcomingBookingCount, publicBookableTourCount] =
+    await Promise.all([
+      getWorkspaceSubscription(active.workspace.id),
+      prisma.workspaceMember.count({
+        where: { workspaceId: active.workspace.id, status: "active" },
+      }),
+      prisma.tour.count({
+        where: { workspaceId: active.workspace.id, deletedAt: null },
+      }),
+      prisma.availability.count({
+        where: {
+          workspaceId: active.workspace.id,
+          status: "scheduled",
+          startsAt: { gt: new Date() },
+          tour: { deletedAt: null, status: { not: "archived" } },
+        },
+      }),
+      prisma.booking.count({ where: { workspaceId: active.workspace.id } }),
+      prisma.booking.count({
+        where: {
+          workspaceId: active.workspace.id,
+          status: { in: ["pending", "confirmed"] },
+          departureStartsAt: { gt: new Date() },
+        },
+      }),
+      prisma.tour.count({
+        where: {
+          workspaceId: active.workspace.id,
+          status: "active",
+          visibility: "public",
+          deletedAt: null,
+          availabilities: { some: { status: "scheduled", startsAt: { gt: new Date() } } },
+        },
+      }),
+    ]);
 
   const checklist = buildOnboardingChecklist({
     hasWorkspace: true,
     memberCount,
     tourCount,
     upcomingSlotCount,
+    hasPublicBookableTour: publicBookableTourCount > 0,
   });
   const progress = onboardingProgress(checklist);
   const trialDays = daysUntil(subscription?.trialEndsAt ?? null);
@@ -87,8 +106,12 @@ export default async function DashboardPage() {
         <MetricCard
           icon={CalendarCheck}
           label="Total bookings"
-          value="0"
-          pendingPhase="Phase 3"
+          value={String(bookingCount)}
+          hint={
+            bookingCount === 0
+              ? "Publish a tour to start taking direct bookings"
+              : `${upcomingBookingCount} upcoming`
+          }
         />
         <MetricCard icon={DollarSign} label="Revenue" value="—" pendingPhase="Phase 4" />
         <MetricCard

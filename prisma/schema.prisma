@@ -120,6 +120,23 @@ enum AvailabilityStatus {
   @@map("availability_status")
 }
 
+enum BookingStatus {
+  pending
+  confirmed
+  cancelled
+  completed
+  no_show
+
+  @@map("booking_status")
+}
+
+enum BookingSource {
+  public_direct
+  manual
+
+  @@map("booking_source")
+}
+
 model User {
   id              String     @id @default(cuid())
   name            String
@@ -135,12 +152,14 @@ model User {
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
-  memberships     WorkspaceMember[] @relation("MemberUser")
-  invitedMembers  WorkspaceMember[] @relation("MemberInviter")
-  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
-  invitationsSent Invitation[]      @relation("InvitationInviter")
-  auditLogs       AuditLog[]
-  toursCreated    Tour[]            @relation("TourCreatedBy")
+  memberships         WorkspaceMember[]    @relation("MemberUser")
+  invitedMembers      WorkspaceMember[]    @relation("MemberInviter")
+  ownedWorkspaces     Workspace[]          @relation("WorkspaceOwner")
+  invitationsSent     Invitation[]         @relation("InvitationInviter")
+  auditLogs           AuditLog[]
+  toursCreated        Tour[]               @relation("TourCreatedBy")
+  bookingsCreated     Booking[]            @relation("BookingCreatedBy")
+  bookingStatusEvents BookingStatusEvent[] @relation("BookingStatusActor")
 
   @@map("users")
 }
@@ -172,6 +191,7 @@ model Workspace {
   tourSchedules  TourSchedule[]
   availabilities Availability[]
   blackoutDates  BlackoutDate[]
+  bookings       Booking[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -330,8 +350,14 @@ model Tour {
   schedules      TourSchedule[]
   availabilities Availability[]
   blackoutDates  BlackoutDate[]
+  bookings       Booking[]
 
   @@unique([workspaceId, slug])
+  /// Lets Booking relate via the composite (workspace_id, tour_id) FK below
+  /// instead of a plain single-column one — makes "a booking referencing a
+  /// tour from a different workspace" a database constraint violation, not
+  /// just an application bug.
+  @@unique([workspaceId, id])
   @@index([workspaceId, status])
   @@map("tours")
 }
@@ -348,8 +374,9 @@ model TourAddon {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  tour      Tour      @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  workspace         Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tour              Tour                    @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  bookingSelections BookingAddonSelection[]
 
   @@index([workspaceId])
   @@index([tourId])
@@ -380,6 +407,11 @@ model TourSchedule {
   @@map("tour_schedules")
 }
 
+/// Capacity invariants (`capacity` > 0, `booked_count` >= 0, `booked_count` <=
+/// `capacity`) are enforced by named PostgreSQL CHECK constraints added via
+/// hand-written SQL in migration `20260710193000_availability_capacity_constraints`.
+/// Prisma's schema DSL has no check-constraint syntax, so they are not (and
+/// cannot be) represented here — see that migration's `migration.sql`.
 model Availability {
   id            String             @id @default(cuid())
   workspaceId   String             @map("workspace_id")
@@ -399,8 +431,12 @@ model Availability {
   workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tour      Tour          @relation(fields: [tourId], references: [id], onDelete: Cascade)
   schedule  TourSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  bookings  Booking[]
 
   @@unique([tourId, startsAt])
+  /// See the matching comment on Tour.@@unique([workspaceId, id]) — same
+  /// composite-FK-for-tenant-safety pattern, used by Booking.availability.
+  @@unique([workspaceId, id])
   @@index([workspaceId, startsAt])
   @@index([tourId, startsAt])
   @@map("availabilities")
@@ -439,4 +475,142 @@ model FeatureFlag {
   @@index([workspaceId, featureKey])
   @@index([planId, featureKey])
   @@map("feature_flags")
+}
+
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * Phase 3 — booking engine
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+/// A booking is never hard-deleted through the normal UI/API — cancellation
+/// is a status transition, not a delete. `tour`/`availability` use composite
+/// (workspace_id, ...) foreign keys (see Tour/Availability `@@unique`s above)
+/// so a booking referencing a resource from a different workspace is
+/// rejected by Postgres, not only by application guards. `onDelete: Restrict`
+/// on both means a Tour/Availability can never be hard-deleted while
+/// bookings reference it — soft-delete/archive remains the only path.
+model Booking {
+  id             String        @id @default(cuid())
+  workspaceId    String        @map("workspace_id")
+  tourId         String        @map("tour_id")
+  availabilityId String        @map("availability_id")
+  reference      String
+  publicToken    String        @unique @map("public_token")
+  idempotencyKey String?       @map("idempotency_key")
+  source         BookingSource @default(public_direct)
+  status         BookingStatus @default(pending)
+
+  guestFirstName   String  @map("guest_first_name")
+  guestLastName    String  @map("guest_last_name")
+  guestEmail       String  @map("guest_email")
+  guestPhone       String? @map("guest_phone")
+  guestNotes       String? @map("guest_notes")
+  operatorNotes    String? @map("operator_notes")
+  participantCount Int     @map("participant_count")
+
+  tourTitleSnapshot    String   @map("tour_title_snapshot")
+  locationSnapshot     String?  @map("location_snapshot")
+  meetingPointSnapshot String?  @map("meeting_point_snapshot")
+  departureStartsAt    DateTime @map("departure_starts_at") @db.Timestamptz(6)
+  departureEndsAt      DateTime @map("departure_ends_at") @db.Timestamptz(6)
+
+  unitPrice   Int    @map("unit_price")
+  subtotal    Int
+  addonsTotal Int    @map("addons_total")
+  totalAmount Int    @map("total_amount")
+  currency    String
+
+  cancellationPolicySnapshot String?   @map("cancellation_policy_snapshot")
+  termsAcceptedAt            DateTime  @map("terms_accepted_at") @db.Timestamptz(6)
+  confirmedAt                DateTime? @map("confirmed_at") @db.Timestamptz(6)
+  cancelledAt                DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  completedAt                DateTime? @map("completed_at") @db.Timestamptz(6)
+
+  createdById String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace       Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  tour            Tour                    @relation(fields: [workspaceId, tourId], references: [workspaceId, id], onDelete: Restrict)
+  availability    Availability            @relation(fields: [workspaceId, availabilityId], references: [workspaceId, id], onDelete: Restrict)
+  createdBy       User?                   @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  participants    BookingParticipant[]
+  addonSelections BookingAddonSelection[]
+  statusEvents    BookingStatusEvent[]
+
+  @@unique([workspaceId, reference])
+  @@unique([workspaceId, idempotencyKey])
+  @@unique([workspaceId, id])
+  @@index([workspaceId, status, createdAt])
+  @@index([availabilityId, status])
+  @@index([workspaceId, guestEmail])
+  @@index([workspaceId, tourId])
+  @@map("bookings")
+}
+
+/// Participant row 1 may be the lead guest (MVP rule — see docs/14 §3). Count
+/// must equal the booking's `participantCount`.
+model BookingParticipant {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  bookingId   String   @map("booking_id")
+  firstName   String   @map("first_name")
+  lastName    String   @map("last_name")
+  email       String?
+  phone       String?
+  notes       String?
+  isLead      Boolean  @default(false) @map("is_lead")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [workspaceId, bookingId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@index([workspaceId, bookingId])
+  @@map("booking_participants")
+}
+
+/// Snapshot of a selected add-on at booking time. `tourAddon` may later be
+/// deleted (SetNull) — the snapshot fields remain the source of truth.
+model BookingAddonSelection {
+  id           String   @id @default(cuid())
+  workspaceId  String   @map("workspace_id")
+  bookingId    String   @map("booking_id")
+  tourAddonId  String?  @map("tour_addon_id")
+  nameSnapshot String   @map("name_snapshot")
+  unitPrice    Int      @map("unit_price")
+  quantity     Int
+  totalPrice   Int      @map("total_price")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  booking   Booking    @relation(fields: [workspaceId, bookingId], references: [workspaceId, id], onDelete: Cascade)
+  tourAddon TourAddon? @relation(fields: [tourAddonId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, bookingId])
+  @@index([tourAddonId])
+  @@map("booking_addon_selections")
+}
+
+/// Append-only status history — one row per transition. `actorUserId` is
+/// null for public (unauthenticated) creation/transitions.
+model BookingStatusEvent {
+  id          String         @id @default(cuid())
+  workspaceId String         @map("workspace_id")
+  bookingId   String         @map("booking_id")
+  fromStatus  BookingStatus? @map("from_status")
+  toStatus    BookingStatus  @map("to_status")
+  actorUserId String?        @map("actor_user_id")
+  note        String?
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [workspaceId, bookingId], references: [workspaceId, id], onDelete: Cascade)
+  actor   User?   @relation("BookingStatusActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, bookingId, createdAt])
+  @@map("booking_status_events")
 }

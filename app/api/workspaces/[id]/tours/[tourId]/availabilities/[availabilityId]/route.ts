@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { forbidden, handleApiError, json } from "@/lib/api";
+import { badRequest, conflict, forbidden, handleApiError, json } from "@/lib/api";
 import { requireUserApi } from "@/lib/auth/session";
 import { requireWorkspaceAccess } from "@/lib/tenancy/workspace";
 import { canManageTours } from "@/lib/auth/permissions";
@@ -22,6 +22,12 @@ export async function PATCH(request: Request, { params }: Params) {
 
     const body = await request.json().catch(() => null);
     const data = updateAvailabilitySchema.parse(body);
+
+    if (data.capacity !== undefined && data.capacity < existing.bookedCount) {
+      throw badRequest(
+        `Capacity cannot be less than the ${existing.bookedCount} seat${existing.bookedCount === 1 ? "" : "s"} already booked. Minimum allowed capacity is ${existing.bookedCount}.`,
+      );
+    }
 
     const availability = await prisma.availability.update({
       where: { id: existing.id },
@@ -59,6 +65,16 @@ export async function DELETE(request: Request, { params }: Params) {
     }
     await requireTour(id, tourId);
     const existing = await requireAvailability(id, tourId, availabilityId);
+
+    const activeBookings = await prisma.booking.count({
+      where: { availabilityId: existing.id, status: { in: ["pending", "confirmed"] } },
+    });
+    if (activeBookings > 0) {
+      throw conflict(
+        `This departure has ${activeBookings} active booking${activeBookings === 1 ? "" : "s"}. ` +
+          "Cancel or complete those bookings before cancelling the departure.",
+      );
+    }
 
     const availability = await prisma.availability.update({
       where: { id: existing.id },

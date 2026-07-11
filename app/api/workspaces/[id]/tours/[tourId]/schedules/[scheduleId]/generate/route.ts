@@ -1,4 +1,5 @@
-import { forbidden, handleApiError, json } from "@/lib/api";
+import { prisma } from "@/lib/db";
+import { conflict, forbidden, handleApiError, json } from "@/lib/api";
 import { requireUserApi } from "@/lib/auth/session";
 import { requireWorkspaceAccess } from "@/lib/tenancy/workspace";
 import { canManageTours } from "@/lib/auth/permissions";
@@ -19,12 +20,15 @@ export async function POST(request: Request, { params }: Params) {
       throw forbidden("Only workspace owners and admins can manage tours.");
     }
     const tour = await requireTour(id, tourId);
+    if (tour.status === "archived") {
+      throw conflict("This tour is archived and cannot generate new departures.");
+    }
     const schedule = await requireSchedule(id, tourId, scheduleId);
 
     const body = await request.json().catch(() => ({}));
     const data = generateSlotsSchema.parse(body ?? {});
 
-    const created = await generateSlotsForSchedule({
+    const created = await generateSlotsForSchedule(prisma, {
       tour,
       schedule,
       timezone: membership.workspace.timezone,

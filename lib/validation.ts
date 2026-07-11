@@ -1,6 +1,10 @@
 import { z } from "zod";
 import {
+  AVAILABILITY_QUERY_MAX_DAYS,
+  BOOKINGS_PAGE_SIZE_DEFAULT,
+  BOOKINGS_PAGE_SIZE_MAX,
   BUSINESS_TYPES,
+  MAX_PARTICIPANTS_PER_BOOKING,
   SETTING_KEYS,
   SLOT_GENERATION_DEFAULT_DAYS,
   SLOT_GENERATION_MAX_DAYS,
@@ -32,10 +36,53 @@ const countrySchema = z
   .union([z.string().trim().toUpperCase().length(2), z.literal(""), z.undefined(), z.null()])
   .transform((value) => (value ? value : undefined));
 
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * True only if year/month/day form a real calendar date. `Date.UTC` silently
+ * normalizes out-of-range values (e.g. month=13 rolls to the next year, day=31
+ * in April rolls to May 1) instead of rejecting them, so validity is proven by
+ * round-tripping the constructed date's fields back against the input.
+ */
+export function isValidCalendarDate(year: number, month: number, day: number): boolean {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  return (
+    utc.getUTCFullYear() === year && utc.getUTCMonth() === month - 1 && utc.getUTCDate() === day
+  );
+}
+
+/** Strict `YYYY-MM-DD` — rejects impossible dates like 2026-02-29 or 2026-02-31. */
+const dateOnlySchema = z.string().regex(DATE_ONLY, "Use YYYY-MM-DD format").refine((value) => {
+  const match = DATE_ONLY.exec(value);
+  if (!match) return false;
+  const [, y, m, d] = match;
+  return isValidCalendarDate(Number(y), Number(m), Number(d));
+}, "Enter a real calendar date");
+
+/** Safe IANA timezone check — accepts only identifiers the runtime's ICU data recognizes. */
+export function isValidIanaTimezone(timezone: string): boolean {
+  if (!timezone) return false;
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const ianaTimezoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .refine(isValidIanaTimezone, "Enter a valid IANA timezone (e.g. America/Phoenix)");
+
 export const createWorkspaceSchema = z.object({
   name: z.string().trim().min(2, "Workspace name is too short").max(80),
   businessType: z.enum(BUSINESS_TYPES),
-  timezone: z.string().trim().min(1).max(64).default("UTC"),
+  timezone: ianaTimezoneSchema.default("UTC"),
   currency: z.string().trim().toUpperCase().length(3, "Use a 3-letter currency code").default("USD"),
   country: countrySchema,
 });
@@ -44,7 +91,7 @@ export const updateWorkspaceSchema = z
   .object({
     name: z.string().trim().min(2).max(80).optional(),
     businessType: z.enum(BUSINESS_TYPES).optional(),
-    timezone: z.string().trim().min(1).max(64).optional(),
+    timezone: ianaTimezoneSchema.optional(),
     currency: z.string().trim().toUpperCase().length(3).optional(),
     country: countrySchema.optional(),
   })
@@ -96,12 +143,6 @@ function optionalInt(min: number, max: number) {
 }
 
 const TIME_HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
-
-const dateOnlySchema = z
-  .string()
-  .regex(DATE_ONLY, "Use YYYY-MM-DD format")
-  .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)), "Invalid date");
 
 export const createTourSchema = z.object({
   title: z.string().trim().min(2, "Title is too short").max(120),
@@ -149,6 +190,8 @@ export const updateTourSchema = z
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Nothing to update",
   });
+
+export type UpdateTourInput = z.infer<typeof updateTourSchema>;
 
 export const addonSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -240,6 +283,150 @@ export const createBlackoutSchema = z
     message: "End date must be on or after the start date",
     path: ["endsOn"],
   });
+
+/** Real ISO timestamp, coerced to `Date`; rejects malformed/unparseable input explicitly. */
+const isoTimestampSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((value) => !Number.isNaN(Date.parse(value)), "Enter a valid date/time")
+  .transform((value) => new Date(value));
+
+/**
+ * Reusable `from`/`to` query-range validation for availability lookups
+ * (internal and public). Both bounds are optional; when both are present,
+ * `to` must not precede `from`, and the range may not exceed
+ * `AVAILABILITY_QUERY_MAX_DAYS`. Invalid input must produce 400, never reach
+ * Prisma as a raw unchecked `Date`.
+ */
+export const availabilityQuerySchema = z
+  .object({
+    from: isoTimestampSchema.optional(),
+    to: isoTimestampSchema.optional(),
+    partySize: optionalInt(1, 1000),
+  })
+  .refine((data) => !data.from || !data.to || data.to.getTime() >= data.from.getTime(), {
+    message: "`to` must not be before `from`",
+    path: ["to"],
+  })
+  .refine(
+    (data) => {
+      if (!data.from || !data.to) return true;
+      const days = (data.to.getTime() - data.from.getTime()) / 86_400_000;
+      return days <= AVAILABILITY_QUERY_MAX_DAYS;
+    },
+    { message: `Date range cannot exceed ${AVAILABILITY_QUERY_MAX_DAYS} days`, path: ["to"] },
+  );
+
+/* ------------------------------------------------------------------------ */
+/* Phase 3 — bookings                                                        */
+/* ------------------------------------------------------------------------ */
+
+const nameSchema = z.string().trim().min(1, "Required").max(100);
+const notesSchema = optionalText(1000);
+const phoneSchema = optionalText(40);
+
+const participantSchema = z.object({
+  firstName: nameSchema,
+  lastName: nameSchema,
+  email: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    emailSchema.optional(),
+  ),
+  phone: phoneSchema,
+  notes: notesSchema,
+});
+
+const addonSelectionSchema = z.object({
+  tourAddonId: z.string().trim().min(1).max(64),
+  quantity: z.coerce.number().int().min(1).max(1000),
+});
+
+/**
+ * Public booking request body. Deliberately does NOT declare a field for
+ * price, total, currency, workspace ID, booked count, reference, public
+ * token, or status — those are computed/assigned server-side only, so even a
+ * malicious client that adds extra JSON keys can't influence them (Zod's
+ * `.object()` strips unknown keys by default).
+ */
+export const publicBookingRequestSchema = z.object({
+  availabilityId: z.string().trim().min(1).max(64),
+  participantCount: z.coerce.number().int().min(1).max(MAX_PARTICIPANTS_PER_BOOKING),
+  participants: z.array(participantSchema).min(1).max(MAX_PARTICIPANTS_PER_BOOKING),
+  guestFirstName: nameSchema,
+  guestLastName: nameSchema,
+  guestEmail: emailSchema,
+  guestPhone: phoneSchema,
+  guestNotes: notesSchema,
+  addons: z.array(addonSelectionSchema).max(50).default([]),
+  termsAccepted: z.literal(true, {
+    errorMap: () => ({ message: "You must accept the cancellation policy and terms to book" }),
+  }),
+  idempotencyKey: z.string().uuid("Invalid idempotency key"),
+  // Hidden honeypot field: real browsers never fill it in. Silently no-op
+  // (not an error) so bots don't learn their submission was detected.
+  website: z.string().max(200).optional(),
+});
+
+export type PublicBookingRequestInput = z.infer<typeof publicBookingRequestSchema>;
+
+/** Authenticated manual booking — same shape plus operator-only controls. */
+export const manualBookingRequestSchema = z.object({
+  tourId: z.string().trim().min(1).max(64),
+  availabilityId: z.string().trim().min(1).max(64),
+  participantCount: z.coerce.number().int().min(1).max(MAX_PARTICIPANTS_PER_BOOKING),
+  participants: z.array(participantSchema).min(1).max(MAX_PARTICIPANTS_PER_BOOKING),
+  guestFirstName: nameSchema,
+  guestLastName: nameSchema,
+  guestEmail: emailSchema,
+  guestPhone: phoneSchema,
+  guestNotes: notesSchema,
+  addons: z.array(addonSelectionSchema).max(50).default([]),
+  status: z.enum(["pending", "confirmed"]).default("confirmed"),
+  operatorNotes: optionalText(2000),
+});
+
+export type ManualBookingRequestInput = z.infer<typeof manualBookingRequestSchema>;
+
+/** Limited, non-financial booking edit — cannot touch departure, party size, price, or add-ons. */
+export const updateBookingSchema = z
+  .object({
+    guestFirstName: nameSchema.optional(),
+    guestLastName: nameSchema.optional(),
+    guestEmail: emailSchema.optional(),
+    guestPhone: phoneSchema,
+    guestNotes: notesSchema,
+    operatorNotes: optionalText(2000),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const bookingStatusTransitionSchema = z.object({
+  status: z.enum(["pending", "confirmed", "cancelled", "completed", "no_show"]),
+  note: optionalText(500),
+});
+
+export const bookingListQuerySchema = z.object({
+  status: z.enum(["pending", "confirmed", "cancelled", "completed", "no_show"]).optional(),
+  source: z.enum(["public_direct", "manual"]).optional(),
+  tourId: optionalText(64),
+  /** Filters on the departure date (`departureStartsAt`), relative to now. */
+  when: z.enum(["upcoming", "past", "all"]).default("all"),
+  from: isoTimestampSchema.optional(),
+  to: isoTimestampSchema.optional(),
+  search: optionalText(120),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(BOOKINGS_PAGE_SIZE_MAX)
+    .default(BOOKINGS_PAGE_SIZE_DEFAULT),
+  sort: z.enum(["createdAt_desc", "createdAt_asc", "departure_asc", "departure_desc"]).default(
+    "createdAt_desc",
+  ),
+});
 
 /** Manual audit events accepted over the API (system events use the helper directly). */
 export const manualAuditEventSchema = z.object({

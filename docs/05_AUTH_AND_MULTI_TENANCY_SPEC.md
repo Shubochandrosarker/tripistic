@@ -23,7 +23,7 @@
 ### Workspace level (`workspace_members.role`)
 `workspace_owner` · `workspace_admin` · `guide` · `staff` · `viewer`
 
-### Permission matrix (Phase 1 enforcement + future intent)
+### Permission matrix (Phase 1 + Phase 2/3 enforcement + future intent)
 
 | Capability | owner | admin | guide | staff | viewer |
 |---|---|---|---|---|---|
@@ -33,11 +33,15 @@
 | Invite members | ✅ (any role) | ✅ (guide/staff/viewer/admin*) | ❌ | ❌ | ❌ |
 | Change roles / remove members | ✅ (last-owner protected) | limited (below owner/admin) | ❌ | ❌ | ❌ |
 | View audit logs | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Tours/bookings/customers (later) | ✅ | ✅ | assigned-only | operate | read-only |
+| Manage tours/schedules/availability | ✅ | ✅ | ❌ | ✅ | ❌ (read-only) |
+| View bookings list/detail | ✅ | ✅ | ❌ | ✅ | ✅ |
+| View guest contact info / operator notes on a booking | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Create manual booking / change booking status | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Customers (CRM, later) | ✅ | ✅ | assigned-only | operate | read-only |
 
 \* admins may invite `workspace_admin` but not `workspace_owner`.
 
-Role helper: `hasRole(member, minimumRole)` uses the ordering `viewer < staff < guide? — no:` roles are **not strictly linear**; Phase 1 uses explicit capability checks: `canManageWorkspace` (owner/admin), `canManageBilling` (owner), `canManageMembers` (owner/admin with sub-rules), `canViewAuditLogs` (owner/admin). Guide/staff/viewer distinctions activate in Phases 2–6.
+Role helper: `hasRole(member, minimumRole)` uses the ordering `viewer < staff < guide? — no:` roles are **not strictly linear**; Phase 1 uses explicit capability checks: `canManageWorkspace` (owner/admin), `canManageBilling` (owner), `canManageMembers` (owner/admin with sub-rules), `canViewAuditLogs` (owner/admin). Phase 2 added `canManageTours` (owner/admin/staff). Phase 3 added `canManageBookings` (owner/admin/staff), `canViewBookings` (+ viewer), `canViewBookingPII` (excludes viewer) in `lib/auth/permissions.ts`. `guide` has no booking-management access yet — full guide-assignment scoping (assigned-departures-only) is a Phase 6 feature; today a `guide` member gets 403 on booking routes, not partial access.
 
 ## 3. Multi-tenancy model
 
@@ -53,9 +57,10 @@ Role helper: `hasRole(member, minimumRole)` uses the ordering `viewer < staff < 
 2. Helpers in `lib/tenancy/workspace.ts` are the single path to tenant scope:
    - `getActiveWorkspace()` — for pages.
    - `requireWorkspaceAccess(workspaceId, capability?)` — for APIs; throws 404/403 semantics.
-3. Cross-tenant references rejected in service layer.
+3. Cross-tenant references rejected in the service layer for Phase 1/2 tables; for the Phase 3 booking subtree, additionally rejected by the database itself via composite `(workspace_id, id)` foreign keys (`docs/03_DATABASE_AND_DATA_MODEL.md` §3).
 4. Users see only workspaces they belong to; `platform_admin` uses `/admin` surfaces (and is audited), not tenant UIs.
-5. Isolation test (Phase 1 checklist): user in workspace A calling workspace B's endpoints receives 404/403 and zero data.
+5. Isolation test (Phase 1 checklist, extended in Phase 2.1/3): user in workspace A calling workspace B's endpoints receives 404/403 and zero data — covered for tours/schedules/availabilities in `tests/integration/tenant-scoping.test.ts` and for bookings in `tests/integration/booking-lifecycle.test.ts` and `tests/integration/booking-routes.test.ts`.
+6. **Public booking routes are a deliberate, narrow exception to "authed tenant scope."** They resolve a workspace/tour by public slug (`lib/tenancy/public.ts`) with no session — but still return only public-safe fields (`lib/bookings/serializers.ts`), still re-verify every write against fresh DB state inside the reservation transaction, and still 404 (not 403) any workspace/tour that is inactive, private, or archived, so the exception cannot be used to enumerate or read data outside what the operator explicitly published.
 
 ## 4. Invitations
 

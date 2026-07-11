@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { forbidden, handleApiError, json } from "@/lib/api";
+import { conflict, forbidden, handleApiError, json } from "@/lib/api";
 import { requireUserApi } from "@/lib/auth/session";
 import { requireWorkspaceAccess } from "@/lib/tenancy/workspace";
 import { canManageTours } from "@/lib/auth/permissions";
@@ -38,29 +38,38 @@ export async function POST(request: Request, { params }: Params) {
       throw forbidden("Only workspace owners and admins can manage tours.");
     }
     const tour = await requireTour(id, tourId);
+    if (tour.status === "archived") {
+      throw conflict("This tour is archived. Reactivate it before adding a schedule.");
+    }
 
     const body = await request.json().catch(() => null);
     const data = createScheduleSchema.parse(body);
 
-    const schedule = await prisma.tourSchedule.create({
-      data: {
-        workspaceId: id,
-        tourId: tour.id,
-        name: data.name ?? null,
-        daysOfWeek: data.daysOfWeek,
-        startTime: data.startTime,
-        durationMinutes: data.durationMinutes ?? null,
-        capacity: data.capacity ?? null,
-        startsOn: new Date(`${data.startsOn}T00:00:00.000Z`),
-        endsOn: data.endsOn ? new Date(`${data.endsOn}T00:00:00.000Z`) : null,
-      },
-    });
+    // Create the rule and materialize its first window of slots together —
+    // if generation fails, the schedule row must not be left orphaned.
+    const { schedule, created } = await prisma.$transaction(async (tx) => {
+      const schedule = await tx.tourSchedule.create({
+        data: {
+          workspaceId: id,
+          tourId: tour.id,
+          name: data.name ?? null,
+          daysOfWeek: data.daysOfWeek,
+          startTime: data.startTime,
+          durationMinutes: data.durationMinutes ?? null,
+          capacity: data.capacity ?? null,
+          startsOn: new Date(`${data.startsOn}T00:00:00.000Z`),
+          endsOn: data.endsOn ? new Date(`${data.endsOn}T00:00:00.000Z`) : null,
+        },
+      });
 
-    const created = await generateSlotsForSchedule({
-      tour,
-      schedule,
-      timezone: membership.workspace.timezone,
-      days: SLOT_GENERATION_DEFAULT_DAYS,
+      const created = await generateSlotsForSchedule(tx, {
+        tour,
+        schedule,
+        timezone: membership.workspace.timezone,
+        days: SLOT_GENERATION_DEFAULT_DAYS,
+      });
+
+      return { schedule, created };
     });
 
     await recordAuditEvent({

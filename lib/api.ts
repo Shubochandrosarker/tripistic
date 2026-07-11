@@ -57,3 +57,15 @@ export function handleApiError(error: unknown): NextResponse {
 export function json<T>(data: T, init?: number | ResponseInit) {
   return NextResponse.json(data, typeof init === "number" ? { status: init } : init);
 }
+
+/**
+ * Same as `json`, plus `Cache-Control: no-store`. Use for any public
+ * endpoint whose data must never be shared across callers or served stale
+ * from a cache/CDN — availability counts, booking confirmations.
+ */
+export function noStoreJson<T>(data: T, init?: number | ResponseInit) {
+  const base = typeof init === "number" ? { status: init } : (init ?? {});
+  const headers = new Headers(base.headers);
+  headers.set("Cache-Control", "no-store");
+  return NextResponse.json(data, { ...base, headers });
+}

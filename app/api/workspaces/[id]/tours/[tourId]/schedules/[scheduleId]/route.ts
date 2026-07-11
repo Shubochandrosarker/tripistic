@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/db";
-import { forbidden, handleApiError, json } from "@/lib/api";
+import { badRequest, forbidden, handleApiError, json } from "@/lib/api";
 import { requireUserApi } from "@/lib/auth/session";
 import { requireWorkspaceAccess } from "@/lib/tenancy/workspace";
 import { canManageTours } from "@/lib/auth/permissions";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { updateScheduleSchema } from "@/lib/validation";
 import { requireSchedule, requireTour } from "@/lib/tours/service";
+import { dateKey } from "@/lib/tours/schedule";
 
 type Params = { params: Promise<{ id: string; tourId: string; scheduleId: string }> };
 
@@ -23,6 +24,17 @@ export async function PATCH(request: Request, { params }: Params) {
 
     const body = await request.json().catch(() => null);
     const data = updateScheduleSchema.parse(body);
+
+    // A patch may touch only one side of the date range — validate the
+    // range that will actually be stored, not just the fields present in
+    // this request, so `startsOn`-only or `endsOn`-only edits can't produce
+    // an inverted range.
+    const mergedStartsOn = data.startsOn ?? dateKey(existing.startsOn);
+    const mergedEndsOn =
+      data.endsOn !== undefined ? data.endsOn : existing.endsOn ? dateKey(existing.endsOn) : null;
+    if (mergedEndsOn && mergedEndsOn < mergedStartsOn) {
+      throw badRequest("End date must be on or after the start date");
+    }
 
     const schedule = await prisma.tourSchedule.update({
       where: { id: existing.id },
