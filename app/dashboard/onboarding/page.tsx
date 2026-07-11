@@ -91,8 +91,13 @@ export default async function OnboardingPage() {
             succeeds. Direct payouts to your own bank account are a future upgrade.
           </li>
           <li>
-            <span className="font-medium text-foreground">Phase 5–7:</span> guest communication,
-            waivers, guide manifests, and the AI Growth Dashboard.
+            <span className="font-medium text-foreground">CRM & communication — live now:</span>{" "}
+            every guest automatically gets a profile with booking history, and confirmation,
+            reminder, and review-request emails send automatically.
+          </li>
+          <li>
+            <span className="font-medium text-foreground">Phase 6–7:</span> waivers, guide
+            manifests, and the AI Growth Dashboard.
           </li>
         </ol>
       </SectionCard>

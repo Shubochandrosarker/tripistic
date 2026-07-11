@@ -277,6 +277,50 @@ export const ZERO_DECIMAL_CURRENCIES = new Set([
   "RWF", "UGX", "VND", "VUV", "XAF", "XOF", "XPF",
 ]);
 
+/* ------------------------------------------------------------------------ */
+/* Phase 5 — CRM & communication                                             */
+/* ------------------------------------------------------------------------ */
+
+export const CONSENT_STATUSES = ["subscribed", "unsubscribed", "unknown"] as const;
+
+export type ConsentStatusValue = (typeof CONSENT_STATUSES)[number];
+
+export const CONSENT_STATUS_LABELS: Record<ConsentStatusValue, string> = {
+  subscribed: "Subscribed",
+  unsubscribed: "Unsubscribed",
+  unknown: "Not asked",
+};
+
+export const MESSAGE_STATUSES = ["queued", "sent", "failed", "skipped"] as const;
+
+export type MessageStatusValue = (typeof MESSAGE_STATUSES)[number];
+
+export const MESSAGE_STATUS_LABELS: Record<MessageStatusValue, string> = {
+  queued: "Queued",
+  sent: "Sent",
+  failed: "Failed",
+  skipped: "Skipped",
+};
+
+export const MESSAGE_TEMPLATE_KEYS = [
+  "booking_confirmation",
+  "booking_reminder",
+  "review_request",
+  "member_invitation",
+] as const;
+
+export type MessageTemplateKeyValue = (typeof MESSAGE_TEMPLATE_KEYS)[number];
+
+export const MESSAGE_TEMPLATE_LABELS: Record<MessageTemplateKeyValue, string> = {
+  booking_confirmation: "Booking confirmation",
+  booking_reminder: "Departure reminder",
+  review_request: "Review request",
+  member_invitation: "Team invitation",
+};
+
+export const CUSTOMERS_PAGE_SIZE_DEFAULT = 20;
+export const CUSTOMERS_PAGE_SIZE_MAX = 100;
+
 export const ACTIVE_WORKSPACE_COOKIE = "tripistic_active_workspace";
 
 export const TRIAL_DAYS = 14;

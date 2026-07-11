@@ -6,6 +6,7 @@ import { requireWorkspaceAccess } from "@/lib/tenancy/workspace";
 import { canManageMembers, grantableRoles } from "@/lib/auth/permissions";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { inviteMemberSchema } from "@/lib/validation";
+import { sendMemberInvitationEmail } from "@/lib/messaging/service";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -52,7 +53,7 @@ export async function GET(_request: Request, { params }: Params) {
   }
 }
 
-/** Create an invitation. Email delivery is stubbed until Phase 5 — the invite link is returned. */
+/** Create an invitation and email it — the invite link is always also returned, so an admin can share it directly if email delivery isn't configured or fails. */
 export async function POST(request: Request, { params }: Params) {
   try {
     const { id } = await params;
@@ -110,7 +111,21 @@ export async function POST(request: Request, { params }: Params) {
       request,
     });
 
-    // Phase 5 will send this by email; until then the operator shares the link.
+    const inviteUrl = inviteUrlFor(request, token);
+
+    // Best-effort — sendMemberInvitationEmail never throws (see
+    // lib/messaging/service.ts); the invitation exists and the link above
+    // is returned either way.
+    await sendMemberInvitationEmail({
+      workspaceId: id,
+      workspaceName: membership.workspace.name,
+      inviterName: user.name,
+      role: data.role,
+      email: data.email,
+      inviteUrl,
+      expiresAt: invitation.expiresAt,
+    });
+
     return json(
       {
         invitation: {
@@ -119,7 +134,7 @@ export async function POST(request: Request, { params }: Params) {
           role: invitation.role,
           expiresAt: invitation.expiresAt,
         },
-        inviteUrl: inviteUrlFor(request, token),
+        inviteUrl,
       },
       201,
     );

@@ -47,6 +47,20 @@ export function canViewBookingPII(role: WorkspaceRole): boolean {
   return canManageBookings(role);
 }
 
+/**
+ * Customer CRM operations (Phase 5): edit profile/notes/tags/consent.
+ * Matches `canManageBookings` exactly — the roles that operate day-to-day
+ * bookings are the ones who talk to guests and maintain their records.
+ */
+export function canManageCustomers(role: WorkspaceRole): boolean {
+  return canManageBookings(role);
+}
+
+/** Read-only customer access — everyone who can manage customers, plus viewer. */
+export function canViewCustomers(role: WorkspaceRole): boolean {
+  return canManageCustomers(role) || role === "viewer";
+}
+
 /** Which roles may `actorRole` grant when inviting or changing a member? */
 export function grantableRoles(actorRole: WorkspaceRole): WorkspaceRoleValue[] {
   if (actorRole === "workspace_owner") {

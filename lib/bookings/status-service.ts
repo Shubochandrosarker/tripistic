@@ -2,6 +2,7 @@ import type { Booking, BookingStatus } from "@prisma/client";
 import { prisma, type Db } from "@/lib/db";
 import { conflict, notFound } from "@/lib/api";
 import { recordAuditEvent, type AuditAction } from "@/lib/audit/audit-log";
+import { sendBookingConfirmationEmail, sendReviewRequestEmail } from "@/lib/messaging/service";
 import { canTransition } from "./status";
 
 /**
@@ -126,6 +127,16 @@ export async function transitionBookingStatus(
         seatsReleased: result.seatsReleased,
       },
     });
+
+    // Phase 5: an operator manually confirming a pending manual booking is
+    // one of the three places a booking can become `confirmed` (see
+    // docs/19_PHASE_5_IMPLEMENTATION_PLAN.md §5); marking a booking
+    // `completed` is the only place a review request is triggered from.
+    if (input.toStatus === "confirmed") {
+      await sendBookingConfirmationEmail(input.bookingId);
+    } else if (input.toStatus === "completed") {
+      await sendReviewRequestEmail(input.bookingId);
+    }
   }
 
   return result;
