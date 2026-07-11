@@ -1,0 +1,129 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
+import { prisma } from "@/lib/db";
+import { formatMoney } from "@/lib/utils";
+import { serializePublicBookingConfirmation } from "@/lib/bookings/serializers";
+import { SectionCard } from "@/components/ui/section-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+
+type Params = { params: Promise<{ publicToken: string }> };
+
+export const metadata: Metadata = {
+  title: "Booking confirmed",
+  robots: { index: false, follow: false },
+};
+
+export default async function BookingConfirmationPage({ params }: Params) {
+  const { publicToken } = await params;
+  const record = await prisma.booking.findUnique({
+    where: { publicToken },
+    include: { participants: true, addonSelections: true },
+  });
+  if (!record) notFound();
+  const booking = serializePublicBookingConfirmation(record);
+
+  const departureLocal = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(booking.departureStartsAt));
+
+  return (
+    <div className="space-y-4 print:space-y-2">
+      <div className="flex flex-col items-center gap-2 py-4 text-center">
+        <span className="flex size-12 items-center justify-center rounded-full bg-accent/10 text-accent">
+          <CheckCircle2 className="size-6" aria-hidden />
+        </span>
+        <h1 className="text-lg font-semibold text-foreground">Booking {booking.status === "confirmed" ? "confirmed" : "received"}</h1>
+        <p className="text-sm text-muted-foreground">
+          Reference{" "}
+          <span data-testid="booking-reference" className="font-mono font-medium text-foreground">
+            {booking.reference}
+          </span>
+        </p>
+        <StatusBadge status={booking.status} />
+      </div>
+
+      <SectionCard title={booking.tourTitle}>
+        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="font-medium text-foreground">Departure</dt>
+            <dd className="text-muted-foreground">{departureLocal}</dd>
+          </div>
+          {booking.location ? (
+            <div>
+              <dt className="font-medium text-foreground">Location</dt>
+              <dd className="text-muted-foreground">{booking.location}</dd>
+            </div>
+          ) : null}
+          {booking.meetingPoint ? (
+            <div className="sm:col-span-2">
+              <dt className="font-medium text-foreground">Meeting point</dt>
+              <dd className="text-muted-foreground">{booking.meetingPoint}</dd>
+            </div>
+          ) : null}
+          <div>
+            <dt className="font-medium text-foreground">Lead guest</dt>
+            <dd className="text-muted-foreground">
+              {booking.guestFirstName} {booking.guestLastName}
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-foreground">Party size</dt>
+            <dd className="text-muted-foreground">{booking.participantCount}</dd>
+          </div>
+        </dl>
+      </SectionCard>
+
+      {booking.participants.length > 0 ? (
+        <SectionCard title="Guests">
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            {booking.participants.map((p, i) => (
+              <li key={i}>
+                {p.firstName} {p.lastName}
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      ) : null}
+
+      <SectionCard title="Price summary">
+        <dl className="space-y-1.5 text-sm">
+          <div className="flex justify-between text-muted-foreground">
+            <dt>
+              {formatMoney(booking.unitPrice, booking.currency)} × {booking.participantCount}
+            </dt>
+            <dd>{formatMoney(booking.subtotal, booking.currency)}</dd>
+          </div>
+          {booking.addons.map((addon, i) => (
+            <div key={i} className="flex justify-between text-muted-foreground">
+              <dt>
+                {addon.name} × {addon.quantity}
+              </dt>
+              <dd>{formatMoney(addon.totalPrice, booking.currency)}</dd>
+            </div>
+          ))}
+          <div className="flex justify-between border-t border-border pt-1.5 font-semibold text-foreground">
+            <dt>Total booked value</dt>
+            <dd>{formatMoney(booking.totalAmount, booking.currency)}</dd>
+          </div>
+        </dl>
+      </SectionCard>
+
+      {booking.cancellationPolicy ? (
+        <SectionCard title="Cancellation policy">
+          <p className="text-sm text-muted-foreground">{booking.cancellationPolicy}</p>
+        </SectionCard>
+      ) : null}
+
+      <p className="rounded-lg border border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground print:hidden">
+        Online payment and automated confirmation emails aren&apos;t available yet — this page is your confirmation.
+        Save or bookmark this link.
+      </p>
+    </div>
+  );
+}

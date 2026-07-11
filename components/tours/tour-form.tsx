@@ -173,7 +173,7 @@ export function TourForm({
           defaultValue={tour?.description ?? ""}
           rows={4}
           maxLength={5000}
-          placeholder="What makes this experience special? Guests will see this on your booking page (Phase 3)."
+          placeholder="What makes this experience special? Guests will see this on your public booking page."
           className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
         />
       </Field>
@@ -272,7 +272,7 @@ export function TourForm({
         <Field
           label="Cancellation policy"
           htmlFor="tour-cancellation"
-          hint="Shown to guests during booking (Phase 3)."
+          hint="Shown to guests during booking and on their confirmation."
         >
           <textarea
             id="tour-cancellation"

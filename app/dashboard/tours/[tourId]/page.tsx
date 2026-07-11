@@ -14,6 +14,7 @@ import { AddonsPanel } from "@/components/tours/addons-panel";
 import { SchedulesPanel } from "@/components/tours/schedules-panel";
 import { AvailabilityPanel } from "@/components/tours/availability-panel";
 import { BlackoutsPanel } from "@/components/tours/blackouts-panel";
+import { SharePanel } from "@/components/tours/share-panel";
 
 export const metadata: Metadata = {
   title: "Tour details",
@@ -80,7 +81,7 @@ export default async function TourDetailPage({
 
       <SectionCard
         title="Tour details"
-        description={manage ? "Guests will see these on your booking page from Phase 3." : "Read-only — ask an owner or admin to make changes."}
+        description={manage ? "Guests see these on your public booking page." : "Read-only — ask an owner or admin to make changes."}
       >
         <TourForm
           workspaceId={active.workspace.id}
@@ -108,6 +109,25 @@ export default async function TourDetailPage({
       </SectionCard>
 
       <SectionCard
+        title="Share your booking page"
+        description={
+          tour.status === "active" && tour.visibility === "public"
+            ? "Guests can book directly at this link — 0% commission on direct bookings."
+            : "Publish the tour (active + public) to make this link live."
+        }
+      >
+        {tour.status === "active" && tour.visibility === "public" ? (
+          <SharePanel workspaceSlug={active.workspace.slug} tourSlug={tour.slug} />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Set status to <span className="font-medium text-foreground">Active</span> and visibility to{" "}
+            <span className="font-medium text-foreground">Public</span> above, then this section shows your
+            shareable booking link and embed code.
+          </p>
+        )}
+      </SectionCard>
+
+      <SectionCard
         title="Recurring schedules"
         description="Rules that generate your departure slots. Edits apply to future generation only."
       >
@@ -132,7 +152,7 @@ export default async function TourDetailPage({
 
       <SectionCard
         title="Upcoming departures"
-        description="Concrete bookable slots. Bookings begin decrementing capacity in Phase 3."
+        description="Concrete bookable slots. Confirmed bookings decrement remaining seats here in real time."
       >
         <AvailabilityPanel
           workspaceId={active.workspace.id}

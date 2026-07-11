@@ -5,12 +5,12 @@ import { requireUserApi } from "@/lib/auth/session";
 import { requireWorkspaceAccess } from "@/lib/tenancy/workspace";
 import { canManageTours } from "@/lib/auth/permissions";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
-import { createAvailabilitySchema } from "@/lib/validation";
+import { availabilityQuerySchema, createAvailabilitySchema } from "@/lib/validation";
 import { requireTour } from "@/lib/tours/service";
 
 type Params = { params: Promise<{ id: string; tourId: string }> };
 
-/** Departure slots for a tour. ?from&to ISO filters; defaults to upcoming. */
+/** Departure slots for a tour. ?from&to ISO filters (validated, 400 on bad input); defaults to upcoming. */
 export async function GET(request: Request, { params }: Params) {
   try {
     const { id, tourId } = await params;
@@ -19,19 +19,20 @@ export async function GET(request: Request, { params }: Params) {
     await requireTour(id, tourId);
 
     const url = new URL(request.url);
-    const fromParam = url.searchParams.get("from");
-    const toParam = url.searchParams.get("to");
+    const query = availabilityQuerySchema.parse({
+      from: url.searchParams.get("from") ?? undefined,
+      to: url.searchParams.get("to") ?? undefined,
+    });
     const limitParam = Number(url.searchParams.get("limit") ?? 100);
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 100;
 
-    const from = fromParam ? new Date(fromParam) : new Date();
-    const to = toParam ? new Date(toParam) : null;
+    const from = query.from ?? new Date();
 
     const availabilities = await prisma.availability.findMany({
       where: {
         tourId,
         workspaceId: id,
-        startsAt: { gte: from, ...(to ? { lte: to } : {}) },
+        startsAt: { gte: from, ...(query.to ? { lte: query.to } : {}) },
       },
       orderBy: { startsAt: "asc" },
       take: limit,

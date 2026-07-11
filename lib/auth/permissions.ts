@@ -27,6 +27,26 @@ export function canManageTours(role: WorkspaceRole): boolean {
   return role === "workspace_owner" || role === "workspace_admin";
 }
 
+/**
+ * Booking operations (Phase 3): manual creation, edits, status transitions,
+ * cancellation. Matches docs/05's matrix — owner/admin full control, staff
+ * operates day-to-day bookings. `guide` has no general booking access until
+ * assigned-departure manifests ship in Phase 6.
+ */
+export function canManageBookings(role: WorkspaceRole): boolean {
+  return role === "workspace_owner" || role === "workspace_admin" || role === "staff";
+}
+
+/** Read-only booking access — everyone who can manage bookings, plus viewer. */
+export function canViewBookings(role: WorkspaceRole): boolean {
+  return canManageBookings(role) || role === "viewer";
+}
+
+/** Full guest PII (email, phone, participant notes, operator notes) — excludes viewer. */
+export function canViewBookingPII(role: WorkspaceRole): boolean {
+  return canManageBookings(role);
+}
+
 /** Which roles may `actorRole` grant when inviting or changing a member? */
 export function grantableRoles(actorRole: WorkspaceRole): WorkspaceRoleValue[] {
   if (actorRole === "workspace_owner") {

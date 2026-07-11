@@ -13,6 +13,8 @@ export function buildOnboardingChecklist(input: {
   memberCount: number;
   tourCount?: number;
   upcomingSlotCount?: number;
+  /** At least one active, public tour with a future bookable departure — the real "your booking page works" signal. */
+  hasPublicBookableTour?: boolean;
 }): OnboardingItem[] {
   const tourCount = input.tourCount ?? 0;
   const upcomingSlotCount = input.upcomingSlotCount ?? 0;
@@ -39,20 +41,19 @@ export function buildOnboardingChecklist(input: {
       done: upcomingSlotCount > 0,
     },
     {
+      key: "publish_booking_page",
+      title: "Publish your booking page",
+      description: "Set a tour to active and public with an upcoming departure so guests can book directly.",
+      href: "/dashboard/tours",
+      done: input.hasPublicBookableTour ?? false,
+    },
+    {
       key: "connect_stripe",
       title: "Connect Stripe",
       description: "Take payments, deposits, and installments with 0% Tripistic commission.",
       href: "/dashboard/billing",
       done: false,
       phase: "Phase 4",
-    },
-    {
-      key: "customize_booking_page",
-      title: "Customize your booking page",
-      description: "Brand the page and widget your guests will book through.",
-      href: "/dashboard/bookings",
-      done: false,
-      phase: "Phase 3",
     },
     {
       key: "invite_team",

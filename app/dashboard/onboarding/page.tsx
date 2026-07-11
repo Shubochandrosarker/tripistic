@@ -17,7 +17,7 @@ export default async function OnboardingPage() {
   const active = await getActiveWorkspace(user.id);
   if (!active) redirect("/workspaces/new");
 
-  const [memberCount, tourCount, upcomingSlotCount] = await Promise.all([
+  const [memberCount, tourCount, upcomingSlotCount, publicBookableTourCount] = await Promise.all([
     prisma.workspaceMember.count({
       where: { workspaceId: active.workspace.id, status: "active" },
     }),
@@ -29,7 +29,16 @@ export default async function OnboardingPage() {
         workspaceId: active.workspace.id,
         status: "scheduled",
         startsAt: { gt: new Date() },
-        tour: { deletedAt: null },
+        tour: { deletedAt: null, status: { not: "archived" } },
+      },
+    }),
+    prisma.tour.count({
+      where: {
+        workspaceId: active.workspace.id,
+        status: "active",
+        visibility: "public",
+        deletedAt: null,
+        availabilities: { some: { status: "scheduled", startsAt: { gt: new Date() } } },
       },
     }),
   ]);
@@ -39,6 +48,7 @@ export default async function OnboardingPage() {
     memberCount,
     tourCount,
     upcomingSlotCount,
+    hasPublicBookableTour: publicBookableTourCount > 0,
   });
   const progress = onboardingProgress(checklist);
 
@@ -71,8 +81,9 @@ export default async function OnboardingPage() {
             create your tour products, schedules, and departures from the Tours page.
           </li>
           <li>
-            <span className="font-medium text-foreground">Phase 3 — Booking engine:</span> your
-            public booking page starts accepting reservations.
+            <span className="font-medium text-foreground">Booking engine — live now:</span> your
+            public booking page, manual bookings, and the bookings dashboard are ready. Publish a
+            tour and share its link to start taking direct reservations.
           </li>
           <li>
             <span className="font-medium text-foreground">Phase 4 — Stripe payments:</span> take

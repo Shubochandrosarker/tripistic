@@ -127,12 +127,27 @@
 | limit_value | integer? | optional numeric limit |
 | created_at / updated_at | | resolution: workspace override → plan default → disabled |
 
-## 2. Future tables (Phases 2–9 — designed, not created yet)
+## 2. Phase 2 tables (implemented — tours & availability)
 
-- **tours** (workspace_id, title, slug, description, duration_minutes, location, capacity, base_price, currency, status, cancellation_policy, waiver_required, created_by, timestamps, deleted_at)
-- **availabilities** (workspace_id, tour_id, starts_at, ends_at, capacity, booked_count, guide_id?, status)
-- **bookings** (workspace_id, tour_id, availability_id, customer_id, status, total_amount, paid_amount, payment_status, source, reference, created_by?, timestamps, deleted_at)
-- **participants** (workspace_id, booking_id, name, age_band?, waiver_signature_id?)
+- **tours** (workspace_id, title, slug, description, duration_minutes, location, meeting_point, capacity, base_price, currency, status active/archived, visibility public/private, cancellation_policy, created_by, timestamps, deleted_at); unique (workspace_id, slug) and (workspace_id, id) — the latter backs Phase 3's composite tenant-safe foreign keys.
+- **tour_addons** (workspace_id, tour_id, name, price, timestamps)
+- **schedules** (workspace_id, tour_id, starts_on, ends_on, recurrence rule fields, timezone, status active/paused) — the recurring-departure definition that `generateSlotsForSchedule` expands into `availabilities` rows, transactionally.
+- **availabilities** (workspace_id, tour_id, schedule_id?, starts_at, ends_at, capacity, booked_count, status scheduled/cancelled/completed, timestamps); unique (workspace_id, id); DB-level `CHECK` constraints `capacity > 0`, `booked_count >= 0`, `booked_count <= capacity` (added in the Phase 2.1 hardening gate, migration `20260710193000_availability_capacity_constraints`).
+- **blackout_dates** (workspace_id, tour_id?, date, reason?)
+
+## 3. Phase 3 tables (implemented — booking engine)
+
+Added by migration `20260710200000_phase3_booking_engine`. `Booking.tour` and `Booking.availability` use **composite** foreign keys — `(workspace_id, tour_id)` references `tours(workspace_id, id)`, not just `tour_id` — so a cross-tenant reference is rejected by Postgres itself, not only by application-layer scoping.
+
+- **bookings** (workspace_id, tour_id, availability_id, reference [8-char unique human code], public_token [24-byte random, unique], status pending/confirmed/cancelled/completed/no_show, source public/manual, participant_count, guest_name, guest_email, guest_phone, total_price, currency, operator_notes, idempotency_key?, created_by_id? [FK→users, `SET NULL`], timestamps); unique (workspace_id, reference), unique (public_token), unique (workspace_id, idempotency_key) where present (Postgres allows unlimited `NULL`s in a unique index, so manual bookings carry no key without colliding).
+- **booking_participants** (workspace_id, booking_id, first_name, last_name) — one row per guest in the party, count enforced to match `participant_count`.
+- **booking_addon_selections** (workspace_id, booking_id, addon_id? [FK→tour_addons, `SET NULL`], name snapshot, unit_price snapshot, quantity) — the name/price are copied at booking time so a later add-on edit or deletion never rewrites booking history.
+- **booking_status_events** (workspace_id, booking_id, from_status?, to_status, note?, actor_id? [FK→users, `SET NULL`], created_at) — append-only audit trail backing the dashboard's status-history view; also used by `transitionBookingStatus()`'s exactly-once conditional-update logic.
+
+All follow the same conventions; every one carries `workspace_id`.
+
+## 4. Future tables (Phases 4–9 — designed, not created yet)
+
 - **customers** (workspace_id, name, email, phone, country, tags[], consent_status, notes, timestamps, deleted_at; unique (workspace_id, email))
 - **payments** (workspace_id, booking_id, provider, provider_payment_id, amount, currency, kind full/deposit/installment/refund, status, timestamps)
 - **waiver_templates** / **waiver_versions** (immutable) / **waiver_signatures** (signed snapshot ref, participant_id, booking_id, signed_at, ip, user_agent)
@@ -143,16 +158,17 @@
 
 All follow the same conventions; every one carries `workspace_id`.
 
-## 3. Integrity & isolation rules
+## 5. Integrity & isolation rules
 
 1. **No tenant query without workspace scope.** App-layer helpers (`lib/tenancy`) resolve the caller's membership first and inject `workspace_id` into every Prisma query. Raw unscoped queries on tenant tables are a code-review blocker.
-2. **Cross-workspace references are invalid.** When linking rows (e.g., future booking→tour), both must share `workspace_id` — enforced in service layer.
+2. **Cross-workspace references are invalid.** For Phase 1/2 tables this is enforced in the service layer (scoped lookups). For the Phase 3 booking subtree it is additionally enforced by the database itself: `bookings.tour_id`/`availability_id` are composite foreign keys against `(workspace_id, id)`, so a row from another tenant cannot be linked even by a bug that skips the app-layer check — proven in `tests/integration/tenant-scoping.test.ts` and `tests/integration/booking-lifecycle.test.ts`.
 3. **Last-owner protection.** A workspace must always retain ≥1 active `workspace_owner` member.
 4. **Audit logs are append-only.**
 5. **Soft-deleted rows** are excluded by default in helpers; hard deletes reserved for GDPR erasure workflows (later).
-6. Optional future hardening: Postgres RLS policies keyed on `workspace_id` (Phase 11 candidate — app-layer isolation is authoritative for MVP).
+6. **Capacity is never read-then-written.** Seat reservation and seat release are single conditional `UPDATE` statements at the database level (`lib/bookings/service.ts`, `lib/bookings/status-service.ts`), backed by the `CHECK` constraints in §2 — see `docs/16_PHASE_3_COMPLETION_REPORT.md` §7–§9 for the exact statements and concurrency proof.
+7. Optional future hardening: Postgres RLS policies keyed on `workspace_id` (Phase 11 candidate — app-layer isolation is authoritative for MVP).
 
-## 4. Migration & seed strategy
+## 6. Migration & seed strategy
 
 - Migrations live in `prisma/migrations` (SQL, checked in). Initial migration generated from schema; applied with `prisma migrate deploy` (prod) / `prisma migrate dev` (local).
 - Seed (`prisma/seed.ts`): upserts the 4 plans + plan-level feature flags; optionally creates a platform admin **only** when `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` env vars are provided (never a hardcoded credential).

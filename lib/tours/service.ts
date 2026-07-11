@@ -69,7 +69,7 @@ export async function countUpcomingSlots(workspaceId: string, tourId?: string) {
       ...(tourId ? { tourId } : {}),
       status: "scheduled",
       startsAt: { gt: new Date() },
-      tour: { deletedAt: null },
+      tour: { deletedAt: null, status: { not: "archived" } },
     },
   });
 }

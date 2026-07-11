@@ -28,3 +28,10 @@ yarn-error.log*
 
 # prisma
 /prisma/*.db
+
+# tests
+/coverage
+/playwright-report
+/test-results
+/blob-report
+/playwright/.cache

@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
@@ -11,3 +11,10 @@ export const prisma =
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
+
+/**
+ * Accepted by service functions that must run either standalone or inside a
+ * caller-managed `prisma.$transaction(async (tx) => ...)` block — lets one
+ * implementation serve both call shapes without duplicating logic.
+ */
+export type Db = PrismaClient | Prisma.TransactionClient;

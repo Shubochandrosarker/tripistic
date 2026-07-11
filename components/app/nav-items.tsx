@@ -37,7 +37,7 @@ export const dashboardNav: NavSection[] = [
   {
     title: "Operations",
     items: [
-      { href: "/dashboard/bookings", label: "Bookings", icon: CalendarCheck, badge: "Phase 3" },
+      { href: "/dashboard/bookings", label: "Bookings", icon: CalendarCheck },
       { href: "/dashboard/tours", label: "Tours", icon: Map },
       { href: "/dashboard/customers", label: "Customers", icon: Users, badge: "Phase 5" },
       { href: "/dashboard/ai-growth", label: "AI Growth", icon: Sparkles, badge: "Phase 7" },
