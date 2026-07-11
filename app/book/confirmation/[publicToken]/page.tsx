@@ -10,6 +10,7 @@ import { PAYMENT_STATUS_LABELS } from "@/lib/constants";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PaymentRetryButton } from "@/components/booking/payment-retry-button";
+import { WaiverSection } from "@/components/waivers/waiver-section";
 
 type Params = { params: Promise<{ publicToken: string }> };
 
@@ -174,8 +175,10 @@ export default async function BookingConfirmationPage({ params }: Params) {
         </SectionCard>
       ) : null}
 
+      {booking.status !== "cancelled" ? <WaiverSection publicToken={booking.publicToken} /> : null}
+
       <p className="rounded-lg border border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground print:hidden">
-        Automated confirmation emails aren&apos;t available yet — this page is your confirmation and receipt.
+        A confirmation email has also been sent — this page is your confirmation and receipt either way.
         Save or bookmark this link.
       </p>
     </div>

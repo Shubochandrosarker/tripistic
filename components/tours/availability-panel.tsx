@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { TZDate } from "@date-fns/tz";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/input";
+import { Field, Input, Select } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { TableShell, Td } from "@/components/ui/table-shell";
 import { formatDateTimeInTz, formatMoney } from "@/lib/utils";
@@ -18,7 +18,11 @@ export type AvailabilityRow = {
   priceOverride: number | null;
   status: string;
   scheduleId: string | null;
+  guideId: string | null;
+  guideName: string | null;
 };
+
+export type GuideOption = { id: string; name: string };
 
 export function AvailabilityPanel({
   workspaceId,
@@ -28,6 +32,7 @@ export function AvailabilityPanel({
   basePrice,
   availabilities,
   canManage,
+  guideOptions,
 }: {
   workspaceId: string;
   tourId: string;
@@ -36,6 +41,7 @@ export function AvailabilityPanel({
   basePrice: number;
   availabilities: AvailabilityRow[];
   canManage: boolean;
+  guideOptions: GuideOption[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -90,9 +96,17 @@ export function AvailabilityPanel({
         priceOverride: priceRaw
           ? Math.round(parseFloat(priceRaw) * 100)
           : undefined,
+        guideId: String(form.get("guideId") ?? "") || undefined,
       }),
     });
     if (ok) formElement.reset();
+  }
+
+  function onGuideChange(availabilityId: string, guideId: string) {
+    call(`/api/workspaces/${workspaceId}/tours/${tourId}/availabilities/${availabilityId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ guideId: guideId || null }),
+    });
   }
 
   const now = Date.now();
@@ -102,7 +116,7 @@ export function AvailabilityPanel({
       {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
 
       <TableShell
-        headers={["Departure", "Capacity", "Booked", "Price", "Source", "Status", ""]}
+        headers={["Departure", "Capacity", "Booked", "Price", "Guide", "Source", "Status", ""]}
         isEmpty={availabilities.length === 0}
         emptyMessage="No upcoming departures. Add a recurring schedule above or create a one-off departure below."
         className="border-0 shadow-none"
@@ -120,6 +134,26 @@ export function AvailabilityPanel({
                 {slot.priceOverride !== null ? (
                   <span className="ml-1 text-xs">(override)</span>
                 ) : null}
+              </Td>
+              <Td className="text-muted-foreground">
+                {canManage ? (
+                  <Select
+                    aria-label="Assigned guide"
+                    className="h-8 w-36 text-xs"
+                    defaultValue={slot.guideId ?? ""}
+                    disabled={busy}
+                    onChange={(event) => onGuideChange(slot.id, event.target.value)}
+                  >
+                    <option value="">Unassigned</option>
+                    {guideOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  (slot.guideName ?? "Unassigned")
+                )}
               </Td>
               <Td className="text-muted-foreground">{slot.scheduleId ? "Schedule" : "One-off"}</Td>
               <Td>
@@ -162,6 +196,16 @@ export function AvailabilityPanel({
             </Field>
             <Field label={`Price override (${currency})`} htmlFor="slot-price">
               <Input id="slot-price" name="priceOverride" type="number" min={0} step="0.01" placeholder="base price" />
+            </Field>
+            <Field label="Guide" htmlFor="slot-guide">
+              <Select id="slot-guide" name="guideId" defaultValue="">
+                <option value="">Unassigned</option>
+                {guideOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Button type="submit" disabled={busy}>
               {busy ? "Adding…" : "Add departure"}

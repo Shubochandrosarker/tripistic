@@ -61,6 +61,37 @@ export function canViewCustomers(role: WorkspaceRole): boolean {
   return canManageCustomers(role) || role === "viewer";
 }
 
+/**
+ * Guide profiles (certifications/notes) and eligibility to be assigned as
+ * `Availability.guideId` (Phase 6). Matches `canManageTours` exactly —
+ * tours/schedules/availabilities are owner/admin-only in this codebase
+ * (unlike bookings/customers, which include staff) — kept as its own named
+ * function for the same documentation reason `canManageCustomers` is its
+ * own function even though it delegates to `canManageBookings`.
+ */
+export function canManageGuides(role: WorkspaceRole): boolean {
+  return canManageTours(role);
+}
+
+/** Read-only guide roster access — manage-capable roles, plus staff and viewer. */
+export function canViewGuides(role: WorkspaceRole): boolean {
+  return canManageGuides(role) || role === "staff" || role === "viewer";
+}
+
+/**
+ * Editing the waiver template's legal text (Phase 6) — deliberately not
+ * extended to staff, unlike tour/booking editing; more sensitive than
+ * day-to-day operations.
+ */
+export function canManageWaiverTemplate(role: WorkspaceRole): boolean {
+  return role === "workspace_owner" || role === "workspace_admin";
+}
+
+/** Signature images + IP/UA are guest-PII-adjacent — same tier as guest contact info. */
+export function canViewWaiverSignatures(role: WorkspaceRole): boolean {
+  return canViewBookingPII(role);
+}
+
 /** Which roles may `actorRole` grant when inviting or changing a member? */
 export function grantableRoles(actorRole: WorkspaceRole): WorkspaceRoleValue[] {
   if (actorRole === "workspace_owner") {

@@ -326,3 +326,14 @@ export const ACTIVE_WORKSPACE_COOKIE = "tripistic_active_workspace";
 export const TRIAL_DAYS = 14;
 
 export const DEFAULT_PLAN_SLUG = "solo";
+
+/* ------------------------------------------------------------------------ */
+/* Phase 6 — Guides & waivers                                               */
+/* ------------------------------------------------------------------------ */
+
+export const GUIDE_CERTIFICATIONS_MAX = 20;
+
+/** ~1.5MB of raw PNG bytes as base64 — generous for a signature-pad drawing, small enough to guard against abuse. */
+export const MAX_SIGNATURE_IMAGE_LENGTH = 2_000_000;
+
+export const WAIVER_BODY_TEXT_MAX = 20_000;

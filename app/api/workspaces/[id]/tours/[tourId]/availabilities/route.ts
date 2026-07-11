@@ -7,6 +7,7 @@ import { canManageTours } from "@/lib/auth/permissions";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { availabilityQuerySchema, createAvailabilitySchema } from "@/lib/validation";
 import { requireTour } from "@/lib/tours/service";
+import { requireAssignableMember } from "@/lib/guides/service";
 
 type Params = { params: Promise<{ id: string; tourId: string }> };
 
@@ -58,6 +59,10 @@ export async function POST(request: Request, { params }: Params) {
     const body = await request.json().catch(() => null);
     const data = createAvailabilitySchema.parse(body);
 
+    if (data.guideId) {
+      await requireAssignableMember(id, data.guideId);
+    }
+
     const durationMs = (data.durationMinutes ?? tour.durationMinutes) * 60_000;
 
     try {
@@ -70,6 +75,7 @@ export async function POST(request: Request, { params }: Params) {
           capacity: data.capacity ?? tour.capacity,
           priceOverride: data.priceOverride ?? null,
           notes: data.notes ?? null,
+          guideId: data.guideId ?? null,
         },
       });
 

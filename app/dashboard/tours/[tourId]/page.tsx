@@ -36,7 +36,7 @@ export default async function TourDetailPage({
   if (!tour) notFound();
 
   const manage = canManageTours(active.role);
-  const [addons, schedules, availabilities, blackouts] = await Promise.all([
+  const [addons, schedules, availabilities, blackouts, assignableMembers] = await Promise.all([
     prisma.tourAddon.findMany({
       where: { tourId: tour.id, workspaceId: active.workspace.id },
       orderBy: { createdAt: "asc" },
@@ -53,6 +53,7 @@ export default async function TourDetailPage({
       },
       orderBy: { startsAt: "asc" },
       take: 100,
+      include: { guide: { include: { user: { select: { name: true } } } } },
     }),
     prisma.blackoutDate.findMany({
       where: {
@@ -61,6 +62,12 @@ export default async function TourDetailPage({
       },
       orderBy: { startsOn: "asc" },
       include: { tour: { select: { title: true } } },
+    }),
+    // Eligible guide-assignment targets — active, non-viewer (see lib/guides/service.ts::requireAssignableMember).
+    prisma.workspaceMember.findMany({
+      where: { workspaceId: active.workspace.id, status: "active", role: { not: "viewer" } },
+      include: { user: { select: { name: true } } },
+      orderBy: { joinedAt: "asc" },
     }),
   ]);
 
@@ -161,6 +168,7 @@ export default async function TourDetailPage({
           currency={tour.currency}
           basePrice={tour.basePrice}
           canManage={manage}
+          guideOptions={assignableMembers.map((member) => ({ id: member.id, name: member.user.name }))}
           availabilities={availabilities.map((slot) => ({
             id: slot.id,
             startsAt: slot.startsAt.toISOString(),
@@ -170,6 +178,8 @@ export default async function TourDetailPage({
             priceOverride: slot.priceOverride,
             status: slot.status,
             scheduleId: slot.scheduleId,
+            guideId: slot.guideId,
+            guideName: slot.guide?.user.name ?? null,
           }))}
         />
       </SectionCard>

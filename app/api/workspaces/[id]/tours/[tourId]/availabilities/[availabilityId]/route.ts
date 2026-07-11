@@ -6,6 +6,7 @@ import { canManageTours } from "@/lib/auth/permissions";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { updateAvailabilitySchema } from "@/lib/validation";
 import { requireAvailability, requireTour } from "@/lib/tours/service";
+import { requireAssignableMember } from "@/lib/guides/service";
 
 type Params = { params: Promise<{ id: string; tourId: string; availabilityId: string }> };
 
@@ -28,6 +29,9 @@ export async function PATCH(request: Request, { params }: Params) {
         `Capacity cannot be less than the ${existing.bookedCount} seat${existing.bookedCount === 1 ? "" : "s"} already booked. Minimum allowed capacity is ${existing.bookedCount}.`,
       );
     }
+    if (data.guideId !== undefined && data.guideId !== null) {
+      await requireAssignableMember(id, data.guideId);
+    }
 
     const availability = await prisma.availability.update({
       where: { id: existing.id },
@@ -35,6 +39,7 @@ export async function PATCH(request: Request, { params }: Params) {
         ...(data.capacity !== undefined ? { capacity: data.capacity } : {}),
         ...(data.priceOverride !== undefined ? { priceOverride: data.priceOverride } : {}),
         ...(data.notes !== undefined ? { notes: data.notes } : {}),
+        ...(data.guideId !== undefined ? { guideId: data.guideId } : {}),
       },
     });
 

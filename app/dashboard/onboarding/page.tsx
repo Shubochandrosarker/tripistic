@@ -96,8 +96,12 @@ export default async function OnboardingPage() {
             reminder, and review-request emails send automatically.
           </li>
           <li>
-            <span className="font-medium text-foreground">Phase 6–7:</span> waivers, guide
-            manifests, and the AI Growth Dashboard.
+            <span className="font-medium text-foreground">Guides & waivers — live now:</span>{" "}
+            assign a guide to any departure, track certifications and notes, and collect a signed
+            digital waiver from guests right on their confirmation page.
+          </li>
+          <li>
+            <span className="font-medium text-foreground">Phase 7:</span> the AI Growth Dashboard.
           </li>
         </ol>
       </SectionCard>

@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth/permissions";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { updateMemberSchema } from "@/lib/validation";
+import { clearGuideAssignments } from "@/lib/guides/service";
 
 type Params = { params: Promise<{ id: string; memberId: string }> };
 
@@ -96,7 +97,14 @@ export async function DELETE(request: Request, { params }: Params) {
       }
     }
 
-    await prisma.workspaceMember.delete({ where: { id: target.id } });
+    // Availability.guide is onDelete: Restrict (a composite FK can't null a
+    // required workspace_id column) — clear this member's assignments first
+    // in the same transaction so removing a former guide never fails.
+    const clearedGuideAssignments = await prisma.$transaction(async (tx) => {
+      const cleared = await clearGuideAssignments(tx, id, target.id);
+      await tx.workspaceMember.delete({ where: { id: target.id } });
+      return cleared;
+    });
 
     await recordAuditEvent({
       action: "member_removed",
@@ -104,7 +112,7 @@ export async function DELETE(request: Request, { params }: Params) {
       userId: user.id,
       entityType: "workspace_member",
       entityId: target.id,
-      metadata: { memberEmail: target.user.email, role: target.role },
+      metadata: { memberEmail: target.user.email, role: target.role, clearedGuideAssignments },
       request,
     });
 

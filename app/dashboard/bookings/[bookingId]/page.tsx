@@ -4,10 +4,11 @@ import { notFound, redirect } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { requireUserPage } from "@/lib/auth/session";
 import { getActiveWorkspace } from "@/lib/tenancy/workspace";
-import { canManageBookings, canViewBookings } from "@/lib/auth/permissions";
+import { canManageBookings, canViewBookings, canViewWaiverSignatures } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/db";
 import { serializeBookingDetail } from "@/lib/bookings/serializers";
 import { serializePaymentDetail, serializePaymentSummary } from "@/lib/payments/serializers";
+import { getWaiverStatusForBooking } from "@/lib/waivers/service";
 import { BOOKING_SOURCE_LABELS, BOOKING_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/constants";
 import { formatDateTimeInTz, formatMoney } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
@@ -40,6 +41,7 @@ export default async function BookingDetailPage({ params }: Params) {
         take: 1,
         include: { events: { orderBy: { createdAt: "asc" } } },
       },
+      tour: { select: { waiverRequired: true } },
     },
   });
   if (!record) notFound();
@@ -50,6 +52,8 @@ export default async function BookingDetailPage({ params }: Params) {
   const payment = serializePaymentSummary(paymentRecord);
   const paymentDetail = serializePaymentDetail(paymentRecord, active.role);
   const canGeneratePaymentLink = manage && booking.status === "pending" && booking.totalAmount > 0;
+  const showWaiverStatus = record.tour.waiverRequired && canViewWaiverSignatures(active.role);
+  const waiverStatus = showWaiverStatus ? await getWaiverStatusForBooking(active.workspace.id, booking.id) : null;
 
   return (
     <>
@@ -102,6 +106,29 @@ export default async function BookingDetailPage({ params }: Params) {
               ))}
             </ul>
           </SectionCard>
+
+          {waiverStatus ? (
+            <SectionCard title="Waiver" description="Signed status per participant.">
+              <ul className="divide-y divide-border text-sm">
+                {waiverStatus.map((status) => (
+                  <li key={status.participantId} className="flex items-center justify-between gap-2 py-2">
+                    <span className="text-foreground">
+                      {status.firstName} {status.lastName}
+                    </span>
+                    {status.signed ? (
+                      <StatusBadge
+                        status="signed"
+                        tone="green"
+                        label={`Signed${status.signerName && status.signerName !== `${status.firstName} ${status.lastName}` ? ` by ${status.signerName}` : ""}`}
+                      />
+                    ) : (
+                      <StatusBadge status="unsigned" tone="amber" label="Not signed" />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </SectionCard>
+          ) : null}
 
           {booking.addonSelections.length > 0 ? (
             <SectionCard title="Add-ons">
