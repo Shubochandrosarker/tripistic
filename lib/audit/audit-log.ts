@@ -42,7 +42,10 @@ export type AuditAction =
   | "payment_succeeded"
   | "payment_failed"
   | "payment_refunded"
-  | "payment_expired";
+  | "payment_expired"
+  | "customer_updated"
+  | "customer_unsubscribed"
+  | "member_invitation_emailed";
 
 export interface AuditEventInput {
   action: AuditAction;

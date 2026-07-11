@@ -4,6 +4,7 @@ import { prisma, type Db } from "@/lib/db";
 import { recordAuditEvent, type AuditAction } from "@/lib/audit/audit-log";
 import { uniqueViolationTargets } from "@/lib/prisma-errors";
 import { transitionBookingStatusInTx } from "@/lib/bookings/status-service";
+import { sendBookingConfirmationEmail } from "@/lib/messaging/service";
 
 export function isProviderEventUniqueViolation(error: unknown): boolean {
   return uniqueViolationTargets(error).some((target) => /provider_event/i.test(target));
@@ -229,6 +230,14 @@ export async function processStripeWebhookEvent(event: Stripe.Event): Promise<Pr
       entityId: settled.paymentId,
       metadata: { bookingId: settled.bookingId, eventType: event.type, providerEventId: event.id },
     });
+
+    // Phase 5: the main paid-booking path — a verified webhook confirming
+    // payment is one of the three places a booking becomes `confirmed`
+    // (see docs/19_PHASE_5_IMPLEMENTATION_PLAN.md §5). Sent after this
+    // transaction has committed, same as the audit event above.
+    if (settled.auditAction === "payment_succeeded") {
+      await sendBookingConfirmationEmail(settled.bookingId);
+    }
   }
 
   return { duplicate: false, outcome };

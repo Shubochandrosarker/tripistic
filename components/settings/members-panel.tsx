@@ -104,7 +104,7 @@ export function MembersPanel({
       }
       formElement.reset();
       setNotice(
-        "Invitation created. Email delivery arrives in Phase 5 — copy the invite link below and share it directly.",
+        "Invitation created and emailed. You can also copy the invite link below and share it directly.",
       );
       router.refresh();
     } catch {
@@ -290,8 +290,8 @@ export function MembersPanel({
             </Button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Invitations expire after 7 days. Email delivery ships in Phase 5 — until then, share
-            the invite link directly.
+            Invitations expire after 7 days and are emailed automatically — you can also copy and
+            share the invite link directly.
           </p>
         </form>
       ) : null}

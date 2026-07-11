@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { badRequest, conflict, notFound } from "@/lib/api";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { uniqueViolationTargets } from "@/lib/prisma-errors";
+import { upsertCustomerForBooking, sendBookingConfirmationEmail } from "@/lib/messaging/service";
 import { generateBookingReference, generatePublicToken } from "./reference";
 
 export type BookingParticipantInput = {
@@ -105,6 +106,16 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
           source: booking.source,
         },
       });
+      // A free public booking or a manual booking created directly as
+      // `confirmed` has no separate transition step to hook a confirmation
+      // email into (contrast the paid-Stripe and manual-status-change
+      // paths, which send from lib/payments/webhook-service.ts and
+      // lib/bookings/status-service.ts respectively) — send it here.
+      // Never on an idempotent replay: this branch only runs once, on the
+      // request that genuinely created the row.
+      if (booking.status === "confirmed") {
+        await sendBookingConfirmationEmail(booking.id);
+      }
       return { booking, idempotentReplay: false };
     } catch (error) {
       if (input.idempotencyKey && isIdempotencyKeyViolation(error)) {
@@ -219,11 +230,23 @@ async function reserveAndCreate(
     input.source === "public_direct" ? (totalAmount > 0 ? "pending" : "confirmed") : input.status ?? "confirmed";
   const now = new Date();
 
+  // Phase 5: every booking (public or manual) upserts/dedupes a Customer
+  // profile by (workspaceId, email), inside this same transaction so the
+  // profile and the booking that references it commit atomically. See
+  // lib/messaging/service.ts.
+  const customerId = await upsertCustomerForBooking(tx, {
+    workspaceId: input.workspaceId,
+    name: `${input.guestFirstName} ${input.guestLastName}`.trim(),
+    email: input.guestEmail,
+    phone: input.guestPhone,
+  });
+
   const booking = await tx.booking.create({
     data: {
       workspaceId: input.workspaceId,
       tourId: tour.id,
       availabilityId: availability.id,
+      customerId,
       reference: generateBookingReference(),
       publicToken: generatePublicToken(),
       idempotencyKey: input.idempotencyKey ?? null,

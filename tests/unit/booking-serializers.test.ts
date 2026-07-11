@@ -40,6 +40,7 @@ function fakeBooking(): BookingWithRelations {
     cancelledAt: null,
     completedAt: null,
     createdById: null,
+    customerId: null,
     createdAt: new Date("2026-07-01T00:00:00Z"),
     updatedAt: new Date("2026-07-01T00:00:00Z"),
     participants: [

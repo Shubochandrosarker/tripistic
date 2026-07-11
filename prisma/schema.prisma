@@ -149,6 +149,38 @@ enum PaymentStatus {
   @@map("payment_status")
 }
 
+enum ConsentStatus {
+  subscribed
+  unsubscribed
+  unknown
+
+  @@map("consent_status")
+}
+
+enum MessageChannel {
+  email
+
+  @@map("message_channel")
+}
+
+enum MessageStatus {
+  queued
+  sent
+  failed
+  skipped
+
+  @@map("message_status")
+}
+
+enum MessageTemplateKey {
+  booking_confirmation
+  booking_reminder
+  review_request
+  member_invitation
+
+  @@map("message_template_key")
+}
+
 model User {
   id              String     @id @default(cuid())
   name            String
@@ -206,6 +238,8 @@ model Workspace {
   bookings       Booking[]
   payments       Payment[]
   paymentEvents  PaymentEvent[]
+  customers      Customer[]
+  messages       Message[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -546,6 +580,9 @@ model Booking {
   completedAt                DateTime? @map("completed_at") @db.Timestamptz(6)
 
   createdById String?  @map("created_by")
+  /// Backfilled by createBooking() — deduped/upserted by (workspace_id,
+  /// email), never set directly by a caller. See lib/messaging/service.ts.
+  customerId  String?  @map("customer_id")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -553,10 +590,12 @@ model Booking {
   tour            Tour                    @relation(fields: [workspaceId, tourId], references: [workspaceId, id], onDelete: Restrict)
   availability    Availability            @relation(fields: [workspaceId, availabilityId], references: [workspaceId, id], onDelete: Restrict)
   createdBy       User?                   @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  customer        Customer?               @relation(fields: [workspaceId, customerId], references: [workspaceId, id], onDelete: Restrict)
   participants    BookingParticipant[]
   addonSelections BookingAddonSelection[]
   statusEvents    BookingStatusEvent[]
   payments        Payment[]
+  messages        Message[]
 
   @@unique([workspaceId, reference])
   @@unique([workspaceId, idempotencyKey])
@@ -565,6 +604,7 @@ model Booking {
   @@index([availabilityId, status])
   @@index([workspaceId, guestEmail])
   @@index([workspaceId, tourId])
+  @@index([workspaceId, customerId])
   @@map("bookings")
 }
 
@@ -708,4 +748,77 @@ model PaymentEvent {
   @@index([paymentId])
   @@index([bookingId])
   @@map("payment_events")
+}
+
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * Phase 5 — CRM & communication
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+/// Auto-created/updated by createBooking() (deduped by workspace_id+email,
+/// case-insensitive — the email is always lowercased before the lookup) —
+/// never created directly through a public-facing form. `@@unique` on
+/// (workspace_id, id) lets Booking.customer use the same composite
+/// tenant-safe foreign key pattern as the rest of the booking subtree.
+model Customer {
+  id            String        @id @default(cuid())
+  workspaceId   String        @map("workspace_id")
+  name          String
+  email         String
+  phone         String?
+  country       String?
+  tags          String[]      @default([])
+  consentStatus ConsentStatus @default(unknown) @map("consent_status")
+  notes         String?
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  bookings  Booking[]
+  messages  Message[]
+
+  @@unique([workspaceId, email])
+  @@unique([workspaceId, id])
+  @@index([workspaceId, consentStatus])
+  @@map("customers")
+}
+
+/// Append-only send-tracking log — one row per attempted message, not just
+/// successful ones (`status: failed`/`skipped` are recorded, not silently
+/// dropped, so "did this guest actually get their confirmation email" is
+/// always answerable). `bookingId`/`customerId` are nullable and not
+/// composite-FK'd to their parents (unlike the rest of the booking
+/// subtree) — this table is an observability log first, matching
+/// `AuditLog`'s existing nullable-FK precedent, not a strict child record.
+model Message {
+  id                String             @id @default(cuid())
+  workspaceId       String             @map("workspace_id")
+  bookingId         String?            @map("booking_id")
+  customerId        String?            @map("customer_id")
+  channel           MessageChannel     @default(email)
+  templateKey       MessageTemplateKey @map("template_key")
+  status            MessageStatus      @default(queued)
+  toEmail           String?            @map("to_email")
+  subject           String?
+  providerMessageId String?            @map("provider_message_id")
+  errorMessage      String?            @map("error_message")
+  sentAt            DateTime?          @map("sent_at") @db.Timestamptz(6)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  booking   Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  customer  Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, bookingId])
+  /// "Has this booking already received a sent reminder/confirmation?" —
+  /// the dedupe guard the reminder sweep and each send-site check first.
+  @@index([workspaceId, templateKey, bookingId])
+  @@map("messages")
 }

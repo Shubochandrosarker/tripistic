@@ -4,6 +4,9 @@ import {
   BOOKINGS_PAGE_SIZE_DEFAULT,
   BOOKINGS_PAGE_SIZE_MAX,
   BUSINESS_TYPES,
+  CONSENT_STATUSES,
+  CUSTOMERS_PAGE_SIZE_DEFAULT,
+  CUSTOMERS_PAGE_SIZE_MAX,
   MAX_PARTICIPANTS_PER_BOOKING,
   SETTING_KEYS,
   SLOT_GENERATION_DEFAULT_DAYS,
@@ -436,3 +439,28 @@ export const manualAuditEventSchema = z.object({
   entityId: z.string().trim().max(64).optional(),
   metadata: z.record(z.union([z.string().max(500), z.number(), z.boolean()])).optional(),
 });
+
+/* ------------------------------------------------------------------------ */
+/* Phase 5 — CRM & communication                                             */
+/* ------------------------------------------------------------------------ */
+
+export const customerListQuerySchema = z.object({
+  consentStatus: z.enum(CONSENT_STATUSES).optional(),
+  search: optionalText(120),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(CUSTOMERS_PAGE_SIZE_MAX).default(CUSTOMERS_PAGE_SIZE_DEFAULT),
+});
+
+/** Limited, operator-editable fields. `email` is the dedup key and is never editable after creation, same as a booking's departure/price. */
+export const updateCustomerSchema = z
+  .object({
+    name: nameSchema.optional(),
+    phone: optionalText(40),
+    country: optionalText(2),
+    tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+    consentStatus: z.enum(CONSENT_STATUSES).optional(),
+    notes: optionalText(2000),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });

@@ -39,7 +39,7 @@ export const dashboardNav: NavSection[] = [
     items: [
       { href: "/dashboard/bookings", label: "Bookings", icon: CalendarCheck },
       { href: "/dashboard/tours", label: "Tours", icon: Map },
-      { href: "/dashboard/customers", label: "Customers", icon: Users, badge: "Phase 5" },
+      { href: "/dashboard/customers", label: "Customers", icon: Users },
       { href: "/dashboard/ai-growth", label: "AI Growth", icon: Sparkles, badge: "Phase 7" },
     ],
   },

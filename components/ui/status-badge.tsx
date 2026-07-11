@@ -36,6 +36,12 @@ const statusTones: Record<string, Tone> = {
   failed: "red",
   refunded: "gray",
   partially_refunded: "orange",
+  subscribed: "green",
+  unsubscribed: "red",
+  unknown: "gray",
+  sent: "green",
+  queued: "amber",
+  skipped: "gray",
 };
 
 export function StatusBadge({
