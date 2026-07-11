@@ -9,7 +9,8 @@ import { prisma } from "@/lib/db";
 import { bookingListQuerySchema } from "@/lib/validation";
 import { buildBookingListQuery } from "@/lib/bookings/query";
 import { serializeBookingListItem } from "@/lib/bookings/serializers";
-import { BOOKING_SOURCE_LABELS, BOOKING_STATUSES, BOOKING_STATUS_LABELS } from "@/lib/constants";
+import { serializePaymentSummary } from "@/lib/payments/serializers";
+import { BOOKING_SOURCE_LABELS, BOOKING_STATUSES, BOOKING_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/constants";
 import { formatDateTimeInTz, formatMoney } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -47,13 +48,13 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
 
   const { where, orderBy, skip, take } = buildBookingListQuery(active.workspace.id, query);
 
-  const [bookings, total, summary] = await Promise.all([
+  const [bookings, total, summary, collected] = await Promise.all([
     prisma.booking.findMany({
       where,
       orderBy,
       skip,
       take,
-      include: { participants: true, addonSelections: true },
+      include: { participants: true, addonSelections: true, payments: { orderBy: { createdAt: "desc" }, take: 1 } },
     }),
     prisma.booking.count({ where }),
     prisma.booking.groupBy({
@@ -61,6 +62,10 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
       where: { workspaceId: active.workspace.id },
       _count: { _all: true },
       _sum: { totalAmount: true },
+    }),
+    prisma.payment.aggregate({
+      where: { workspaceId: active.workspace.id, status: "succeeded" },
+      _sum: { amount: true },
     }),
   ]);
 
@@ -94,14 +99,15 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <SummaryCard label="Total bookings" value={String(totalBookings)} />
         <SummaryCard label="Pending" value={String(countByStatus.pending ?? 0)} />
         <SummaryCard label="Confirmed" value={String(countByStatus.confirmed ?? 0)} />
+        <SummaryCard label="Total booked value" value={formatMoney(bookedValue, active.workspace.currency)} />
         <SummaryCard
-          label="Total booked value"
-          value={formatMoney(bookedValue, active.workspace.currency)}
-          hint="Booked value, not paid revenue — payments arrive in Phase 4."
+          label="Collected"
+          value={formatMoney(collected._sum.amount ?? 0, active.workspace.currency)}
+          hint="Sum of succeeded Stripe payments."
         />
       </div>
 
@@ -179,10 +185,11 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
       ) : (
         <>
           <TableShell
-            headers={["Reference", "Guest", "Tour", "Departure", "Party", "Status", "Source", "Value"]}
+            headers={["Reference", "Guest", "Tour", "Departure", "Party", "Status", "Payment", "Source", "Value"]}
           >
             {bookings.map((booking) => {
               const item = serializeBookingListItem(booking, active.role);
+              const payment = serializePaymentSummary(booking.payments[0] ?? null);
               return (
                 <tr key={item.id} className="transition-colors hover:bg-muted/50">
                   <Td>
@@ -206,6 +213,16 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
                   <Td className="text-muted-foreground">{item.participantCount}</Td>
                   <Td>
                     <StatusBadge status={item.status} label={BOOKING_STATUS_LABELS[item.status as keyof typeof BOOKING_STATUS_LABELS]} />
+                  </Td>
+                  <Td>
+                    {payment ? (
+                      <StatusBadge
+                        status={payment.status}
+                        label={PAYMENT_STATUS_LABELS[payment.status as keyof typeof PAYMENT_STATUS_LABELS]}
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No charge</span>
+                    )}
                   </Td>
                   <Td className="text-muted-foreground">{BOOKING_SOURCE_LABELS[item.source as keyof typeof BOOKING_SOURCE_LABELS]}</Td>
                   <Td className="text-muted-foreground">{formatMoney(item.totalAmount, item.currency)}</Td>

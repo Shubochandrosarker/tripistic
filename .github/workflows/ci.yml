@@ -12,6 +12,14 @@ env:
   APP_URL: http://localhost:3000
   NEXT_PUBLIC_APP_URL: http://localhost:3000
   NODE_ENV: test
+  # Fake but well-formed — no real Stripe account in CI. Checkout-session
+  # creation is mocked in the tests that need it; the webhook secret is real
+  # enough to sign and verify test payloads fully offline (HMAC, no network).
+  STRIPE_SECRET_KEY: sk_test_00000000000000000000000000000000000000000000
+  STRIPE_WEBHOOK_SECRET: whsec_test_0000000000000000000000000000000000000000000000
+  STRIPE_SUCCESS_URL: http://localhost:3000
+  STRIPE_CANCEL_URL: http://localhost:3000
+  PAYMENT_PENDING_EXPIRY_MINUTES: "30"
 
 jobs:
   test:

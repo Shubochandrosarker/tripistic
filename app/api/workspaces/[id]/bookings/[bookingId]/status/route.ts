@@ -5,6 +5,7 @@ import { canManageBookings } from "@/lib/auth/permissions";
 import { bookingStatusTransitionSchema } from "@/lib/validation";
 import { transitionBookingStatus } from "@/lib/bookings/status-service";
 import { serializeBookingDetail } from "@/lib/bookings/serializers";
+import { serializePaymentDetail, serializePaymentSummary } from "@/lib/payments/serializers";
 import { prisma } from "@/lib/db";
 
 type Params = { params: Promise<{ id: string; bookingId: string }> };
@@ -36,10 +37,16 @@ export async function POST(request: Request, { params }: Params) {
         participants: true,
         addonSelections: true,
         statusEvents: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true } } } },
+        payments: { orderBy: { createdAt: "desc" }, take: 1, include: { events: { orderBy: { createdAt: "asc" } } } },
       },
     });
+    const payment = booking.payments[0] ?? null;
 
-    return json({ booking: serializeBookingDetail(booking, membership.role) });
+    return json({
+      booking: serializeBookingDetail(booking, membership.role),
+      payment: serializePaymentSummary(payment),
+      paymentDetail: serializePaymentDetail(payment, membership.role),
+    });
   } catch (error) {
     return handleApiError(error);
   }

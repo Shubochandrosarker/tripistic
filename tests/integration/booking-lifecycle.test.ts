@@ -50,7 +50,9 @@ describe("createBooking — canonical reservation service", () => {
     );
 
     expect(idempotentReplay).toBe(false);
-    expect(booking.status).toBe("confirmed");
+    // Phase 4: a paid public booking (totalAmount > 0) starts `pending`,
+    // awaiting a verified Stripe webhook — see lib/bookings/service.ts.
+    expect(booking.status).toBe("pending");
     expect(booking.unitPrice).toBe(5000);
     expect(booking.subtotal).toBe(10000); // 5000 * 2 participants
     expect(booking.addonsTotal).toBe(1000); // 500 * 2
@@ -68,7 +70,7 @@ describe("createBooking — canonical reservation service", () => {
 
     const events = await prisma.bookingStatusEvent.findMany({ where: { bookingId: booking.id } });
     expect(events).toHaveLength(1);
-    expect(events[0].toStatus).toBe("confirmed");
+    expect(events[0].toStatus).toBe("pending");
     expect(events[0].fromStatus).toBeNull();
   });
 
@@ -145,7 +147,9 @@ describe("createBooking — canonical reservation service", () => {
     expect(booking.unitPrice).toBe(7000);
     expect(booking.totalAmount).toBe(14000);
     expect(booking.currency).toBe("USD");
-    expect(booking.status).toBe("confirmed");
+    // The forged `status: "completed"` is ignored — the server computes
+    // `pending` from totalAmount > 0, not from anything the client sent.
+    expect(booking.status).toBe("pending");
     expect(booking.reference).not.toBe("HACKED01");
   });
 
@@ -166,8 +170,12 @@ describe("createBooking — canonical reservation service", () => {
 });
 
 describe("transitionBookingStatus / cancelBooking", () => {
+  // basePrice: 0 so the booking lands `confirmed` immediately (Phase 4: a
+  // paid public booking would start `pending`, awaiting payment, and these
+  // tests are about the confirmed -> completed/no_show/cancelled state
+  // machine, not payment gating).
   async function createConfirmedBooking(participantCount = 2) {
-    const { workspace, tour, availability } = await createBookableFixture({ tour: { capacity: 10 } });
+    const { workspace, tour, availability } = await createBookableFixture({ tour: { capacity: 10, basePrice: 0 } });
     const { booking } = await createBooking(
       baseInput(availability.id, tour.id, workspace.id, {
         participantCount,

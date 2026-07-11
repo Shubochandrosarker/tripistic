@@ -2,14 +2,14 @@
 
 **AI-native tour operations platform** for independent guides and small tour operators — bookings, payments, guides, waivers, guest communication, and AI growth insights in one dashboard, with **0% commission on direct bookings**.
 
-> **Status: Phase 3 (Booking Engine MVP) complete**, on top of a hardened Phase 2.1 gate. Operators can create tours/activities/packages with add-ons, recurring schedules, and timezone-correct departures (Phase 2); guests can now book them directly from a public workspace/tour page or an embeddable iframe widget, with atomic seat reservation, idempotent submission, and cancellation with capacity release, and operators manage every booking (including manual/phone bookings) from the dashboard (Phase 3). Payments, CRM, waivers, and AI modules ship in Phases 4–11 — see [`docs/08_PHASE_ROADMAP.md`](docs/08_PHASE_ROADMAP.md).
+> **Status: Phase 4 (Stripe Payments + Payment Status Automation) complete**, on top of a hardened Phase 2.1 gate. Operators can create tours/activities/packages with add-ons, recurring schedules, and timezone-correct departures (Phase 2); guests book them directly from a public workspace/tour page or an embeddable iframe widget, with atomic seat reservation, idempotent submission, and cancellation with capacity release (Phase 3); a paid booking now reserves its seats immediately but only confirms once a verified, signed Stripe webhook reports payment success — never on form submission — and unpaid bookings expire safely, releasing their seats (Phase 4). Operators manage every booking, including payment status and manual/phone bookings, from the dashboard. CRM, waivers, and AI modules ship in Phases 5–11 — see [`docs/08_PHASE_ROADMAP.md`](docs/08_PHASE_ROADMAP.md).
 
 ## Stack
 
 - **Next.js 15** (App Router) · **TypeScript** · **Tailwind CSS v4**
-- **PostgreSQL** + **Prisma 6** (shared DB, `workspace_id` tenant isolation; composite tenant-safe foreign keys on the booking tables)
+- **PostgreSQL** + **Prisma 6** (shared DB, `workspace_id` tenant isolation; composite tenant-safe foreign keys on the booking and payment tables)
 - **Auth.js / NextAuth v5** (credentials + JWT sessions, bcrypt)
-- **zod** validation · **lucide** icons · **Geist** type
+- **Stripe** (Checkout Sessions, signed webhooks) · **zod** validation · **lucide** icons · **Geist** type
 - **Vitest** (unit + PostgreSQL-backed integration tests) · **Playwright** (critical booking flow) · **GitHub Actions** CI
 
 ## Getting started
@@ -86,6 +86,7 @@ Strategy source documents (business plan, product system, roadmap, etc.) live at
 | [`docs/11`](docs/11_PHASE_2_IMPLEMENTATION_PLAN.md) / [`docs/12`](docs/12_PHASE_2_COMPLETION_REPORT.md) | Phase 2 plan + completion report (tours & availability) |
 | [`docs/13`](docs/13_PHASE_2_1_HARDENING_PLAN.md) / [`docs/15`](docs/15_PHASE_2_1_HARDENING_REPORT.md) | Phase 2.1 hardening plan + completion report |
 | [`docs/14`](docs/14_PHASE_3_IMPLEMENTATION_PLAN.md) / [`docs/16`](docs/16_PHASE_3_COMPLETION_REPORT.md) | Phase 3 plan + completion report (booking engine) |
+| [`docs/17`](docs/17_PHASE_4_IMPLEMENTATION_PLAN.md) / [`docs/18`](docs/18_PHASE_4_COMPLETION_REPORT.md) | Phase 4 plan + completion report (Stripe payments) |
 | [`docs/growth/`](docs/growth) | USA/UK/EU market research, SEO keyword strategy, competitor pages, AI demand analysis, free-tools plan, growth roadmap |
 
 ## License

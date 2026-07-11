@@ -230,6 +230,53 @@ export const BOOKING_SOURCE_LABELS: Record<BookingSourceValue, string> = {
 export const BOOKINGS_PAGE_SIZE_DEFAULT = 20;
 export const BOOKINGS_PAGE_SIZE_MAX = 100;
 
+/* ------------------------------------------------------------------------ */
+/* Phase 4 — payments                                                        */
+/* ------------------------------------------------------------------------ */
+
+export const PAYMENT_STATUSES = [
+  "requires_payment",
+  "processing",
+  "succeeded",
+  "failed",
+  "cancelled",
+  "refunded",
+  "partially_refunded",
+] as const;
+
+export type PaymentStatusValue = (typeof PAYMENT_STATUSES)[number];
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatusValue, string> = {
+  requires_payment: "Awaiting payment",
+  processing: "Processing",
+  succeeded: "Paid",
+  failed: "Payment failed",
+  cancelled: "Payment cancelled",
+  refunded: "Refunded",
+  partially_refunded: "Partially refunded",
+};
+
+/** Fallback when `PAYMENT_PENDING_EXPIRY_MINUTES` isn't set in the environment. */
+export const DEFAULT_PAYMENT_PENDING_EXPIRY_MINUTES = 30;
+
+/** Stripe's minimum allowed Checkout Session lifetime — sessions cannot expire sooner than this. */
+export const STRIPE_MIN_CHECKOUT_SESSION_MINUTES = 30;
+
+/**
+ * Currencies Stripe treats as having no fractional/minor unit — amounts for
+ * these must NOT be multiplied the way cent-based currencies are internally.
+ * This app already stores all money as integer minor units (see docs/03), so
+ * for a zero-decimal currency that integer IS the Stripe amount as-is; for
+ * every other currency it also already is (both this app and Stripe use
+ * "smallest unit" as the wire format) — the list exists so a future
+ * currency-conversion helper has one obvious place to branch on, and so unit
+ * tests can pin the exact set this app has verified against.
+ */
+export const ZERO_DECIMAL_CURRENCIES = new Set([
+  "BIF", "CLP", "DJF", "GNF", "JPY", "KMF", "KRW", "MGA", "PYG",
+  "RWF", "UGX", "VND", "VUV", "XAF", "XOF", "XPF",
+]);
+
 export const ACTIVE_WORKSPACE_COOKIE = "tripistic_active_workspace";
 
 export const TRIAL_DAYS = 14;

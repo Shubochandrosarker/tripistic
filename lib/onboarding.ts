@@ -48,12 +48,13 @@ export function buildOnboardingChecklist(input: {
       done: input.hasPublicBookableTour ?? false,
     },
     {
-      key: "connect_stripe",
-      title: "Connect Stripe",
-      description: "Take payments, deposits, and installments with 0% Tripistic commission.",
+      key: "stripe_payouts",
+      title: "Get paid out directly (Stripe Connect)",
+      description:
+        "Guests can already pay online at checkout. Direct payouts to your own bank account with 0% Tripistic commission are a future upgrade.",
       href: "/dashboard/billing",
       done: false,
-      phase: "Phase 4",
+      phase: "Future",
     },
     {
       key: "invite_team",

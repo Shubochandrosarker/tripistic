@@ -30,6 +30,12 @@ const statusTones: Record<string, Tone> = {
   archived: "gray",
   deactivated: "gray",
   inactive: "gray",
+  requires_payment: "amber",
+  processing: "blue",
+  succeeded: "green",
+  failed: "red",
+  refunded: "gray",
+  partially_refunded: "orange",
 };
 
 export function StatusBadge({

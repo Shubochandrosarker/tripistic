@@ -4,6 +4,8 @@ import { requirePublicWorkspace } from "@/lib/tenancy/public";
 import { publicBookingRequestSchema } from "@/lib/validation";
 import { createBooking } from "@/lib/bookings/service";
 import { serializePublicBookingConfirmation } from "@/lib/bookings/serializers";
+import { buildBookingCancelUrl, buildBookingSuccessUrl, ensureCheckoutSessionForBooking } from "@/lib/payments/service";
+import { serializePublicPayment } from "@/lib/payments/serializers";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +35,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const availabilityRef = await prisma.availability.findFirst({
       where: { id: data.availabilityId, workspaceId: workspace.id },
-      select: { tourId: true },
+      select: { tourId: true, tour: { select: { slug: true } } },
     });
     if (!availabilityRef) throw notFound("This departure is not available for booking.");
 
@@ -54,8 +56,20 @@ export async function POST(request: Request, { params }: Params) {
       requirePublicVisibility: true,
     });
 
+    // Phase 4: a paid booking lands `pending` (see lib/bookings/service.ts) —
+    // create (or, on an idempotent replay, reuse) its Stripe Checkout
+    // Session so the client can redirect the guest to pay. A free booking
+    // is already `confirmed` and has nothing to charge.
+    const payment =
+      booking.status === "pending" && booking.totalAmount > 0
+        ? await ensureCheckoutSessionForBooking(booking, {
+            successUrl: buildBookingSuccessUrl(booking.publicToken),
+            cancelUrl: buildBookingCancelUrl(booking.publicToken, workspaceSlug, availabilityRef.tour.slug),
+          })
+        : null;
+
     return noStoreJson(
-      { booking: serializePublicBookingConfirmation(booking) },
+      { booking: serializePublicBookingConfirmation(booking), payment: serializePublicPayment(payment) },
       idempotentReplay ? 200 : 201,
     );
   } catch (error) {

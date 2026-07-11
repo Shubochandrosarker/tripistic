@@ -37,7 +37,12 @@ export type AuditAction =
   | "booking_confirmed"
   | "booking_cancelled"
   | "booking_completed"
-  | "booking_marked_no_show";
+  | "booking_marked_no_show"
+  | "payment_created"
+  | "payment_succeeded"
+  | "payment_failed"
+  | "payment_refunded"
+  | "payment_expired";
 
 export interface AuditEventInput {
   action: AuditAction;

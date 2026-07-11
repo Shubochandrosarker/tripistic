@@ -5,6 +5,7 @@ config({ path: ".env.test" });
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient, type Tour, type WorkspaceRole } from "@prisma/client";
+import type Stripe from "stripe";
 
 if (!process.env.DATABASE_URL?.includes("tripistic_test")) {
   throw new Error("Integration tests must run against tripistic_test — check .env.test");
@@ -115,6 +116,27 @@ export async function createTestAvailability(
       bookedCount: overrides.bookedCount ?? 0,
     },
   });
+}
+
+/**
+ * A hand-built `Stripe.Event`-shaped object for tests that exercise
+ * `processStripeWebhookEvent` directly, without a real Stripe API call —
+ * only the fields the webhook service and its tests actually read are
+ * populated; the rest of the real `Stripe.Event` interface is irrelevant
+ * for that code path.
+ */
+export function fakeStripeEvent(type: string, object: Record<string, unknown>, id?: string): Stripe.Event {
+  return {
+    id: id ?? `evt_test_${randomUUID().replace(/-/g, "").slice(0, 20)}`,
+    object: "event",
+    type,
+    api_version: null,
+    created: Math.floor(Date.now() / 1000),
+    livemode: false,
+    pending_webhooks: 0,
+    request: null,
+    data: { object },
+  } as unknown as Stripe.Event;
 }
 
 /** One owner + one active public tour + one future scheduled departure — the common baseline most booking tests need. */

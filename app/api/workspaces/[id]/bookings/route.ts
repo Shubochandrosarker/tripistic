@@ -7,6 +7,9 @@ import { manualBookingRequestSchema, bookingListQuerySchema } from "@/lib/valida
 import { createBooking } from "@/lib/bookings/service";
 import { buildBookingListQuery } from "@/lib/bookings/query";
 import { serializeBookingDetail, serializeBookingListItem } from "@/lib/bookings/serializers";
+import { serializePaymentSummary } from "@/lib/payments/serializers";
+
+const LATEST_PAYMENT_INCLUDE = { payments: { orderBy: { createdAt: "desc" as const }, take: 1 } };
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -30,7 +33,7 @@ export async function GET(request: Request, { params }: Params) {
         orderBy,
         skip,
         take,
-        include: { participants: true, addonSelections: true },
+        include: { participants: true, addonSelections: true, ...LATEST_PAYMENT_INCLUDE },
       }),
       prisma.booking.count({ where }),
       prisma.booking.groupBy({
@@ -46,7 +49,10 @@ export async function GET(request: Request, { params }: Params) {
     );
 
     return json({
-      bookings: bookings.map((b) => serializeBookingListItem(b, membership.role)),
+      bookings: bookings.map((b) => ({
+        ...serializeBookingListItem(b, membership.role),
+        payment: serializePaymentSummary(b.payments[0] ?? null),
+      })),
       page: query.page,
       pageSize: query.pageSize,
       total,
@@ -93,7 +99,7 @@ export async function POST(request: Request, { params }: Params) {
       operatorNotes: data.operatorNotes,
     });
 
-    return json({ booking: serializeBookingDetail(booking, membership.role) }, 201);
+    return json({ booking: serializeBookingDetail(booking, membership.role), payment: null }, 201);
   } catch (error) {
     return handleApiError(error);
   }

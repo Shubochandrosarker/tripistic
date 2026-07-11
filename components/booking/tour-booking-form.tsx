@@ -137,11 +137,18 @@ export function TourBookingForm({
         body: JSON.stringify(payload),
       });
       const body = (await res.json().catch(() => null)) as
-        | { error?: string; booking?: { publicToken: string } }
+        | { error?: string; booking?: { publicToken: string }; payment?: { checkoutUrl: string | null } | null }
         | null;
       if (!res.ok || !body?.booking) {
         setError(body?.error ?? "Could not complete your booking. Please try again.");
         setBusy(false);
+        return;
+      }
+      if (body.payment?.checkoutUrl) {
+        // Full navigation, not router.push — this is an external Stripe URL,
+        // and the booking stays reserved-but-pending until the guest either
+        // pays there or the reservation's payment window expires.
+        window.location.href = body.payment.checkoutUrl;
         return;
       }
       router.push(`/book/confirmation/${body.booking.publicToken}`);
@@ -314,7 +321,9 @@ export function TourBookingForm({
               <span>{formatMoney(total, currency)}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Payment isn&apos;t collected online yet — this reserves your seats now.
+              {total > 0
+                ? "This reserves your seats now — you'll pay securely on the next page."
+                : "This reserves your seats now — no payment is required for this booking."}
             </p>
           </div>
 
@@ -331,7 +340,11 @@ export function TourBookingForm({
           {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
 
           <Button type="submit" disabled={busy} data-testid="submit-booking" className="w-full sm:w-auto">
-            {busy ? "Booking…" : `Book now — ${formatMoney(total, currency)}`}
+            {busy
+              ? "Booking…"
+              : total > 0
+                ? `Continue to payment — ${formatMoney(total, currency)}`
+                : "Book now — free"}
           </Button>
         </>
       ) : null}
