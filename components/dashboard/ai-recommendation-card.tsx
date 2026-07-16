@@ -1,10 +1,43 @@
 import { Sparkles } from "lucide-react";
 
 /**
- * Placeholder for the Phase 7 AI Growth Dashboard.
- * Shows a clearly-labeled example — never presented as live data.
+ * AI Growth Recommendations card. Phase 12's Business Brain (lib/analytics/
+ * business-brain.ts) can now supply real, computed suggestions — pass
+ * `suggestion` + `healthScore` for that. Callers that don't yet fetch a
+ * report (or haven't set up any bookings) get the original honest
+ * "sample content, not your data" placeholder, unchanged.
  */
-export function AIRecommendationCard() {
+export function AIRecommendationCard({
+  suggestion,
+  healthScore,
+}: {
+  suggestion?: string;
+  healthScore?: number;
+} = {}) {
+  if (suggestion) {
+    return (
+      <div className="relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
+            <Sparkles className="size-4" aria-hidden />
+          </span>
+          <p className="text-sm font-semibold text-foreground">AI Growth Recommendation</p>
+          {healthScore !== undefined ? (
+            <span className="ml-auto rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent">
+              Health {healthScore}/100
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3">
+          <p className="text-sm text-foreground">{suggestion}</p>
+        </div>
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          Computed from your real booking and occupancy data — see the full AI Growth Dashboard for more.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-xs">
       <div className="flex items-center gap-2">
@@ -12,9 +45,6 @@ export function AIRecommendationCard() {
           <Sparkles className="size-4" aria-hidden />
         </span>
         <p className="text-sm font-semibold text-foreground">AI Growth Recommendations</p>
-        <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-          Phase 7
-        </span>
       </div>
 
       <div className="mt-3 rounded-lg border border-dashed border-border bg-muted/40 p-3">

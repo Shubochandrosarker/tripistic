@@ -26,6 +26,13 @@ export async function GET(_request: Request, { params }: Params) {
         role: member.role,
         certifications: member.guideProfile?.certifications ?? [],
         notes: member.guideProfile?.notes ?? null,
+        kind: member.guideProfile?.kind ?? "guide",
+        languages: member.guideProfile?.languages ?? [],
+        skills: member.guideProfile?.skills ?? [],
+        employmentType: member.guideProfile?.employmentType ?? "employee",
+        phone: member.guideProfile?.phone ?? null,
+        hourlyRateCents: member.guideProfile?.hourlyRateCents ?? null,
+        active: member.guideProfile?.active ?? true,
       })),
     });
   } catch (error) {

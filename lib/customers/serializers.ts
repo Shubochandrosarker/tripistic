@@ -52,6 +52,7 @@ export type CustomerDetail = CustomerListItem & {
   updatedAt: string;
   bookings: CustomerBookingSummary[];
   messages: CustomerMessageSummary[];
+  company: { id: string; name: string } | null;
 };
 
 type CustomerDetailSource = Customer & {
@@ -65,6 +66,7 @@ type CustomerDetailSource = Customer & {
     currency: string;
   }[];
   messages?: { templateKey: string; status: string; sentAt: Date | null; createdAt: Date }[];
+  company?: { id: string; name: string } | null;
 };
 
 export function serializeCustomerDetail(customer: CustomerDetailSource, role: WorkspaceRole): CustomerDetail {
@@ -91,5 +93,6 @@ export function serializeCustomerDetail(customer: CustomerDetailSource, role: Wo
           createdAt: m.createdAt.toISOString(),
         }))
       : [],
+    company: customer.company ?? null,
   };
 }

@@ -135,6 +135,42 @@ export function reviewRequestEmail(ctx: ReviewRequestContext): RenderedEmail {
   return { subject, text, html };
 }
 
+export type DepartureDelayedContext = BookingEmailContext & { delayMinutes: number | null; opsMessage: string | null };
+
+/** Phase 8/9: sent to confirmed guests when their departure's ops status is manually marked delayed. */
+export function departureDelayedEmail(ctx: DepartureDelayedContext): RenderedEmail {
+  const departure = formatDateTimeInTz(ctx.departureStartsAt, ctx.timezone);
+  const subject = `Delay notice — ${ctx.tourTitle} (${ctx.reference})`;
+  const delayLine = ctx.delayMinutes ? `The departure is now expected to run about ${ctx.delayMinutes} minutes late.` : "The departure is delayed.";
+  const text = [
+    `Hi ${ctx.guestFirstName},`,
+    ``,
+    delayLine,
+    ctx.opsMessage ? `Note from the team: ${ctx.opsMessage}` : null,
+    ``,
+    `Reference: ${ctx.reference}`,
+    `Originally scheduled: ${departure}`,
+    ``,
+    `View your booking: ${ctx.confirmationUrl}`,
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+
+  const html = wrapHtml(
+    ctx.workspaceName,
+    `<p>Hi ${escapeHtml(ctx.guestFirstName)},</p>
+     <p>${escapeHtml(delayLine)}</p>
+     ${ctx.opsMessage ? `<p>${escapeHtml(ctx.opsMessage)}</p>` : ""}
+     <table role="presentation" style="width:100%;font-size:13px;margin:16px 0;">
+       <tr><td style="color:#71717a;padding:4px 0;">Reference</td><td style="text-align:right;font-family:monospace;">${escapeHtml(ctx.reference)}</td></tr>
+       <tr><td style="color:#71717a;padding:4px 0;">Originally scheduled</td><td style="text-align:right;">${escapeHtml(departure)}</td></tr>
+     </table>
+     <p><a href="${ctx.confirmationUrl}" style="display:inline-block;background:#18181b;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">View your booking</a></p>`,
+  );
+
+  return { subject, text, html };
+}
+
 export type InvitationEmailContext = {
   workspaceName: string;
   inviterName: string;

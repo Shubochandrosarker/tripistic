@@ -115,3 +115,100 @@ export function canModifyMemberWithRole(
   }
   return false;
 }
+
+/* ------------------------------------------------------------------------ */
+/* Phase 5 (extended) — CRM: companies, leads, tasks, activity timeline     */
+/* ------------------------------------------------------------------------ */
+
+/** Companies (travel agents/hotels/partners) and the lead pipeline — matches `canManageCustomers` exactly (same day-to-day CRM audience). */
+export function canManageCrm(role: WorkspaceRole): boolean {
+  return canManageBookings(role);
+}
+
+/** Read-only CRM access — everyone who can manage CRM, plus viewer. */
+export function canViewCrm(role: WorkspaceRole): boolean {
+  return canManageCrm(role) || role === "viewer";
+}
+
+/* ------------------------------------------------------------------------ */
+/* Phase 6 (extended) — Workforce management                                */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Extended workforce fields (languages/skills/employment/pay/time off/
+ * hours/ratings) — matches `canManageGuides` exactly (same owner/admin-only
+ * tier as the existing certifications/notes fields on the same profile).
+ */
+export function canManageWorkforce(role: WorkspaceRole): boolean {
+  return canManageGuides(role);
+}
+
+/** Read-only workforce roster/schedule access — manage-capable roles, plus staff and viewer (matches `canViewGuides`). */
+export function canViewWorkforce(role: WorkspaceRole): boolean {
+  return canManageWorkforce(role) || role === "staff" || role === "viewer";
+}
+
+/* ------------------------------------------------------------------------ */
+/* Phase 7 — Vehicle management                                             */
+/* ------------------------------------------------------------------------ */
+
+/** Vehicle fleet CRUD, maintenance, fuel logs — matches `canManageTours` (owner/admin-only, same tier as other physical-inventory management). */
+export function canManageVehicles(role: WorkspaceRole): boolean {
+  return canManageTours(role);
+}
+
+/** Read-only fleet access — manage-capable roles, plus staff and viewer (drivers/staff need to see their assigned vehicle). */
+export function canViewVehicles(role: WorkspaceRole): boolean {
+  return canManageVehicles(role) || role === "staff" || role === "viewer";
+}
+
+/* ------------------------------------------------------------------------ */
+/* Phase 8/9 — Operations Center & Dispatch Center                          */
+/* ------------------------------------------------------------------------ */
+
+/** Live ops-status transitions, check-ins, incident reports — matches `canManageBookings` (owner/admin/staff run day-of-departure operations). */
+export function canManageOperations(role: WorkspaceRole): boolean {
+  return canManageBookings(role);
+}
+
+/** Read-only ops board access — everyone who can manage operations, plus guide (sees their own departures) and viewer. */
+export function canViewOperations(role: WorkspaceRole): boolean {
+  return canManageOperations(role) || role === "guide" || role === "viewer";
+}
+
+/* ------------------------------------------------------------------------ */
+/* Phase 10 — Vendor management                                             */
+/* ------------------------------------------------------------------------ */
+
+/** Vendor directory + invoices — owner/admin-only, same tier as billing-adjacent data. */
+export function canManageVendors(role: WorkspaceRole): boolean {
+  return role === "workspace_owner" || role === "workspace_admin";
+}
+
+/** Read-only vendor directory access — manage-capable roles, plus staff and viewer. */
+export function canViewVendors(role: WorkspaceRole): boolean {
+  return canManageVendors(role) || role === "staff" || role === "viewer";
+}
+
+/* ------------------------------------------------------------------------ */
+/* Phase 11 — AI Itinerary Builder                                          */
+/* ------------------------------------------------------------------------ */
+
+/** Build/edit itineraries — matches `canManageBookings` (same day-to-day guest-facing audience). */
+export function canManageItineraries(role: WorkspaceRole): boolean {
+  return canManageBookings(role);
+}
+
+/** Read-only itinerary access — everyone who can manage itineraries, plus viewer. */
+export function canViewItineraries(role: WorkspaceRole): boolean {
+  return canManageItineraries(role) || role === "viewer";
+}
+
+/* ------------------------------------------------------------------------ */
+/* Phase 12 — AI Business Brain                                             */
+/* ------------------------------------------------------------------------ */
+
+/** Revenue/forecast/health-score dashboard — owner/admin only, same tier as billing and audit logs (financial visibility). */
+export function canViewBusinessBrain(role: WorkspaceRole): boolean {
+  return role === "workspace_owner" || role === "workspace_admin";
+}

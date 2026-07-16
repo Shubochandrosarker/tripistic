@@ -54,11 +54,24 @@ export async function listGuides(workspaceId: string) {
   });
 }
 
+export type UpsertGuideProfileInput = {
+  certifications?: string[];
+  notes?: string | null;
+  /** Phase 6 (extended) — workforce fields, all optional so existing callers (certifications/notes only) are unaffected. */
+  kind?: "guide" | "driver" | "both";
+  languages?: string[];
+  skills?: string[];
+  employmentType?: "employee" | "freelancer" | "contractor";
+  phone?: string | null;
+  hourlyRateCents?: number | null;
+  active?: boolean;
+};
+
 /** Created lazily (upsert) the first time an operator records certifications/notes for a member. */
 export async function upsertGuideProfile(
   workspaceId: string,
   memberId: string,
-  data: { certifications?: string[]; notes?: string | null },
+  data: UpsertGuideProfileInput,
 ) {
   await requireMember(workspaceId, memberId);
   return prisma.guideProfile.upsert({
@@ -68,10 +81,24 @@ export async function upsertGuideProfile(
       memberId,
       certifications: data.certifications ?? [],
       notes: data.notes ?? null,
+      kind: data.kind ?? "guide",
+      languages: data.languages ?? [],
+      skills: data.skills ?? [],
+      employmentType: data.employmentType ?? "employee",
+      phone: data.phone ?? null,
+      hourlyRateCents: data.hourlyRateCents ?? null,
+      active: data.active ?? true,
     },
     update: {
       ...(data.certifications !== undefined ? { certifications: data.certifications } : {}),
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
+      ...(data.kind !== undefined ? { kind: data.kind } : {}),
+      ...(data.languages !== undefined ? { languages: data.languages } : {}),
+      ...(data.skills !== undefined ? { skills: data.skills } : {}),
+      ...(data.employmentType !== undefined ? { employmentType: data.employmentType } : {}),
+      ...(data.phone !== undefined ? { phone: data.phone } : {}),
+      ...(data.hourlyRateCents !== undefined ? { hourlyRateCents: data.hourlyRateCents } : {}),
+      ...(data.active !== undefined ? { active: data.active } : {}),
     },
   });
 }

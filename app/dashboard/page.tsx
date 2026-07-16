@@ -14,6 +14,8 @@ import { getActiveWorkspace } from "@/lib/tenancy/workspace";
 import { getWorkspaceSubscription } from "@/lib/plans/limits";
 import { prisma } from "@/lib/db";
 import { buildOnboardingChecklist, onboardingProgress } from "@/lib/onboarding";
+import { computeBusinessBrainReport } from "@/lib/analytics/business-brain";
+import { canViewBusinessBrain } from "@/lib/auth/permissions";
 import { daysUntil, formatMoney } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
@@ -89,6 +91,11 @@ export default async function DashboardPage() {
   });
   const progress = onboardingProgress(checklist);
   const trialDays = daysUntil(subscription?.trialEndsAt ?? null);
+
+  const brainReport = canViewBusinessBrain(active.role) ? await computeBusinessBrainReport(active.workspace.id) : null;
+  const topSuggestion = brainReport?.hasEnoughData
+    ? (brainReport.pricingSuggestions[0] ?? brainReport.riskAlerts[0] ?? brainReport.marketingIdeas[0])
+    : undefined;
 
   return (
     <>
@@ -168,7 +175,7 @@ export default async function DashboardPage() {
         </SectionCard>
 
         <div className="space-y-4 lg:col-span-2">
-          <AIRecommendationCard />
+          <AIRecommendationCard suggestion={topSuggestion} healthScore={brainReport?.hasEnoughData ? brainReport.healthScore : undefined} />
           <SectionCard title="Quick links">
             <div className="grid grid-cols-2 gap-2">
               <ButtonLink href="/dashboard/tours" variant="secondary" size="sm">

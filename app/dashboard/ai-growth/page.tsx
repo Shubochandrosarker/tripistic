@@ -1,76 +1,161 @@
 import type { Metadata } from "next";
-import { Sparkles, TrendingUp, CalendarRange, Target } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
+import { AlertTriangle, Lightbulb, Package, Sparkles, Users } from "lucide-react";
+import { requireUserPage } from "@/lib/auth/session";
+import { getActiveWorkspace } from "@/lib/tenancy/workspace";
+import { canViewBusinessBrain } from "@/lib/auth/permissions";
+import { computeBusinessBrainReport } from "@/lib/analytics/business-brain";
+import { formatMoney } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
-import { ButtonLink } from "@/components/ui/button";
-import { AIRecommendationCard } from "@/components/dashboard/ai-recommendation-card";
+import { MetricCard } from "@/components/dashboard/metric-card";
 
 export const metadata: Metadata = {
   title: "AI Growth",
 };
 
-const upcoming = [
-  {
-    icon: TrendingUp,
-    title: "Prescriptive growth actions",
-    description:
-      "Plain-English recommendations with priority and expected impact — accept, dismiss, or mark them done.",
-  },
-  {
-    icon: CalendarRange,
-    title: "Demand & occupancy insights",
-    description:
-      "Which weekdays, time slots, and products over- or under-perform, based on your real booking data.",
-  },
-  {
-    icon: Target,
-    title: "Direct-booking growth",
-    description:
-      "Channel analysis that shows OTA vs direct share and what to change to keep more margin.",
-  },
-];
+export default async function AIGrowthPage() {
+  const user = await requireUserPage();
+  const active = await getActiveWorkspace(user.id);
+  if (!active) redirect("/workspaces/new");
+  if (!canViewBusinessBrain(active.role)) notFound();
 
-export default function AIGrowthPage() {
+  const report = await computeBusinessBrainReport(active.workspace.id);
+
   return (
     <>
       <PageHeader
         title="AI Growth Dashboard"
-        description="Tripistic's flagship: an AI co-pilot that tells you what's happening in your business and what to do next."
+        description="Tripistic's AI Business Brain: revenue forecast, demand, and plain-English suggestions — computed entirely from your own data."
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <AIRecommendationCard />
-        <SectionCard title="How it will work" description="Rules first, AI narration second">
-          <ul className="space-y-3">
-            {upcoming.map((item) => (
-              <li key={item.title} className="flex gap-3">
-                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
-                  <item.icon className="size-4" aria-hidden />
-                </span>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{item.title}</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                    {item.description}
-                  </p>
+      {!report.hasEnoughData ? (
+        <EmptyState
+          icon={Sparkles}
+          title="No AI calls are made here — and that's deliberate"
+          description="Insights need real booking data to be honest. Once you're taking bookings, this page fills in with your own occupancy, revenue, and risk signals — never invented numbers."
+        />
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard icon={Sparkles} label="Business health" value={`${report.healthScore}/100`} hint="Occupancy, cancellations, repeat rate, risk" />
+            <MetricCard icon={Sparkles} label="Growth score" value={`${report.growthScore}/100`} hint="Direct booking share, repeat rate, revenue trend" />
+            <MetricCard icon={Users} label="Repeat customers" value={`${report.repeatCustomerRatePct}%`} />
+            <MetricCard icon={AlertTriangle} label="Cancellation rate" value={`${report.cancellationRatePct}%`} />
+          </div>
+
+          <SectionCard title="Revenue — last 12 months + 3-month forecast" description="Forecast is a trailing 3-month average, not a promise.">
+            <div className="overflow-x-auto">
+              <div className="flex min-w-max items-end gap-2 pt-4">
+                {[...report.revenueHistory, ...report.revenueForecast].map((point, i) => {
+                  const max = Math.max(...report.revenueHistory.map((p) => p.revenueCents), ...report.revenueForecast.map((p) => p.revenueCents), 1);
+                  const heightPct = Math.max(4, Math.round((point.revenueCents / max) * 100));
+                  return (
+                    <div key={`${point.month}-${i}`} className="flex w-14 flex-col items-center gap-1">
+                      <div
+                        className={`w-8 rounded-t ${point.forecast ? "bg-accent/30 border border-dashed border-accent" : "bg-accent"}`}
+                        style={{ height: `${heightPct}px`, maxHeight: "120px" }}
+                        title={formatMoney(point.revenueCents, active.workspace.currency)}
+                      />
+                      <span className="text-[10px] text-muted-foreground">{point.month}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Occupancy by weekday" description="Average booked/capacity ratio for past departures — the basis for the pricing suggestions below.">
+            <div className="grid grid-cols-7 gap-2 text-center text-xs">
+              {report.occupancyByWeekday.map((day) => (
+                <div key={day.weekday} className="rounded-lg border border-border p-2">
+                  <p className="font-medium text-foreground">{day.label.slice(0, 3)}</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{day.departureCount > 0 ? `${day.avgOccupancyPct}%` : "—"}</p>
+                  <p className="text-muted-foreground">{day.departureCount} departure{day.departureCount === 1 ? "" : "s"}</p>
                 </div>
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
-      </div>
+              ))}
+            </div>
+          </SectionCard>
 
-      <EmptyState
-        icon={Sparkles}
-        phase="Foundation planned for Phase 7"
-        title="No AI calls are made yet — and that's deliberate"
-        description="The AI Growth Dashboard needs real booking and revenue data to be honest. Once the booking backbone (Phases 2–4) is processing reservations, insights generate from your own numbers — never invented ones."
-        actions={
-          <ButtonLink href="/dashboard/onboarding" variant="secondary" size="sm">
-            Follow the setup path
-          </ButtonLink>
-        }
-      />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SectionCard title="Suggested pricing & discounts" description="Rule-based, from the occupancy table above.">
+              {report.pricingSuggestions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Occupancy is balanced — no pricing changes suggested right now.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {report.pricingSuggestions.map((s, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-foreground">
+                      <Lightbulb className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Marketing ideas">
+              {report.marketingIdeas.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nothing flagged right now.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {report.marketingIdeas.map((s, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-foreground">
+                      <Sparkles className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Inventory warnings">
+              {report.inventoryWarnings.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Inventory looks healthy.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {report.inventoryWarnings.map((s, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-foreground">
+                      <Package className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Staff suggestions">
+              {report.staffSuggestions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Every upcoming departure this week has a guide assigned.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {report.staffSuggestions.map((s, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-foreground">
+                      <Users className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+          </div>
+
+          <SectionCard title="Risk alerts" description="Unpaid/overdue vendor invoices and vehicle document expiry.">
+            {report.riskAlerts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No risks flagged right now.</p>
+            ) : (
+              <ul className="space-y-2">
+                {report.riskAlerts.map((s, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-red-700 dark:text-red-400">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+        </>
+      )}
     </>
   );
 }

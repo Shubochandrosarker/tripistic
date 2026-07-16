@@ -4,18 +4,59 @@ import {
   BOOKINGS_PAGE_SIZE_DEFAULT,
   BOOKINGS_PAGE_SIZE_MAX,
   BUSINESS_TYPES,
+  COMPANIES_PAGE_SIZE_DEFAULT,
+  COMPANIES_PAGE_SIZE_MAX,
+  COMPANY_KINDS,
   CONSENT_STATUSES,
+  CRM_ACTIVITY_TYPES,
+  CRM_TASKS_PAGE_SIZE_DEFAULT,
+  CRM_TASKS_PAGE_SIZE_MAX,
+  CRM_TASK_STATUSES,
+  CRM_TIMELINE_PAGE_SIZE_DEFAULT,
+  CRM_TIMELINE_PAGE_SIZE_MAX,
   CUSTOMERS_PAGE_SIZE_DEFAULT,
   CUSTOMERS_PAGE_SIZE_MAX,
   GUIDE_CERTIFICATIONS_MAX,
+  GUIDE_KINDS,
+  INCIDENTS_PAGE_SIZE_DEFAULT,
+  INCIDENTS_PAGE_SIZE_MAX,
+  INCIDENT_CATEGORIES,
+  INCIDENT_SEVERITIES,
+  INCIDENT_STATUSES,
+  ITINERARIES_PAGE_SIZE_DEFAULT,
+  ITINERARIES_PAGE_SIZE_MAX,
+  ITINERARY_ITEM_TYPES,
+  ITINERARY_MAX_DAYS,
+  ITINERARY_MAX_TRAVELERS,
+  ITINERARY_STATUSES,
+  LEADS_PAGE_SIZE_DEFAULT,
+  LEADS_PAGE_SIZE_MAX,
+  LEAD_STATUSES,
+  MAINTENANCE_TYPES,
   MAX_PARTICIPANTS_PER_BOOKING,
   MAX_SIGNATURE_IMAGE_LENGTH,
+  OPS_STATUSES,
   SETTING_KEYS,
   SLOT_GENERATION_DEFAULT_DAYS,
   SLOT_GENERATION_MAX_DAYS,
+  STAFF_EMPLOYMENT_TYPES,
+  STAFF_LANGUAGES_MAX,
+  STAFF_SKILLS_MAX,
+  STAFF_TIME_ENTRY_MAX_MINUTES,
+  TIME_OFF_STATUSES,
   TOUR_KINDS,
   TOUR_STATUSES,
   TOUR_VISIBILITIES,
+  VEHICLES_PAGE_SIZE_DEFAULT,
+  VEHICLES_PAGE_SIZE_MAX,
+  VEHICLE_STATUSES,
+  VEHICLE_TYPES,
+  VENDOR_INVOICES_PAGE_SIZE_DEFAULT,
+  VENDOR_INVOICES_PAGE_SIZE_MAX,
+  VENDOR_INVOICE_STATUSES,
+  VENDORS_PAGE_SIZE_DEFAULT,
+  VENDORS_PAGE_SIZE_MAX,
+  VENDOR_KINDS,
   WAIVER_BODY_TEXT_MAX,
   WORKSPACE_ROLES,
 } from "@/lib/constants";
@@ -268,6 +309,10 @@ export const createAvailabilitySchema = z.object({
   notes: optionalText(500),
   /** Eligibility (active member, not viewer) is re-verified server-side — see lib/guides/service.ts. */
   guideId: optionalText(64),
+  /** Phase 6 (extended): driver, separate from guideId. Same eligibility re-check. */
+  driverId: optionalText(64),
+  /** Phase 7: vehicle assignment. Existence/status re-verified server-side — see lib/vehicles/service.ts. */
+  vehicleId: optionalText(64),
 });
 
 export const updateAvailabilitySchema = z
@@ -276,6 +321,10 @@ export const updateAvailabilitySchema = z
     priceOverride: z.union([z.coerce.number().int().min(0).max(100_000_000), z.null()]).optional(),
     notes: optionalText(500),
     guideId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+    /** Phase 6 (extended): driver, separate from guideId. */
+    driverId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+    /** Phase 7: vehicle assignment. */
+    vehicleId: z.union([z.string().min(1).max(64), z.null()]).optional(),
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Nothing to update",
@@ -475,15 +524,6 @@ export const updateCustomerSchema = z
 /* Phase 6 — Guides & waivers                                               */
 /* ------------------------------------------------------------------------ */
 
-export const updateGuideProfileSchema = z
-  .object({
-    certifications: z.array(z.string().trim().min(1).max(80)).max(GUIDE_CERTIFICATIONS_MAX).optional(),
-    notes: optionalText(2000),
-  })
-  .refine((data) => Object.values(data).some((value) => value !== undefined), {
-    message: "Nothing to update",
-  });
-
 export const publishWaiverVersionSchema = z.object({
   title: z.string().trim().min(2, "Title is too short").max(200),
   bodyText: z.string().trim().min(20, "Waiver text is too short").max(WAIVER_BODY_TEXT_MAX),
@@ -493,4 +533,483 @@ export const signWaiverSchema = z.object({
   participantId: z.string().trim().min(1).max(64),
   signerName: z.string().trim().min(2, "Enter the signer's full name").max(120),
   signatureImage: z.string().min(1).max(MAX_SIGNATURE_IMAGE_LENGTH),
+});
+
+/* ------------------------------------------------------------------------ */
+/* Phase 5 (extended) — CRM: companies, leads, tasks, activity timeline     */
+/* ------------------------------------------------------------------------ */
+
+const moneyCentsSchema = z.coerce.number().int().min(0).max(100_000_000);
+
+export const companySchema = z.object({
+  name: z.string().trim().min(2, "Name is too short").max(120),
+  kind: z.enum(COMPANY_KINDS).default("other"),
+  email: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    emailSchema.optional(),
+  ),
+  phone: phoneSchema,
+  website: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().trim().url("Enter a valid URL").max(300).optional(),
+  ),
+  country: countrySchema,
+  commissionRateBps: optionalInt(0, 10_000),
+  notes: optionalText(2000),
+});
+
+export const updateCompanySchema = companySchema
+  .partial()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const companyListQuerySchema = z.object({
+  kind: z.enum(COMPANY_KINDS).optional(),
+  search: optionalText(120),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(COMPANIES_PAGE_SIZE_MAX).default(COMPANIES_PAGE_SIZE_DEFAULT),
+});
+
+export const createLeadSchema = z.object({
+  name: nameSchema,
+  email: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    emailSchema.optional(),
+  ),
+  phone: phoneSchema,
+  companyId: optionalText(64),
+  source: optionalText(80),
+  status: z.enum(LEAD_STATUSES).default("new"),
+  estimatedValueCents: optionalInt(0, 100_000_000),
+  currency: z.string().trim().toUpperCase().length(3).optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+  notes: optionalText(2000),
+  assignedToId: optionalText(64),
+});
+
+export const updateLeadSchema = z
+  .object({
+    name: nameSchema.optional(),
+    email: z.union([emailSchema, z.null()]).optional(),
+    phone: z.union([z.string().trim().max(40), z.null()]).optional(),
+    companyId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+    source: optionalText(80),
+    status: z.enum(LEAD_STATUSES).optional(),
+    estimatedValueCents: z.union([moneyCentsSchema, z.null()]).optional(),
+    currency: z.string().trim().toUpperCase().length(3).optional(),
+    tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+    notes: optionalText(2000),
+    assignedToId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const leadListQuerySchema = z.object({
+  status: z.enum(LEAD_STATUSES).optional(),
+  search: optionalText(120),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(LEADS_PAGE_SIZE_MAX).default(LEADS_PAGE_SIZE_DEFAULT),
+});
+
+/** Converts a lead into a Customer — see lib/crm/leads.ts `convertLead`. No body: the lead's own fields drive the new/matched customer. */
+export const convertLeadSchema = z.object({
+  bookingNote: optionalText(500),
+});
+
+export const crmTaskSchema = z
+  .object({
+    title: z.string().trim().min(2, "Title is too short").max(200),
+    description: optionalText(2000),
+    dueAt: z.preprocess(
+      (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+      isoTimestampSchema.optional(),
+    ),
+    customerId: optionalText(64),
+    leadId: optionalText(64),
+    assignedToId: optionalText(64),
+  })
+  .refine((data) => !(data.customerId && data.leadId), {
+    message: "Link a task to a customer or a lead, not both",
+    path: ["leadId"],
+  });
+
+export const updateCrmTaskSchema = z
+  .object({
+    title: z.string().trim().min(2).max(200).optional(),
+    description: optionalText(2000),
+    dueAt: z.union([isoTimestampSchema, z.null()]).optional(),
+    status: z.enum(CRM_TASK_STATUSES).optional(),
+    assignedToId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const crmTaskListQuerySchema = z.object({
+  status: z.enum(CRM_TASK_STATUSES).optional(),
+  assignedToId: optionalText(64),
+  customerId: optionalText(64),
+  leadId: optionalText(64),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(CRM_TASKS_PAGE_SIZE_MAX).default(CRM_TASKS_PAGE_SIZE_DEFAULT),
+});
+
+export const crmActivitySchema = z
+  .object({
+    customerId: optionalText(64),
+    leadId: optionalText(64),
+    type: z.enum(CRM_ACTIVITY_TYPES).default("note"),
+    subject: optionalText(200),
+    body: optionalText(5000),
+    occurredAt: z.preprocess(
+      (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+      isoTimestampSchema.optional(),
+    ),
+  })
+  .refine((data) => Boolean(data.customerId) !== Boolean(data.leadId), {
+    message: "Link an activity to exactly one customer or lead",
+    path: ["leadId"],
+  });
+
+export const crmTimelineQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(CRM_TIMELINE_PAGE_SIZE_MAX)
+    .default(CRM_TIMELINE_PAGE_SIZE_DEFAULT),
+});
+
+/* ------------------------------------------------------------------------ */
+/* Phase 6 (extended) — Workforce management                                */
+/* ------------------------------------------------------------------------ */
+
+export const updateWorkforceProfileSchema = z
+  .object({
+    certifications: z.array(z.string().trim().min(1).max(80)).max(GUIDE_CERTIFICATIONS_MAX).optional(),
+    notes: optionalText(2000),
+    kind: z.enum(GUIDE_KINDS).optional(),
+    languages: z.array(z.string().trim().min(1).max(40)).max(STAFF_LANGUAGES_MAX).optional(),
+    skills: z.array(z.string().trim().min(1).max(60)).max(STAFF_SKILLS_MAX).optional(),
+    employmentType: z.enum(STAFF_EMPLOYMENT_TYPES).optional(),
+    phone: phoneSchema,
+    hourlyRateCents: z.union([moneyCentsSchema, z.null()]).optional(),
+    active: z.boolean().optional(),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const createTimeOffSchema = z
+  .object({
+    startsOn: dateOnlySchema,
+    endsOn: dateOnlySchema,
+    reason: optionalText(300),
+    status: z.enum(TIME_OFF_STATUSES).default("requested"),
+  })
+  .refine((data) => data.endsOn >= data.startsOn, {
+    message: "End date must be on or after the start date",
+    path: ["endsOn"],
+  });
+
+export const updateTimeOffSchema = z.object({
+  status: z.enum(TIME_OFF_STATUSES),
+});
+
+export const createTimeEntrySchema = z.object({
+  workedOn: dateOnlySchema,
+  minutes: z.coerce.number().int().min(1).max(STAFF_TIME_ENTRY_MAX_MINUTES),
+  availabilityId: optionalText(64),
+  role: optionalText(80),
+  note: optionalText(500),
+});
+
+export const createGuideRatingSchema = z.object({
+  ratingValue: z.coerce.number().int().min(1).max(5),
+  availabilityId: optionalText(64),
+  comment: optionalText(1000),
+});
+
+/** Inputs for the AI guide/driver matching engine (lib/workforce/matching.ts). */
+export const matchStaffQuerySchema = z.object({
+  availabilityId: z.string().trim().min(1).max(64),
+  role: z.enum(["guide", "driver"]).default("guide"),
+  languages: z
+    .preprocess(
+      (value) => (typeof value === "string" ? value.split(",").map((v) => v.trim()).filter(Boolean) : value),
+      z.array(z.string().trim().min(1).max(40)).max(STAFF_LANGUAGES_MAX).optional(),
+    ),
+  limit: z.coerce.number().int().min(1).max(20).default(5),
+});
+
+/* ------------------------------------------------------------------------ */
+/* Phase 7 — Vehicle management                                             */
+/* ------------------------------------------------------------------------ */
+
+export const vehicleSchema = z.object({
+  name: z.string().trim().min(2, "Name is too short").max(120),
+  type: z.enum(VEHICLE_TYPES).default("car"),
+  licensePlate: optionalText(20),
+  capacity: z.coerce.number().int().min(1).max(500),
+  status: z.enum(VEHICLE_STATUSES).default("active"),
+  odometer: optionalInt(0, 10_000_000),
+  fuelType: optionalText(40),
+  insuranceExpiresOn: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    dateOnlySchema.optional(),
+  ),
+  registrationExpiresOn: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    dateOnlySchema.optional(),
+  ),
+  notes: optionalText(2000),
+});
+
+export const updateVehicleSchema = vehicleSchema
+  .partial()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const vehicleListQuerySchema = z.object({
+  status: z.enum(VEHICLE_STATUSES).optional(),
+  search: optionalText(120),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(VEHICLES_PAGE_SIZE_MAX).default(VEHICLES_PAGE_SIZE_DEFAULT),
+});
+
+export const createMaintenanceRecordSchema = z.object({
+  type: z.enum(MAINTENANCE_TYPES).default("service"),
+  performedOn: dateOnlySchema,
+  odometer: optionalInt(0, 10_000_000),
+  costCents: optionalInt(0, 100_000_000),
+  vendorName: optionalText(120),
+  notes: optionalText(1000),
+  nextDueOn: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    dateOnlySchema.optional(),
+  ),
+});
+
+export const createFuelLogSchema = z.object({
+  loggedOn: dateOnlySchema,
+  costCents: z.coerce.number().int().min(0).max(100_000_000),
+  odometer: optionalInt(0, 10_000_000),
+  notes: optionalText(500),
+});
+
+/* ------------------------------------------------------------------------ */
+/* Phase 8/9 — Operations Center & Dispatch Center                          */
+/* ------------------------------------------------------------------------ */
+
+export const opsStatusTransitionSchema = z.object({
+  status: z.enum(OPS_STATUSES),
+  delayMinutes: optionalInt(0, 1440),
+  message: optionalText(500),
+  /** When true and the new status is `delayed`, queues a guest-notification message (see lib/operations/service.ts). */
+  notifyGuests: z.boolean().default(false),
+});
+
+export const createOpsNoteSchema = z.object({
+  message: z.string().trim().min(1, "Enter a note").max(2000),
+});
+
+export const assignDeparturePartySchema = z
+  .object({
+    guideId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+    driverId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+    vehicleId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const opsBoardQuerySchema = z.object({
+  date: dateOnlySchema.optional(),
+});
+
+export const createIncidentSchema = z.object({
+  availabilityId: optionalText(64),
+  severity: z.enum(INCIDENT_SEVERITIES).default("medium"),
+  category: z.enum(INCIDENT_CATEGORIES).default("other"),
+  description: z.string().trim().min(5, "Describe what happened").max(4000),
+});
+
+export const updateIncidentSchema = z
+  .object({
+    severity: z.enum(INCIDENT_SEVERITIES).optional(),
+    category: z.enum(INCIDENT_CATEGORIES).optional(),
+    status: z.enum(INCIDENT_STATUSES).optional(),
+    description: z.string().trim().min(5).max(4000).optional(),
+    resolutionNotes: optionalText(4000),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const incidentListQuerySchema = z.object({
+  status: z.enum(INCIDENT_STATUSES).optional(),
+  severity: z.enum(INCIDENT_SEVERITIES).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(INCIDENTS_PAGE_SIZE_MAX).default(INCIDENTS_PAGE_SIZE_DEFAULT),
+});
+
+/* ------------------------------------------------------------------------ */
+/* Phase 10 — Vendor management                                             */
+/* ------------------------------------------------------------------------ */
+
+export const vendorSchema = z.object({
+  name: z.string().trim().min(2, "Name is too short").max(120),
+  kind: z.enum(VENDOR_KINDS).default("other"),
+  contactName: optionalText(120),
+  email: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    emailSchema.optional(),
+  ),
+  phone: phoneSchema,
+  country: countrySchema,
+  commissionRateBps: optionalInt(0, 10_000),
+  rating: optionalInt(1, 5),
+  isActive: z.boolean().default(true),
+  notes: optionalText(2000),
+});
+
+export const updateVendorSchema = vendorSchema
+  .partial()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const vendorListQuerySchema = z.object({
+  kind: z.enum(VENDOR_KINDS).optional(),
+  isActive: z.preprocess((v) => (v === "true" ? true : v === "false" ? false : undefined), z.boolean().optional()),
+  search: optionalText(120),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(VENDORS_PAGE_SIZE_MAX).default(VENDORS_PAGE_SIZE_DEFAULT),
+});
+
+export const createVendorInvoiceSchema = z.object({
+  invoiceNumber: optionalText(80),
+  amountCents: z.coerce.number().int().min(0).max(100_000_000),
+  currency: z.string().trim().toUpperCase().length(3).optional(),
+  issuedOn: dateOnlySchema,
+  dueOn: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    dateOnlySchema.optional(),
+  ),
+  notes: optionalText(1000),
+});
+
+export const updateVendorInvoiceSchema = z
+  .object({
+    status: z.enum(VENDOR_INVOICE_STATUSES).optional(),
+    dueOn: z.union([dateOnlySchema, z.null()]).optional(),
+    notes: optionalText(1000),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const vendorInvoiceListQuerySchema = z.object({
+  status: z.enum(VENDOR_INVOICE_STATUSES).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(VENDOR_INVOICES_PAGE_SIZE_MAX)
+    .default(VENDOR_INVOICES_PAGE_SIZE_DEFAULT),
+});
+
+/* ------------------------------------------------------------------------ */
+/* Phase 11 — AI Itinerary Builder                                          */
+/* ------------------------------------------------------------------------ */
+
+export const generateItinerarySchema = z.object({
+  title: z.string().trim().min(2, "Title is too short").max(160),
+  destination: optionalText(160),
+  dayCount: z.coerce.number().int().min(1).max(ITINERARY_MAX_DAYS),
+  startDate: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    dateOnlySchema.optional(),
+  ),
+  travelerCount: optionalInt(1, ITINERARY_MAX_TRAVELERS),
+  currency: z.string().trim().toUpperCase().length(3).optional(),
+  customerId: optionalText(64),
+  leadId: optionalText(64),
+  /** Rough per-traveler-per-day budget tier — steers the rule-based generator's price selections. */
+  budgetTier: z.enum(["budget", "standard", "premium"]).default("standard"),
+});
+
+export const updateItinerarySchema = z
+  .object({
+    title: z.string().trim().min(2).max(160).optional(),
+    destination: optionalText(160),
+    startDate: z.union([dateOnlySchema, z.null()]).optional(),
+    travelerCount: z.union([z.coerce.number().int().min(1).max(ITINERARY_MAX_TRAVELERS), z.null()]).optional(),
+    status: z.enum(ITINERARY_STATUSES).optional(),
+    customerId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+    leadId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const itineraryListQuerySchema = z.object({
+  status: z.enum(ITINERARY_STATUSES).optional(),
+  search: optionalText(120),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(ITINERARIES_PAGE_SIZE_MAX).default(ITINERARIES_PAGE_SIZE_DEFAULT),
+});
+
+export const updateItineraryDaySchema = z
+  .object({
+    title: optionalText(160),
+    date: z.union([dateOnlySchema, z.null()]).optional(),
+    notes: optionalText(2000),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+export const createItineraryItemSchema = z.object({
+  itineraryDayId: z.string().trim().min(1).max(64),
+  type: z.enum(ITINERARY_ITEM_TYPES).default("other"),
+  title: z.string().trim().min(1, "Title is required").max(200),
+  description: optionalText(2000),
+  startTime: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().regex(TIME_HHMM, "Use HH:MM (24h) format").optional(),
+  ),
+  tourId: optionalText(64),
+  vendorId: optionalText(64),
+  costCents: z.coerce.number().int().min(0).max(100_000_000).default(0),
+  priceCents: z.coerce.number().int().min(0).max(100_000_000).default(0),
+});
+
+export const updateItineraryItemSchema = z
+  .object({
+    type: z.enum(ITINERARY_ITEM_TYPES).optional(),
+    title: z.string().trim().min(1).max(200).optional(),
+    description: optionalText(2000),
+    startTime: z.union([z.string().regex(TIME_HHMM), z.null()]).optional(),
+    tourId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+    vendorId: z.union([z.string().min(1).max(64), z.null()]).optional(),
+    costCents: optionalInt(0, 100_000_000),
+    priceCents: optionalInt(0, 100_000_000),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
+
+/** Move an item up or down within its day's sort order — the accessible alternative to drag-and-drop (see components/itineraries). */
+export const reorderItineraryItemSchema = z.object({
+  direction: z.enum(["up", "down"]),
+});
+
+export const createItineraryVersionSchema = z.object({
+  note: optionalText(300),
 });

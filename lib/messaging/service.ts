@@ -7,6 +7,7 @@ import {
   bookingReminderEmail,
   reviewRequestEmail,
   memberInvitationEmail,
+  departureDelayedEmail,
   type BookingEmailContext,
   type RenderedEmail,
 } from "./templates";
@@ -267,6 +268,49 @@ export async function sendReviewRequestEmail(bookingId: string): Promise<void> {
       unsubscribeUrl: booking.customerId ? buildUnsubscribeUrl(booking.customerId) : appBaseUrl(),
     }),
   });
+}
+
+/**
+ * Phase 8/9 "Delayed Tour Automation" — sends a delay notice to every
+ * confirmed guest on a departure. Called from
+ * lib/operations/service.ts `transitionOpsStatus` when an operator marks a
+ * departure `delayed` with notifyGuests enabled. Loops bookings
+ * sequentially (departures rarely carry more than a few dozen bookings, and
+ * each send is already independently tracked/non-throwing via
+ * `sendTrackedEmail`), so one failed send never blocks the rest.
+ */
+export async function sendDepartureDelayedNotices(
+  availabilityId: string,
+  delayMinutes: number | null,
+  opsMessage: string | null,
+): Promise<number> {
+  const bookings = await prisma.booking.findMany({
+    where: { availabilityId, status: "confirmed" },
+    select: { id: true },
+  });
+
+  let sent = 0;
+  for (const { id: bookingId } of bookings) {
+    const loaded = await loadBookingForEmail(bookingId);
+    if (!loaded) continue;
+    const { booking, workspaceName, timezone, fromName } = loaded;
+
+    await sendTrackedEmail({
+      workspaceId: booking.workspaceId,
+      bookingId: booking.id,
+      customerId: booking.customerId,
+      templateKey: "departure_delayed",
+      to: booking.guestEmail,
+      fromName,
+      rendered: departureDelayedEmail({
+        ...bookingEmailContext(booking, workspaceName, timezone),
+        delayMinutes,
+        opsMessage,
+      }),
+    });
+    sent += 1;
+  }
+  return sent;
 }
 
 export async function sendMemberInvitationEmail(input: {

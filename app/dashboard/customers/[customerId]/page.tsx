@@ -6,12 +6,16 @@ import { getActiveWorkspace } from "@/lib/tenancy/workspace";
 import { canManageCustomers, canViewCustomers } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/db";
 import { serializeCustomerDetail } from "@/lib/customers/serializers";
-import { BOOKING_STATUS_LABELS, CONSENT_STATUS_LABELS, MESSAGE_STATUS_LABELS, MESSAGE_TEMPLATE_LABELS } from "@/lib/constants";
+import { computeCustomerInsights } from "@/lib/crm/insights";
+import { buildCustomerTimeline } from "@/lib/crm/activities";
+import { BOOKING_STATUS_LABELS, CONSENT_STATUS_LABELS, CRM_TIMELINE_PAGE_SIZE_DEFAULT, MESSAGE_STATUS_LABELS, MESSAGE_TEMPLATE_LABELS } from "@/lib/constants";
 import { formatDateTimeInTz, formatMoney } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { MetricCard } from "@/components/dashboard/metric-card";
 import { CustomerEditPanel } from "@/components/customers/customer-edit-panel";
+import { Sparkles, TrendingUp, Repeat, Heart, XCircle } from "lucide-react";
 
 type Params = { params: Promise<{ customerId: string }> };
 
@@ -43,12 +47,20 @@ export default async function CustomerDetailPage({ params }: Params) {
         },
       },
       messages: { orderBy: { createdAt: "desc" }, take: 25 },
+      company: { select: { id: true, name: true } },
     },
   });
   if (!record) notFound();
 
   const customer = serializeCustomerDetail(record, active.role);
   const manage = canManageCustomers(active.role);
+
+  const [insights, timeline] = manage
+    ? await Promise.all([
+        computeCustomerInsights(active.workspace.id, customerId),
+        buildCustomerTimeline(active.workspace.id, customerId, CRM_TIMELINE_PAGE_SIZE_DEFAULT),
+      ])
+    : [null, []];
 
   return (
     <>
@@ -57,6 +69,49 @@ export default async function CustomerDetailPage({ params }: Params) {
         description={customer.email ?? "Contact details hidden for your role"}
         badge={<StatusBadge status={customer.consentStatus} label={CONSENT_STATUS_LABELS[customer.consentStatus as keyof typeof CONSENT_STATUS_LABELS]} />}
       />
+
+      {manage && insights ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              icon={TrendingUp}
+              label="Lifetime value"
+              value={formatMoney(insights.lifetimeValueCents, active.workspace.currency)}
+              hint={`${insights.bookingCount} booking${insights.bookingCount === 1 ? "" : "s"} total`}
+            />
+            <MetricCard
+              icon={Repeat}
+              label="Repeat guest"
+              value={insights.isRepeatCustomer ? "Yes" : "No"}
+              hint={insights.completedBookingCount > 0 ? `${insights.completedBookingCount} completed` : undefined}
+            />
+            <MetricCard
+              icon={Heart}
+              label="Favorite tour"
+              value={insights.favoriteTour?.title ?? "—"}
+              hint={insights.favoriteTour ? `Booked ${insights.favoriteTour.count}×` : "No bookings yet"}
+            />
+            <MetricCard
+              icon={XCircle}
+              label="Cancellation rate"
+              value={`${Math.round(insights.cancellationRate * 100)}%`}
+              hint={`${insights.cancelledBookingCount} of ${insights.bookingCount} cancelled`}
+            />
+          </div>
+
+          <SectionCard
+            title="AI customer summary"
+            description="Generated from this customer's real booking and payment history — no invented numbers."
+          >
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                <Sparkles className="size-4" aria-hidden />
+              </span>
+              <p className="text-sm leading-relaxed text-foreground">{insights.aiSummary}</p>
+            </div>
+          </SectionCard>
+        </>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -112,9 +167,52 @@ export default async function CustomerDetailPage({ params }: Params) {
               )}
             </SectionCard>
           ) : null}
+
+          {manage ? (
+            <SectionCard
+              title="Timeline"
+              description="Bookings, payments, messages, and logged calls/notes — merged and sorted, most recent first."
+            >
+              {timeline.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+              ) : (
+                <ul className="space-y-3 text-sm">
+                  {timeline.map((entry) => (
+                    <li key={`${entry.kind}-${entry.id}`} className="flex gap-3">
+                      <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-medium text-foreground">{entry.summary}</p>
+                          <time className="text-xs text-muted-foreground">
+                            {formatDateTimeInTz(new Date(entry.occurredAt), active.workspace.timezone)}
+                          </time>
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                          <span className="text-xs uppercase tracking-wide text-muted-foreground">{entry.kind}</span>
+                          {entry.status ? <StatusBadge status={entry.status} /> : null}
+                        </div>
+                        {entry.detail ? <p className="mt-0.5 text-xs text-muted-foreground">{entry.detail}</p> : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+          ) : null}
         </div>
 
         <div className="space-y-4">
+          {customer.company ? (
+            <SectionCard title="Company">
+              <Link
+                href={`/dashboard/companies`}
+                className="text-sm font-medium text-foreground hover:text-accent"
+              >
+                {customer.company.name}
+              </Link>
+            </SectionCard>
+          ) : null}
+
           <SectionCard title="Profile">
             {manage ? (
               <CustomerEditPanel

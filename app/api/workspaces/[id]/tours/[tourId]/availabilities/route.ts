@@ -8,6 +8,7 @@ import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { availabilityQuerySchema, createAvailabilitySchema } from "@/lib/validation";
 import { requireTour } from "@/lib/tours/service";
 import { requireAssignableMember } from "@/lib/guides/service";
+import { requireActiveVehicle } from "@/lib/vehicles/service";
 
 type Params = { params: Promise<{ id: string; tourId: string }> };
 
@@ -62,6 +63,12 @@ export async function POST(request: Request, { params }: Params) {
     if (data.guideId) {
       await requireAssignableMember(id, data.guideId);
     }
+    if (data.driverId) {
+      await requireAssignableMember(id, data.driverId);
+    }
+    if (data.vehicleId) {
+      await requireActiveVehicle(id, data.vehicleId);
+    }
 
     const durationMs = (data.durationMinutes ?? tour.durationMinutes) * 60_000;
 
@@ -76,6 +83,8 @@ export async function POST(request: Request, { params }: Params) {
           priceOverride: data.priceOverride ?? null,
           notes: data.notes ?? null,
           guideId: data.guideId ?? null,
+          driverId: data.driverId ?? null,
+          vehicleId: data.vehicleId ?? null,
         },
       });
 
