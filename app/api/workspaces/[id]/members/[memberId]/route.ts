@@ -10,6 +10,8 @@ import {
 import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { updateMemberSchema } from "@/lib/validation";
 import { clearGuideAssignments } from "@/lib/guides/service";
+import { clearCrmAssignments } from "@/lib/crm/leads";
+import { clearWorkforceAssignments } from "@/lib/workforce/service";
 
 type Params = { params: Promise<{ id: string; memberId: string }> };
 
@@ -97,14 +99,23 @@ export async function DELETE(request: Request, { params }: Params) {
       }
     }
 
-    // Availability.guide is onDelete: Restrict (a composite FK can't null a
-    // required workspace_id column) — clear this member's assignments first
-    // in the same transaction so removing a former guide never fails.
-    const clearedGuideAssignments = await prisma.$transaction(async (tx) => {
-      const cleared = await clearGuideAssignments(tx, id, target.id);
-      await tx.workspaceMember.delete({ where: { id: target.id } });
-      return cleared;
-    });
+    // Availability.guide/driver, Lead.assignedTo, and CrmTask.assignedTo are
+    // all onDelete: Restrict (a composite FK can't null a required
+    // workspace_id column) — clear this member's assignments first in the
+    // same transaction so removing a former guide/driver/assignee never fails.
+    const { clearedGuideAssignments, clearedDriverAssignments, clearedCrm } = await prisma.$transaction(
+      async (tx) => {
+        const cleared = await clearGuideAssignments(tx, id, target.id);
+        const clearedWorkforce = await clearWorkforceAssignments(tx, id, target.id);
+        const clearedCrmAssignments = await clearCrmAssignments(tx, id, target.id);
+        await tx.workspaceMember.delete({ where: { id: target.id } });
+        return {
+          clearedGuideAssignments: cleared,
+          clearedDriverAssignments: clearedWorkforce.clearedDriverAssignments,
+          clearedCrm: clearedCrmAssignments,
+        };
+      },
+    );
 
     await recordAuditEvent({
       action: "member_removed",
@@ -112,7 +123,14 @@ export async function DELETE(request: Request, { params }: Params) {
       userId: user.id,
       entityType: "workspace_member",
       entityId: target.id,
-      metadata: { memberEmail: target.user.email, role: target.role, clearedGuideAssignments },
+      metadata: {
+        memberEmail: target.user.email,
+        role: target.role,
+        clearedGuideAssignments,
+        clearedDriverAssignments,
+        clearedLeads: clearedCrm.clearedLeads,
+        clearedTasks: clearedCrm.clearedTasks,
+      },
       request,
     });
 

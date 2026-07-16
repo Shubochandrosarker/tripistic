@@ -6,6 +6,7 @@ import { canManageCustomers, canViewCustomers } from "@/lib/auth/permissions";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { updateCustomerSchema } from "@/lib/validation";
 import { serializeCustomerDetail } from "@/lib/customers/serializers";
+import { computeCustomerInsights } from "@/lib/crm/insights";
 
 type Params = { params: Promise<{ id: string; customerId: string }> };
 
@@ -24,6 +25,7 @@ const DETAIL_INCLUDE = {
     },
   },
   messages: { orderBy: { createdAt: "desc" as const }, take: 25 },
+  company: { select: { id: true, name: true } },
 };
 
 async function requireCustomer(workspaceId: string, customerId: string) {
@@ -44,7 +46,10 @@ export async function GET(_request: Request, { params }: Params) {
       throw forbidden("You do not have permission to view customers.");
     }
     const customer = await requireCustomer(id, customerId);
-    return json({ customer: serializeCustomerDetail(customer, membership.role) });
+    const insights = canManageCustomers(membership.role)
+      ? await computeCustomerInsights(id, customerId)
+      : null;
+    return json({ customer: serializeCustomerDetail(customer, membership.role), insights });
   } catch (error) {
     return handleApiError(error);
   }

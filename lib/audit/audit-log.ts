@@ -48,7 +48,49 @@ export type AuditAction =
   | "member_invitation_emailed"
   | "guide_profile_updated"
   | "waiver_version_published"
-  | "waiver_signed";
+  | "waiver_signed"
+  // Phase 5 (extended) — CRM
+  | "company_created"
+  | "company_updated"
+  | "company_archived"
+  | "lead_created"
+  | "lead_updated"
+  | "lead_converted"
+  | "crm_task_created"
+  | "crm_task_updated"
+  | "crm_activity_logged"
+  // Phase 6 (extended) — Workforce
+  | "workforce_profile_updated"
+  | "time_off_created"
+  | "time_off_updated"
+  | "time_entry_created"
+  | "guide_rating_created"
+  // Phase 7 — Vehicles
+  | "vehicle_created"
+  | "vehicle_updated"
+  | "vehicle_archived"
+  | "maintenance_record_created"
+  | "fuel_log_created"
+  // Phase 8/9 — Operations & Dispatch
+  | "ops_status_changed"
+  | "ops_note_added"
+  | "departure_party_assigned"
+  | "booking_checked_in"
+  | "incident_created"
+  | "incident_updated"
+  // Phase 10 — Vendors
+  | "vendor_created"
+  | "vendor_updated"
+  | "vendor_archived"
+  | "vendor_invoice_created"
+  | "vendor_invoice_updated"
+  // Phase 11 — AI Itinerary Builder
+  | "itinerary_generated"
+  | "itinerary_updated"
+  | "itinerary_item_created"
+  | "itinerary_item_updated"
+  | "itinerary_item_deleted"
+  | "itinerary_version_saved";
 
 export interface AuditEventInput {
   action: AuditAction;

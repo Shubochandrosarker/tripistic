@@ -7,6 +7,7 @@ import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { updateAvailabilitySchema } from "@/lib/validation";
 import { requireAvailability, requireTour } from "@/lib/tours/service";
 import { requireAssignableMember } from "@/lib/guides/service";
+import { requireActiveVehicle } from "@/lib/vehicles/service";
 
 type Params = { params: Promise<{ id: string; tourId: string; availabilityId: string }> };
 
@@ -32,6 +33,12 @@ export async function PATCH(request: Request, { params }: Params) {
     if (data.guideId !== undefined && data.guideId !== null) {
       await requireAssignableMember(id, data.guideId);
     }
+    if (data.driverId !== undefined && data.driverId !== null) {
+      await requireAssignableMember(id, data.driverId);
+    }
+    if (data.vehicleId !== undefined && data.vehicleId !== null) {
+      await requireActiveVehicle(id, data.vehicleId);
+    }
 
     const availability = await prisma.availability.update({
       where: { id: existing.id },
@@ -40,6 +47,8 @@ export async function PATCH(request: Request, { params }: Params) {
         ...(data.priceOverride !== undefined ? { priceOverride: data.priceOverride } : {}),
         ...(data.notes !== undefined ? { notes: data.notes } : {}),
         ...(data.guideId !== undefined ? { guideId: data.guideId } : {}),
+        ...(data.driverId !== undefined ? { driverId: data.driverId } : {}),
+        ...(data.vehicleId !== undefined ? { vehicleId: data.vehicleId } : {}),
       },
     });
 

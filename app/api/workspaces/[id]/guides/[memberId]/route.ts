@@ -1,25 +1,31 @@
 import { forbidden, handleApiError, json } from "@/lib/api";
 import { requireUserApi } from "@/lib/auth/session";
 import { requireWorkspaceAccess } from "@/lib/tenancy/workspace";
-import { canManageGuides } from "@/lib/auth/permissions";
+import { canManageWorkforce } from "@/lib/auth/permissions";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
-import { updateGuideProfileSchema } from "@/lib/validation";
+import { updateWorkforceProfileSchema } from "@/lib/validation";
 import { upsertGuideProfile } from "@/lib/guides/service";
 
 type Params = { params: Promise<{ id: string; memberId: string }> };
 
-/** Upserts certifications/notes for a member — created lazily on first write. */
+/**
+ * Upserts a member's workforce profile — created lazily on first write.
+ * Accepts both the original certifications/notes fields (Phase 6) and the
+ * extended workforce fields (Phase 6 extended: kind, languages, skills,
+ * employment type, phone, pay rate, active) in one PATCH — same
+ * permission tier (`canManageGuides` === `canManageWorkforce`).
+ */
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const { id, memberId } = await params;
     const user = await requireUserApi();
     const membership = await requireWorkspaceAccess(user.id, id);
-    if (!canManageGuides(membership.role)) {
+    if (!canManageWorkforce(membership.role)) {
       throw forbidden("Only workspace owners and admins can manage guide profiles.");
     }
 
     const body = await request.json().catch(() => null);
-    const data = updateGuideProfileSchema.parse(body);
+    const data = updateWorkforceProfileSchema.parse(body);
 
     const profile = await upsertGuideProfile(id, memberId, data);
 
@@ -38,6 +44,13 @@ export async function PATCH(request: Request, { params }: Params) {
         memberId: profile.memberId,
         certifications: profile.certifications,
         notes: profile.notes,
+        kind: profile.kind,
+        languages: profile.languages,
+        skills: profile.skills,
+        employmentType: profile.employmentType,
+        phone: profile.phone,
+        hourlyRateCents: profile.hourlyRateCents,
+        active: profile.active,
       },
     });
   } catch (error) {

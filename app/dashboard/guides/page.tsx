@@ -39,6 +39,12 @@ export default async function GuidesPage() {
             role: member.role as WorkspaceRoleValue,
             certifications: member.guideProfile?.certifications ?? [],
             notes: member.guideProfile?.notes ?? null,
+            kind: member.guideProfile?.kind ?? "guide",
+            languages: member.guideProfile?.languages ?? [],
+            skills: member.guideProfile?.skills ?? [],
+            employmentType: member.guideProfile?.employmentType ?? "employee",
+            phone: member.guideProfile?.phone ?? null,
+            active: member.guideProfile?.active ?? true,
           }))}
         />
       </SectionCard>

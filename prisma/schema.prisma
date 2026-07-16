@@ -177,6 +177,8 @@ enum MessageTemplateKey {
   booking_reminder
   review_request
   member_invitation
+  /// Phase 8/9: sent to confirmed guests when their departure is marked delayed.
+  departure_delayed
 
   @@map("message_template_key")
 }
@@ -196,15 +198,24 @@ model User {
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
-  memberships           WorkspaceMember[]    @relation("MemberUser")
-  invitedMembers        WorkspaceMember[]    @relation("MemberInviter")
-  ownedWorkspaces       Workspace[]          @relation("WorkspaceOwner")
-  invitationsSent       Invitation[]         @relation("InvitationInviter")
-  auditLogs             AuditLog[]
-  toursCreated          Tour[]               @relation("TourCreatedBy")
-  bookingsCreated       Booking[]            @relation("BookingCreatedBy")
-  bookingStatusEvents   BookingStatusEvent[] @relation("BookingStatusActor")
-  waiverVersionsCreated WaiverVersion[]
+  memberships              WorkspaceMember[]    @relation("MemberUser")
+  invitedMembers           WorkspaceMember[]    @relation("MemberInviter")
+  ownedWorkspaces          Workspace[]          @relation("WorkspaceOwner")
+  invitationsSent          Invitation[]         @relation("InvitationInviter")
+  auditLogs                AuditLog[]
+  toursCreated             Tour[]               @relation("TourCreatedBy")
+  bookingsCreated          Booking[]            @relation("BookingCreatedBy")
+  bookingStatusEvents      BookingStatusEvent[] @relation("BookingStatusActor")
+  waiverVersionsCreated    WaiverVersion[]
+  leadsCreated             Lead[]
+  crmTasksCreated          CrmTask[]
+  crmActivitiesLogged      CrmActivity[]
+  staffTimeEntriesLogged   StaffTimeEntry[]
+  guideRatingsGiven        GuideRating[]
+  opsEventsActed           OpsEvent[]
+  incidentReportsFiled     IncidentReport[]
+  itinerariesCreated       Itinerary[]
+  itineraryVersionsCreated ItineraryVersion[]
 
   @@map("users")
 }
@@ -224,27 +235,45 @@ model Workspace {
   updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?       @map("deleted_at") @db.Timestamptz(6)
 
-  owner            User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  members          WorkspaceMember[]
-  invitations      Invitation[]
-  settings         Setting[]
-  subscriptions    Subscription[]
-  featureFlags     FeatureFlag[]
-  auditLogs        AuditLog[]
-  tours            Tour[]
-  tourAddons       TourAddon[]
-  tourSchedules    TourSchedule[]
-  availabilities   Availability[]
-  blackoutDates    BlackoutDate[]
-  bookings         Booking[]
-  payments         Payment[]
-  paymentEvents    PaymentEvent[]
-  customers        Customer[]
-  messages         Message[]
-  guideProfiles    GuideProfile[]
-  waiverTemplate   WaiverTemplate?
-  waiverVersions   WaiverVersion[]
-  waiverSignatures WaiverSignature[]
+  owner                     User                       @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members                   WorkspaceMember[]
+  invitations               Invitation[]
+  settings                  Setting[]
+  subscriptions             Subscription[]
+  featureFlags              FeatureFlag[]
+  auditLogs                 AuditLog[]
+  tours                     Tour[]
+  tourAddons                TourAddon[]
+  tourSchedules             TourSchedule[]
+  availabilities            Availability[]
+  blackoutDates             BlackoutDate[]
+  bookings                  Booking[]
+  payments                  Payment[]
+  paymentEvents             PaymentEvent[]
+  customers                 Customer[]
+  messages                  Message[]
+  guideProfiles             GuideProfile[]
+  waiverTemplate            WaiverTemplate?
+  waiverVersions            WaiverVersion[]
+  waiverSignatures          WaiverSignature[]
+  companies                 Company[]
+  leads                     Lead[]
+  crmTasks                  CrmTask[]
+  crmActivities             CrmActivity[]
+  staffTimeOff              StaffTimeOff[]
+  staffTimeEntries          StaffTimeEntry[]
+  guideRatings              GuideRating[]
+  vehicles                  Vehicle[]
+  vehicleMaintenanceRecords VehicleMaintenanceRecord[]
+  vehicleFuelLogs           VehicleFuelLog[]
+  opsEvents                 OpsEvent[]
+  incidentReports           IncidentReport[]
+  vendors                   Vendor[]
+  vendorInvoices            VendorInvoice[]
+  itineraries               Itinerary[]
+  itineraryDays             ItineraryDay[]
+  itineraryItems            ItineraryItem[]
+  itineraryVersions         ItineraryVersion[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -266,7 +295,13 @@ model WorkspaceMember {
   invitedBy User?     @relation("MemberInviter", fields: [invitedById], references: [id], onDelete: SetNull)
 
   guideProfile         GuideProfile?
-  guidedAvailabilities Availability[] @relation("AvailabilityGuide")
+  guidedAvailabilities Availability[]   @relation("AvailabilityGuide")
+  drivenAvailabilities Availability[]   @relation("AvailabilityDriver")
+  assignedCrmTasks     CrmTask[]
+  assignedLeads        Lead[]
+  timeOff              StaffTimeOff[]
+  timeEntries          StaffTimeEntry[]
+  ratings              GuideRating[]
 
   @@unique([workspaceId, userId])
   /// Lets Availability.guide and GuideProfile.member use the same
@@ -404,12 +439,13 @@ model Tour {
   updatedAt               DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt               DateTime?      @map("deleted_at") @db.Timestamptz(6)
 
-  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy      User?          @relation("TourCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy      User?           @relation("TourCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   addons         TourAddon[]
   schedules      TourSchedule[]
   availabilities Availability[]
   blackoutDates  BlackoutDate[]
+  itineraryItems ItineraryItem[]
   bookings       Booking[]
 
   @@unique([workspaceId, slug])
@@ -485,20 +521,41 @@ model Availability {
   guideId       String?            @map("guide_id")
   status        AvailabilityStatus @default(scheduled)
   notes         String?
+  /// Phase 7: one vehicle per departure — same optional-assignment shape as
+  /// guideId.
+  vehicleId     String?            @map("vehicle_id")
+  /// Phase 6 (extended): one driver per departure, separate from guideId so
+  /// a departure can have both a tour guide and a dedicated driver.
+  driverId      String?            @map("driver_id")
+  /// Phase 8/9: live operations status — independent of `status` above,
+  /// which governs bookability, not day-of-departure state.
+  opsStatus     OpsStatus          @default(scheduled) @map("ops_status")
+  delayMinutes  Int?               @map("delay_minutes")
+  opsUpdatedAt  DateTime?          @map("ops_updated_at") @db.Timestamptz(6)
   createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  tour      Tour             @relation(fields: [tourId], references: [id], onDelete: Cascade)
-  schedule  TourSchedule?    @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
-  bookings  Booking[]
+  workspace        Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tour             Tour             @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  schedule         TourSchedule?    @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  bookings         Booking[]
   /// Phase 6: one guide per departure (reserved since Phase 2, wired up
   /// here). `onDelete: Restrict`, not `SetNull` — same reason as
   /// Booking.customer: a composite FK cannot null a required column
   /// (workspace_id). Member removal explicitly clears this field first
   /// (see app/api/workspaces/[id]/members/[memberId]/route.ts) so Restrict
   /// never actually blocks removing a former guide.
-  guide     WorkspaceMember? @relation("AvailabilityGuide", fields: [workspaceId, guideId], references: [workspaceId, id], onDelete: Restrict)
+  guide            WorkspaceMember? @relation("AvailabilityGuide", fields: [workspaceId, guideId], references: [workspaceId, id], onDelete: Restrict)
+  /// Same reasoning/pattern as `guide` above — member removal clears this
+  /// field first too (lib/workforce/service.ts `clearDriverAssignments`).
+  driver           WorkspaceMember? @relation("AvailabilityDriver", fields: [workspaceId, driverId], references: [workspaceId, id], onDelete: Restrict)
+  /// Vehicle is never hard-deleted (soft-delete only), so Restrict here
+  /// never blocks anything in practice — same reasoning as Lead.company.
+  vehicle          Vehicle?         @relation(fields: [workspaceId, vehicleId], references: [workspaceId, id], onDelete: Restrict)
+  opsEvents        OpsEvent[]
+  incidentReports  IncidentReport[]
+  staffTimeEntries StaffTimeEntry[]
+  guideRatings     GuideRating[]
 
   @@unique([tourId, startsAt])
   /// See the matching comment on Tour.@@unique([workspaceId, id]) — same
@@ -506,6 +563,7 @@ model Availability {
   @@unique([workspaceId, id])
   @@index([workspaceId, startsAt])
   @@index([tourId, startsAt])
+  @@index([workspaceId, opsStatus, startsAt])
   @@map("availabilities")
 }
 
@@ -598,12 +656,16 @@ model Booking {
   cancelledAt                DateTime? @map("cancelled_at") @db.Timestamptz(6)
   completedAt                DateTime? @map("completed_at") @db.Timestamptz(6)
 
-  createdById String?  @map("created_by")
+  createdById String?   @map("created_by")
   /// Backfilled by createBooking() — deduped/upserted by (workspace_id,
   /// email), never set directly by a caller. See lib/messaging/service.ts.
-  customerId  String?  @map("customer_id")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  customerId  String?   @map("customer_id")
+  /// Phase 8 Operations Center: set when the guest is checked in at
+  /// departure. Independent of `status` — a booking stays `confirmed`
+  /// through check-in; this is a separate day-of-departure signal.
+  checkedInAt DateTime? @map("checked_in_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   workspace        Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   tour             Tour                    @relation(fields: [workspaceId, tourId], references: [workspaceId, id], onDelete: Restrict)
@@ -792,6 +854,7 @@ model PaymentEvent {
 model Customer {
   id            String        @id @default(cuid())
   workspaceId   String        @map("workspace_id")
+  companyId     String?       @map("company_id")
   name          String
   email         String
   phone         String?
@@ -803,13 +866,23 @@ model Customer {
   updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt     DateTime?     @map("deleted_at") @db.Timestamptz(6)
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  bookings  Booking[]
-  messages  Message[]
+  workspace          Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// onDelete: Restrict, not SetNull — a composite FK can't null a required
+  /// workspace_id column (same reasoning as Availability.guide). Company is
+  /// never hard-deleted through the app (soft-delete only), so this never
+  /// actually blocks anything in practice.
+  company            Company?      @relation(fields: [workspaceId, companyId], references: [workspaceId, id], onDelete: Restrict)
+  bookings           Booking[]
+  messages           Message[]
+  crmTasks           CrmTask[]
+  crmActivities      CrmActivity[]
+  convertedFromLeads Lead[]
+  itineraries        Itinerary[]
 
   @@unique([workspaceId, email])
   @@unique([workspaceId, id])
   @@index([workspaceId, consentStatus])
+  @@index([workspaceId, companyId])
   @@map("customers")
 }
 
@@ -863,13 +936,22 @@ model Message {
 /// Created lazily (upsert) the first time an operator records anything for
 /// a member.
 model GuideProfile {
-  id             String   @id @default(cuid())
-  workspaceId    String   @map("workspace_id")
-  memberId       String   @map("member_id")
-  certifications String[] @default([])
-  notes          String?
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id              String              @id @default(cuid())
+  workspaceId     String              @map("workspace_id")
+  memberId        String              @map("member_id")
+  certifications  String[]            @default([])
+  notes           String?
+  /// Phase 6 (extended) — workforce management fields. All additive with
+  /// safe defaults so every existing row remains valid unmigrated data.
+  kind            GuideKind           @default(guide)
+  languages       String[]            @default([])
+  skills          String[]            @default([])
+  employmentType  StaffEmploymentType @default(employee) @map("employment_type")
+  phone           String?
+  hourlyRateCents Int?                @map("hourly_rate_cents")
+  active          Boolean             @default(true)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   member    WorkspaceMember @relation(fields: [workspaceId, memberId], references: [workspaceId, id], onDelete: Cascade)
@@ -934,6 +1016,189 @@ model WaiverVersion {
 /// storage integration exists anywhere in this app yet (.env.example's
 /// STORAGE_* vars are still placeholders), so this follows the same
 /// pragmatic shortcut Tour.coverImageUrl already takes.
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * Phase 5 (extended) — CRM: companies, leads, tasks, activity timeline
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+enum CompanyKind {
+  travel_agent
+  hotel
+  partner
+  other
+
+  @@map("company_kind")
+}
+
+enum LeadStatus {
+  new
+  contacted
+  qualified
+  proposal_sent
+  won
+  lost
+
+  @@map("lead_status")
+}
+
+enum CrmTaskStatus {
+  open
+  done
+
+  @@map("crm_task_status")
+}
+
+enum CrmActivityType {
+  note
+  call
+  email
+  whatsapp
+  sms
+  meeting
+  status_change
+
+  @@map("crm_activity_type")
+}
+
+/// Directory of external relationships a workspace deals with — travel
+/// agents, hotels, and other partners — as distinct from `Customer`, which
+/// is always an actual guest. A `Customer` or `Lead` may optionally belong
+/// to one (e.g. a guest who books through a travel agent).
+model Company {
+  id                String      @id @default(cuid())
+  workspaceId       String      @map("workspace_id")
+  name              String
+  kind              CompanyKind @default(other)
+  email             String?
+  phone             String?
+  website           String?
+  country           String?
+  commissionRateBps Int?        @map("commission_rate_bps")
+  notes             String?
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?   @map("deleted_at") @db.Timestamptz(6)
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customers Customer[]
+  leads     Lead[]
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, kind])
+  @@map("companies")
+}
+
+/// Pre-booking pipeline: a prospective guest who hasn't booked yet.
+/// `convertedCustomerId` is set once a lead becomes a real booking-backed
+/// `Customer` (see lib/crm/leads.ts `convertLead`) — the Lead row is kept
+/// (not deleted) as pipeline history rather than being replaced.
+model Lead {
+  id                  String     @id @default(cuid())
+  workspaceId         String     @map("workspace_id")
+  name                String
+  email               String?
+  phone               String?
+  companyId           String?    @map("company_id")
+  source              String?
+  status              LeadStatus @default(new)
+  estimatedValueCents Int?       @map("estimated_value_cents")
+  currency            String     @default("USD")
+  tags                String[]   @default([])
+  notes               String?
+  convertedCustomerId String?    @map("converted_customer_id")
+  assignedToId        String?    @map("assigned_to")
+  createdById         String?    @map("created_by")
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// All three composite FKs below use Restrict, not SetNull — a composite
+  /// FK can't null a required workspace_id column (same reasoning as
+  /// Availability.guide). Company/Customer are never hard-deleted (soft-
+  /// delete only); a WorkspaceMember removal explicitly clears
+  /// `assignedToId` first (see lib/crm/leads.ts `clearCrmAssignments`,
+  /// called from the member-removal route), so Restrict never blocks it.
+  company           Company?         @relation(fields: [workspaceId, companyId], references: [workspaceId, id], onDelete: Restrict)
+  convertedCustomer Customer?        @relation(fields: [workspaceId, convertedCustomerId], references: [workspaceId, id], onDelete: Restrict)
+  assignedTo        WorkspaceMember? @relation(fields: [workspaceId, assignedToId], references: [workspaceId, id], onDelete: Restrict)
+  createdBy         User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  tasks             CrmTask[]
+  activities        CrmActivity[]
+  itineraries       Itinerary[]
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, status])
+  @@index([workspaceId, companyId])
+  @@map("leads")
+}
+
+/// Follow-up task, optionally linked to one Customer or one Lead (never
+/// both — enforced by a CHECK constraint in migration SQL, same pattern as
+/// availabilities' hand-written capacity constraints). A task linked to
+/// neither is a general workspace to-do.
+model CrmTask {
+  id           String        @id @default(cuid())
+  workspaceId  String        @map("workspace_id")
+  title        String
+  description  String?
+  dueAt        DateTime?     @map("due_at") @db.Timestamptz(6)
+  status       CrmTaskStatus @default(open)
+  completedAt  DateTime?     @map("completed_at") @db.Timestamptz(6)
+  customerId   String?       @map("customer_id")
+  leadId       String?       @map("lead_id")
+  assignedToId String?       @map("assigned_to")
+  createdById  String?       @map("created_by")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customer   Customer?        @relation(fields: [workspaceId, customerId], references: [workspaceId, id], onDelete: Cascade)
+  lead       Lead?            @relation(fields: [workspaceId, leadId], references: [workspaceId, id], onDelete: Cascade)
+  /// Restrict, not SetNull — see the matching comment on Lead.assignedTo.
+  assignedTo WorkspaceMember? @relation(fields: [workspaceId, assignedToId], references: [workspaceId, id], onDelete: Restrict)
+  createdBy  User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, status, dueAt])
+  @@index([workspaceId, customerId])
+  @@index([workspaceId, leadId])
+  @@index([workspaceId, assignedToId])
+  @@map("crm_tasks")
+}
+
+/// Append-only interaction timeline — one row per logged touchpoint
+/// (call, email, WhatsApp, SMS, meeting, note, or an automatic
+/// `status_change` entry). Linked to exactly one of Customer or Lead
+/// (CHECK constraint, same reasoning as CrmTask). This is the backbone of
+/// the "Customer Timeline" — bookings/payments render alongside it in the
+/// UI from their own tables rather than being duplicated here.
+model CrmActivity {
+  id          String          @id @default(cuid())
+  workspaceId String          @map("workspace_id")
+  customerId  String?         @map("customer_id")
+  leadId      String?         @map("lead_id")
+  type        CrmActivityType @default(note)
+  subject     String?
+  body        String?
+  occurredAt  DateTime        @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  createdById String?         @map("created_by")
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customer  Customer? @relation(fields: [workspaceId, customerId], references: [workspaceId, id], onDelete: Cascade)
+  lead      Lead?     @relation(fields: [workspaceId, leadId], references: [workspaceId, id], onDelete: Cascade)
+  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, customerId, occurredAt])
+  @@index([workspaceId, leadId, occurredAt])
+  @@map("crm_activities")
+}
+
 model WaiverSignature {
   id              String   @id @default(cuid())
   workspaceId     String   @map("workspace_id")
@@ -955,4 +1220,552 @@ model WaiverSignature {
   @@unique([workspaceId, participantId])
   @@index([workspaceId, bookingId])
   @@map("waiver_signatures")
+}
+
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * Phase 6 (extended) — Workforce management: drivers, time off, hours, ratings
+ * New enums are declared next to the models that use them (rather than the
+ * top-of-file block Phases 1-6 originally used) so each phase stays a
+ * self-contained, reviewable unit — Prisma does not care about declaration
+ * order.
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+enum GuideKind {
+  guide
+  driver
+  both
+
+  @@map("guide_kind")
+}
+
+enum StaffEmploymentType {
+  employee
+  freelancer
+  contractor
+
+  @@map("staff_employment_type")
+}
+
+enum TimeOffStatus {
+  requested
+  approved
+  declined
+
+  @@map("time_off_status")
+}
+
+/// Vacation / unavailability window for a workforce member. Distinct from
+/// simply having no assignments — an approved row here is a hard exclusion
+/// signal for AI guide/driver matching (lib/workforce/matching.ts).
+model StaffTimeOff {
+  id          String        @id @default(cuid())
+  workspaceId String        @map("workspace_id")
+  memberId    String        @map("member_id")
+  startsOn    DateTime      @map("starts_on") @db.Date
+  endsOn      DateTime      @map("ends_on") @db.Date
+  reason      String?
+  status      TimeOffStatus @default(requested)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member    WorkspaceMember @relation(fields: [workspaceId, memberId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@index([workspaceId, memberId, startsOn])
+  @@map("staff_time_off")
+}
+
+/// Operator-logged hours worked on a specific date, optionally tied to the
+/// departure it was worked on — feeds "Payroll Hours" and the overtime
+/// signal in AI guide/driver matching. Not a time-clock/punch system: hours
+/// are entered after the fact by an owner/admin.
+model StaffTimeEntry {
+  id             String   @id @default(cuid())
+  workspaceId    String   @map("workspace_id")
+  memberId       String   @map("member_id")
+  availabilityId String?  @map("availability_id")
+  workedOn       DateTime @map("worked_on") @db.Date
+  minutes        Int
+  role           String?
+  note           String?
+  createdById    String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member       WorkspaceMember @relation(fields: [workspaceId, memberId], references: [workspaceId, id], onDelete: Cascade)
+  availability Availability?   @relation(fields: [workspaceId, availabilityId], references: [workspaceId, id], onDelete: Restrict)
+  createdBy    User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, memberId, workedOn])
+  @@index([workspaceId, availabilityId])
+  @@map("staff_time_entries")
+}
+
+/// Operator-recorded performance rating for a member, optionally tied to a
+/// specific departure. `ratingValue` 1-5, enforced by a CHECK constraint in
+/// migration SQL (same pattern as availabilities' capacity constraints).
+/// Feeds the Guide Dashboard's average rating and the AI matching score.
+model GuideRating {
+  id             String   @id @default(cuid())
+  workspaceId    String   @map("workspace_id")
+  memberId       String   @map("member_id")
+  availabilityId String?  @map("availability_id")
+  ratingValue    Int      @map("rating_value")
+  comment        String?
+  createdById    String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member       WorkspaceMember @relation(fields: [workspaceId, memberId], references: [workspaceId, id], onDelete: Cascade)
+  availability Availability?   @relation(fields: [workspaceId, availabilityId], references: [workspaceId, id], onDelete: Restrict)
+  createdBy    User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, memberId])
+  @@index([workspaceId, availabilityId])
+  @@map("guide_ratings")
+}
+
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * Phase 7 — Vehicle management
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+enum VehicleType {
+  car
+  van
+  minibus
+  bus
+  boat
+  other
+
+  @@map("vehicle_type")
+}
+
+enum VehicleStatus {
+  active
+  maintenance
+  retired
+
+  @@map("vehicle_status")
+}
+
+enum MaintenanceType {
+  service
+  repair
+  inspection
+
+  @@map("maintenance_type")
+}
+
+model Vehicle {
+  id                    String        @id @default(cuid())
+  workspaceId           String        @map("workspace_id")
+  name                  String
+  type                  VehicleType   @default(car)
+  licensePlate          String?       @map("license_plate")
+  capacity              Int
+  status                VehicleStatus @default(active)
+  odometer              Int?
+  fuelType              String?       @map("fuel_type")
+  insuranceExpiresOn    DateTime?     @map("insurance_expires_on") @db.Date
+  registrationExpiresOn DateTime?     @map("registration_expires_on") @db.Date
+  notes                 String?
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  workspace          Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  availabilities     Availability[]
+  maintenanceRecords VehicleMaintenanceRecord[]
+  fuelLogs           VehicleFuelLog[]
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, status])
+  @@map("vehicles")
+}
+
+model VehicleMaintenanceRecord {
+  id          String          @id @default(cuid())
+  workspaceId String          @map("workspace_id")
+  vehicleId   String          @map("vehicle_id")
+  type        MaintenanceType @default(service)
+  performedOn DateTime        @map("performed_on") @db.Date
+  odometer    Int?
+  costCents   Int?            @map("cost_cents")
+  vendorName  String?         @map("vendor_name")
+  notes       String?
+  nextDueOn   DateTime?       @map("next_due_on") @db.Date
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  vehicle   Vehicle   @relation(fields: [workspaceId, vehicleId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@index([workspaceId, vehicleId, performedOn])
+  @@map("vehicle_maintenance_records")
+}
+
+/// One row per fuel purchase — cost + odometer only (no volume/unit
+/// tracking) is enough to derive "Fuel Cost" and mileage-since-last-fill
+/// without adding a unit-of-measure dimension the rest of the app doesn't
+/// need yet.
+model VehicleFuelLog {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  vehicleId   String   @map("vehicle_id")
+  loggedOn    DateTime @map("logged_on") @db.Date
+  costCents   Int      @map("cost_cents")
+  odometer    Int?
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  vehicle   Vehicle   @relation(fields: [workspaceId, vehicleId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@index([workspaceId, vehicleId, loggedOn])
+  @@map("vehicle_fuel_logs")
+}
+
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * Phase 8/9 — Operations Center & Dispatch Center
+ * Share one migration/model group: both read and write the same live-status
+ * surface on Availability/Booking, so splitting them would only duplicate
+ * the same columns under two names.
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+enum OpsStatus {
+  scheduled
+  boarding
+  in_progress
+  delayed
+  completed
+  cancelled
+
+  @@map("ops_status")
+}
+
+enum OpsEventType {
+  status_changed
+  note
+  delay_reported
+  checkin
+  incident_reported
+  route_changed
+  customer_notified
+
+  @@map("ops_event_type")
+}
+
+enum IncidentSeverity {
+  low
+  medium
+  high
+  critical
+
+  @@map("incident_severity")
+}
+
+enum IncidentCategory {
+  medical
+  vehicle
+  weather
+  guest_behavior
+  other
+
+  @@map("incident_category")
+}
+
+enum IncidentStatus {
+  open
+  investigating
+  resolved
+
+  @@map("incident_status")
+}
+
+/// Append-only operations timeline for a departure — status transitions,
+/// delay reports, check-ins, route changes, and internal notes all land
+/// here as one feed (mirrors BookingStatusEvent's append-only pattern).
+model OpsEvent {
+  id             String       @id @default(cuid())
+  workspaceId    String       @map("workspace_id")
+  availabilityId String       @map("availability_id")
+  type           OpsEventType
+  fromStatus     OpsStatus?   @map("from_status")
+  toStatus       OpsStatus?   @map("to_status")
+  message        String?
+  actorUserId    String?      @map("actor_user_id")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  availability Availability @relation(fields: [workspaceId, availabilityId], references: [workspaceId, id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, availabilityId, createdAt])
+  @@map("ops_events")
+}
+
+/// Dispatch Center incident log. `availabilityId` is nullable — some
+/// incidents (a vehicle breakdown discovered in the yard) aren't tied to a
+/// specific departure.
+model IncidentReport {
+  id              String           @id @default(cuid())
+  workspaceId     String           @map("workspace_id")
+  availabilityId  String?          @map("availability_id")
+  severity        IncidentSeverity @default(medium)
+  category        IncidentCategory @default(other)
+  status          IncidentStatus   @default(open)
+  description     String
+  resolutionNotes String?          @map("resolution_notes")
+  resolvedAt      DateTime?        @map("resolved_at") @db.Timestamptz(6)
+  reportedById    String?          @map("reported_by")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  availability Availability? @relation(fields: [workspaceId, availabilityId], references: [workspaceId, id], onDelete: Restrict)
+  reportedBy   User?         @relation(fields: [reportedById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status, createdAt])
+  @@index([workspaceId, availabilityId])
+  @@map("incident_reports")
+}
+
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * Phase 10 — Vendor management
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+enum VendorKind {
+  hotel
+  restaurant
+  transport
+  activity_provider
+  other
+
+  @@map("vendor_kind")
+}
+
+enum VendorInvoiceStatus {
+  unpaid
+  paid
+  overdue
+  cancelled
+
+  @@map("vendor_invoice_status")
+}
+
+model Vendor {
+  id                String     @id @default(cuid())
+  workspaceId       String     @map("workspace_id")
+  name              String
+  kind              VendorKind @default(other)
+  contactName       String?    @map("contact_name")
+  email             String?
+  phone             String?
+  country           String?
+  commissionRateBps Int?       @map("commission_rate_bps")
+  /// 1-5, enforced by a CHECK constraint in migration SQL.
+  rating            Int?
+  isActive          Boolean    @default(true) @map("is_active")
+  notes             String?
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invoices       VendorInvoice[]
+  itineraryItems ItineraryItem[]
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, kind])
+  @@map("vendors")
+}
+
+model VendorInvoice {
+  id            String              @id @default(cuid())
+  workspaceId   String              @map("workspace_id")
+  vendorId      String              @map("vendor_id")
+  invoiceNumber String?             @map("invoice_number")
+  amountCents   Int                 @map("amount_cents")
+  currency      String              @default("USD")
+  issuedOn      DateTime            @map("issued_on") @db.Date
+  dueOn         DateTime?           @map("due_on") @db.Date
+  status        VendorInvoiceStatus @default(unpaid)
+  paidAt        DateTime?           @map("paid_at") @db.Timestamptz(6)
+  notes         String?
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  vendor    Vendor    @relation(fields: [workspaceId, vendorId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@index([workspaceId, vendorId])
+  @@index([workspaceId, status, dueOn])
+  @@map("vendor_invoices")
+}
+
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * Phase 11 — AI Itinerary Builder
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+enum ItineraryStatus {
+  draft
+  shared
+  confirmed
+  archived
+
+  @@map("itinerary_status")
+}
+
+enum ItineraryItemType {
+  accommodation
+  meal
+  activity
+  transfer
+  flight
+  guide
+  vehicle
+  other
+
+  @@map("itinerary_item_type")
+}
+
+/// A multi-day proposal, generated from the workspace's own tour/vendor
+/// inventory (lib/itinerary/generator.ts) and then freely editable.
+/// `publicToken` powers the customer-facing share link, same pattern as
+/// Booking.publicToken.
+model Itinerary {
+  id            String          @id @default(cuid())
+  workspaceId   String          @map("workspace_id")
+  title         String
+  destination   String?
+  dayCount      Int             @map("day_count")
+  startDate     DateTime?       @map("start_date") @db.Date
+  travelerCount Int?            @map("traveler_count")
+  currency      String          @default("USD")
+  status        ItineraryStatus @default(draft)
+  customerId    String?         @map("customer_id")
+  leadId        String?         @map("lead_id")
+  publicToken   String          @unique @map("public_token")
+  createdById   String?         @map("created_by")
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Restrict, not SetNull — composite FK, same reasoning as Lead.company.
+  customer  Customer?          @relation(fields: [workspaceId, customerId], references: [workspaceId, id], onDelete: Restrict)
+  lead      Lead?              @relation(fields: [workspaceId, leadId], references: [workspaceId, id], onDelete: Restrict)
+  createdBy User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  days      ItineraryDay[]
+  items     ItineraryItem[]
+  versions  ItineraryVersion[]
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, status])
+  @@index([workspaceId, customerId])
+  @@index([workspaceId, leadId])
+  @@map("itineraries")
+}
+
+model ItineraryDay {
+  id          String    @id @default(cuid())
+  workspaceId String    @map("workspace_id")
+  itineraryId String    @map("itinerary_id")
+  dayNumber   Int       @map("day_number")
+  date        DateTime? @db.Date
+  title       String?
+  notes       String?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  itinerary Itinerary       @relation(fields: [workspaceId, itineraryId], references: [workspaceId, id], onDelete: Cascade)
+  items     ItineraryItem[]
+
+  @@unique([workspaceId, itineraryId, dayNumber])
+  @@unique([workspaceId, id])
+  @@index([workspaceId, itineraryId])
+  @@map("itinerary_days")
+}
+
+/// One line item on one day. `tourId`/`vendorId` are optional provenance
+/// links back to the workspace's own catalog when the generator (or an
+/// operator) sourced this item from an existing Tour or Vendor —
+/// `costCents`/`priceCents` are always independent snapshot values so
+/// margin stays correct even if the source tour/vendor is later edited.
+model ItineraryItem {
+  id             String            @id @default(cuid())
+  workspaceId    String            @map("workspace_id")
+  itineraryId    String            @map("itinerary_id")
+  itineraryDayId String            @map("itinerary_day_id")
+  type           ItineraryItemType @default(other)
+  title          String
+  description    String?
+  startTime      String?           @map("start_time")
+  tourId         String?           @map("tour_id")
+  vendorId       String?           @map("vendor_id")
+  costCents      Int               @default(0) @map("cost_cents")
+  priceCents     Int               @default(0) @map("price_cents")
+  sortOrder      Int               @default(0) @map("sort_order")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  itinerary Itinerary    @relation(fields: [workspaceId, itineraryId], references: [workspaceId, id], onDelete: Cascade)
+  day       ItineraryDay @relation(fields: [workspaceId, itineraryDayId], references: [workspaceId, id], onDelete: Cascade)
+  tour      Tour?        @relation(fields: [workspaceId, tourId], references: [workspaceId, id], onDelete: Restrict)
+  vendor    Vendor?      @relation(fields: [workspaceId, vendorId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@index([workspaceId, itineraryId, sortOrder])
+  @@index([workspaceId, itineraryDayId])
+  @@map("itinerary_items")
+}
+
+/// Immutable snapshot taken on every save-worthy edit — "Version History".
+/// Same immutable-versioning pattern as WaiverVersion: never updated or
+/// deleted, just accumulated.
+model ItineraryVersion {
+  id            String   @id @default(cuid())
+  workspaceId   String   @map("workspace_id")
+  itineraryId   String   @map("itinerary_id")
+  versionNumber Int      @map("version_number")
+  snapshot      Json
+  note          String?
+  createdById   String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  itinerary Itinerary @relation(fields: [workspaceId, itineraryId], references: [workspaceId, id], onDelete: Cascade)
+  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, itineraryId, versionNumber])
+  @@map("itinerary_versions")
 }

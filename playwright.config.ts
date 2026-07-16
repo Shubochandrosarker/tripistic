@@ -29,6 +29,17 @@ export default defineConfig({
   // individual step is actually stuck — give the whole test realistic
   // headroom rather than tuning each step's timeout individually.
   timeout: 120_000,
+  // Same "resource-constrained sandbox" headroom reasoning as the overall
+  // test timeout above, applied to individual assertions: the default
+  // 5s `expect(...).toBeVisible()`/`toHaveURL()` budget is tight enough
+  // that cumulative contention from the server + Postgres + Chromium
+  // running concurrently can trip it even when the app itself responded
+  // correctly (observed: a waiver-publish assertion failed while the
+  // page's own DOM snapshot showed the new version had, in fact, already
+  // published under the new title).
+  expect: {
+    timeout: 15_000,
+  },
   use: {
     baseURL: "http://localhost:3000",
     trace: "retain-on-failure",
