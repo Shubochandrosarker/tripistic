@@ -1872,8 +1872,8 @@ model AiProviderConfig {
 }
 
 model MaintenanceSetting {
-  id          String   @id @default("platform")
-  enabled     Boolean  @default(false)
+  id          String    @id @default("platform")
+  enabled     Boolean   @default(false)
   message     String?
   startsAt    DateTime? @map("starts_at") @db.Timestamptz(6)
   endsAt      DateTime? @map("ends_at") @db.Timestamptz(6)
