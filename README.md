@@ -1,8 +1,8 @@
 # Tripistic
 
-**AI-native tour operations platform** for independent guides and small tour operators — bookings, payments, guides, waivers, guest communication, and AI growth insights in one dashboard, with **0% commission on direct bookings**.
+**AI-native tour operations platform** for independent guides and small tour operators — bookings, payments, guides, waivers, guest communication, AI itineraries, operations, and enterprise administration in one dashboard, with **0% commission on direct bookings**.
 
-> **Status: Phase 4 (Stripe Payments + Payment Status Automation) complete**, on top of a hardened Phase 2.1 gate. Operators can create tours/activities/packages with add-ons, recurring schedules, and timezone-correct departures (Phase 2); guests book them directly from a public workspace/tour page or an embeddable iframe widget, with atomic seat reservation, idempotent submission, and cancellation with capacity release (Phase 3); a paid booking now reserves its seats immediately but only confirms once a verified, signed Stripe webhook reports payment success — never on form submission — and unpaid bookings expire safely, releasing their seats (Phase 4). Operators manage every booking, including payment status and manual/phone bookings, from the dashboard. CRM, waivers, and AI modules ship in Phases 5–11 — see [`docs/08_PHASE_ROADMAP.md`](docs/08_PHASE_ROADMAP.md).
+> **Status: v2.0.0 enterprise foundation.** Tripistic now includes the original booking, payment, CRM, guide/waiver, operations, fleet, vendor, AI itinerary, and AI growth modules, plus the v2 foundation for theme modes, global command/search, super-admin revenue/license/health pages, white-label records, custom-domain records, AI provider configuration, and maintenance mode. See [`docs/CHANGELOG-v2.0.0.md`](docs/CHANGELOG-v2.0.0.md).
 
 ## Stack
 
@@ -88,6 +88,14 @@ Strategy source documents (business plan, product system, roadmap, etc.) live at
 | [`docs/14`](docs/14_PHASE_3_IMPLEMENTATION_PLAN.md) / [`docs/16`](docs/16_PHASE_3_COMPLETION_REPORT.md) | Phase 3 plan + completion report (booking engine) |
 | [`docs/17`](docs/17_PHASE_4_IMPLEMENTATION_PLAN.md) / [`docs/18`](docs/18_PHASE_4_COMPLETION_REPORT.md) | Phase 4 plan + completion report (Stripe payments) |
 | [`docs/growth/`](docs/growth) | USA/UK/EU market research, SEO keyword strategy, competitor pages, AI demand analysis, free-tools plan, growth roadmap |
+| [`docs/AUDIT.md`](docs/AUDIT.md) | v2 repository audit across architecture, database, auth, RBAC, tenancy, APIs, Stripe, performance, security, and tests |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | v2 architecture and runtime model |
+| [`docs/MIGRATION.md`](docs/MIGRATION.md) | v2 migration and rollout guide |
+| [`docs/UI-SYSTEM.md`](docs/UI-SYSTEM.md) | v2 theme, shell, and command palette system |
+| [`docs/SUPER-ADMIN.md`](docs/SUPER-ADMIN.md) | v2 super-admin portal |
+| [`docs/WHITE-LABEL.md`](docs/WHITE-LABEL.md) | white-label model and rollout requirements |
+| [`docs/CUSTOM-DOMAINS.md`](docs/CUSTOM-DOMAINS.md) | custom-domain model, DNS, SSL, and resolver plan |
+| [`docs/CHANGELOG-v2.0.0.md`](docs/CHANGELOG-v2.0.0.md) | v2.0.0 changes and known follow-up |
 
 ## License
 

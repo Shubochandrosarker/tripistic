@@ -274,6 +274,8 @@ model Workspace {
   itineraryDays             ItineraryDay[]
   itineraryItems            ItineraryItem[]
   itineraryVersions         ItineraryVersion[]
+  whiteLabel                WorkspaceWhiteLabel?
+  customDomains             CustomDomain[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -1768,4 +1770,115 @@ model ItineraryVersion {
 
   @@unique([workspaceId, itineraryId, versionNumber])
   @@map("itinerary_versions")
+}
+
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * v2.0.0 — Enterprise platform, white label, custom domains, AI providers
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+enum WhiteLabelStatus {
+  draft
+  active
+  disabled
+
+  @@map("white_label_status")
+}
+
+enum CustomDomainStatus {
+  pending_dns
+  verifying
+  verified
+  ssl_pending
+  active
+  failed
+  disabled
+
+  @@map("custom_domain_status")
+}
+
+enum AiProviderStatus {
+  active
+  disabled
+  degraded
+
+  @@map("ai_provider_status")
+}
+
+model WorkspaceWhiteLabel {
+  id            String           @id @default(cuid())
+  workspaceId   String           @unique @map("workspace_id")
+  brandName     String           @map("brand_name")
+  logoUrl       String?          @map("logo_url")
+  faviconUrl    String?          @map("favicon_url")
+  primaryColor  String           @default("#059669") @map("primary_color")
+  accentColor   String           @default("#18181b") @map("accent_color")
+  supportEmail  String?          @map("support_email")
+  loginHeadline String?          @map("login_headline")
+  emailFromName String?          @map("email_from_name")
+  pdfFooter     String?          @map("pdf_footer")
+  apiBrandName  String?          @map("api_brand_name")
+  status        WhiteLabelStatus @default(draft)
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("workspace_white_labels")
+}
+
+model CustomDomain {
+  id                String             @id @default(cuid())
+  workspaceId       String             @map("workspace_id")
+  hostname          String             @unique
+  status            CustomDomainStatus @default(pending_dns)
+  verificationToken String             @unique @map("verification_token")
+  expectedCname     String             @map("expected_cname")
+  verifiedAt        DateTime?          @map("verified_at") @db.Timestamptz(6)
+  sslIssuedAt       DateTime?          @map("ssl_issued_at") @db.Timestamptz(6)
+  lastCheckedAt     DateTime?          @map("last_checked_at") @db.Timestamptz(6)
+  lastCheckMessage  String?            @map("last_check_message")
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([status, lastCheckedAt])
+  @@map("custom_domains")
+}
+
+model AiProviderConfig {
+  id           String           @id @default(cuid())
+  provider     String
+  displayName  String           @map("display_name")
+  baseUrl      String?          @map("base_url")
+  defaultModel String?          @map("default_model")
+  status       AiProviderStatus @default(disabled)
+  isDefault    Boolean          @default(false) @map("is_default")
+  metadata     Json             @default("{}")
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([provider, displayName])
+  @@index([status, isDefault])
+  @@map("ai_provider_configs")
+}
+
+model MaintenanceSetting {
+  id          String   @id @default("platform")
+  enabled     Boolean  @default(false)
+  message     String?
+  startsAt    DateTime? @map("starts_at") @db.Timestamptz(6)
+  endsAt      DateTime? @map("ends_at") @db.Timestamptz(6)
+  updatedById String?   @map("updated_by")
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("maintenance_settings")
 }

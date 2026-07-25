@@ -4,7 +4,10 @@ import {
   Car,
   CalendarCheck,
   ClipboardList,
+  Globe2,
   CreditCard,
+  Cpu,
+  HeartPulse,
   Handshake,
   HardHat,
   LayoutDashboard,
@@ -16,9 +19,11 @@ import {
   ScrollText,
   Settings,
   ShieldAlert,
+  SlidersHorizontal,
   Sparkles,
   Target,
   Users,
+  Wrench,
 } from "lucide-react";
 
 export type NavItem = {
@@ -92,10 +97,27 @@ export const adminNav: NavSection[] = [
   {
     title: "Platform",
     items: [
-      { href: "/admin/workspaces", label: "Workspaces", icon: Building2 },
+      { href: "/admin/workspaces", label: "Organizations", icon: Building2 },
       { href: "/admin/users", label: "Users", icon: Users },
       { href: "/admin/plans", label: "Plans", icon: Layers },
+      { href: "/admin/revenue", label: "Revenue", icon: CreditCard },
+      { href: "/admin/licenses", label: "Licenses", icon: ShieldAlert },
+    ],
+  },
+  {
+    title: "Enterprise",
+    items: [
+      { href: "/admin/domains", label: "Domains", icon: Globe2 },
+      { href: "/admin/white-labels", label: "White Labels", icon: SlidersHorizontal },
+      { href: "/admin/ai-providers", label: "AI Providers", icon: Cpu },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [
+      { href: "/admin/system-health", label: "System Health", icon: HeartPulse },
       { href: "/admin/audit-logs", label: "Audit logs", icon: ScrollText },
+      { href: "/admin/maintenance", label: "Maintenance", icon: Wrench },
     ],
   },
 ];

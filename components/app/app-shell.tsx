@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Compass, ShieldCheck } from "lucide-react";
+import { CommandPalette } from "@/components/app/command-palette";
 import { adminNav, dashboardNav } from "@/components/app/nav-items";
 import { MobileNav } from "@/components/app/mobile-nav";
 import { SidebarNav } from "@/components/app/sidebar-nav";
@@ -36,6 +37,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
   const sections = variant === "admin" ? adminNav : dashboardNav;
 
   const sidebarContent = (
@@ -85,7 +87,18 @@ export function AppShell({
         {sidebarContent}
       </MobileNav>
 
-      <Topbar user={user} variant={variant} onOpenMobileNav={() => setMobileOpen(true)} />
+      <Topbar
+        user={user}
+        variant={variant}
+        onOpenMobileNav={() => setMobileOpen(true)}
+        onOpenCommandPalette={() => setCommandOpen(true)}
+      />
+      <CommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        sections={sections}
+        activeWorkspaceId={variant === "dashboard" ? activeWorkspaceId : undefined}
+      />
 
       <main className="px-4 py-6 md:pl-64">
         <div className="mx-auto w-full max-w-6xl space-y-6 md:px-6">{children}</div>
