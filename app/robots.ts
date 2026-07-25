@@ -1,16 +1,31 @@
 import type { MetadataRoute } from "next";
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://tripistic.com";
+import { absoluteUrl } from "@/lib/seo/site";
 
+/**
+ * Authenticated surfaces, API routes, and guest-token URLs are kept out of the
+ * index. `/og` is excluded because generated social cards are not pages.
+ */
 export default function robots(): MetadataRoute.Robots {
+  const disallow = [
+    "/dashboard",
+    "/admin",
+    "/api",
+    "/og",
+    "/book/confirmation",
+    "/itinerary/",
+    "/invite/",
+    "/unsubscribe/",
+    "/workspaces/",
+  ];
+
   return {
     rules: [
-      {
-        userAgent: "*",
-        allow: "/",
-        disallow: ["/dashboard", "/admin", "/api", "/book/confirmation"],
-      },
+      { userAgent: "*", allow: "/", disallow },
+      // Explicit allowance so AI crawlers can read the site map we publish for them.
+      { userAgent: ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended"], allow: ["/", "/llms.txt"], disallow },
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: absoluteUrl("/sitemap.xml"),
+    host: absoluteUrl("/"),
   };
 }

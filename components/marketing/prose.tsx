@@ -9,7 +9,6 @@ export function Prose({ body, className }: { body: string; className?: string })
   return (
     <div
       className={cn("prose-content", className)}
-      // eslint-disable-next-line react/no-danger -- sanitized by lib/content/markdown
       dangerouslySetInnerHTML={{ __html: renderMarkdown(body) }}
     />
   );

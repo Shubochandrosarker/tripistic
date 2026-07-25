@@ -12,7 +12,6 @@ export function JsonLd({ schema }: { schema: JsonLdObject[] }) {
   return (
     <script
       type="application/ld+json"
-      // eslint-disable-next-line react/no-danger -- serialized, escaped JSON-LD
       dangerouslySetInnerHTML={{ __html: json }}
     />
   );
