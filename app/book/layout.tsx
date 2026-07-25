@@ -14,7 +14,7 @@ export default function BookLayout({ children }: { children: React.ReactNode }) 
           </Link>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">{children}</main>
+      <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">{children}</main>
       <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
         Powered by Tripistic — 0% commission on direct bookings.
       </footer>

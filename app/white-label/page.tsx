@@ -1,12 +1,27 @@
-import type { Metadata } from "next";
 import { Globe2, Mail, Palette, ShieldCheck, Users } from "lucide-react";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { CtaBand, SectionIntro } from "@/components/marketing/marketing-sections";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { webPageSchema } from "@/lib/seo/schema";
 
-export const metadata: Metadata = {
-  title: "White Label · Tripistic",
-  description: "White-label Tripistic for agencies, DMCs, resellers, and enterprise travel brands with custom domains, logo, emails, portals, API branding, and multi-tenant administration.",
-};
+const PATH = "/white-label";
+const TITLE = "White Label";
+const DESCRIPTION =
+  "Apply your brand across the app, customer portal, booking pages, emails, and PDFs, serve from your own domains, and provision multi-tenant sub-workspaces.";
+
+export const metadata = buildMetadata({
+  title: "White Label · Agency branding, custom domains, and reseller model",
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "Brand control",
+  keywords: [
+    "white label booking software",
+    "custom domain booking pages",
+    "travel software reseller",
+  ],
+});
 
 export default function WhiteLabelPage() {
   const items = [
@@ -18,8 +33,12 @@ export default function WhiteLabelPage() {
   ];
   return (
     <MarketingShell>
-      <main className="px-4 py-16 sm:px-6">
+      <JsonLd
+        schema={[webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH })]}
+      />
+      <main id="main" className="px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-7xl">
+          <Breadcrumbs items={[{ name: TITLE, href: PATH }]} />
           <SectionIntro
             eyebrow="White Label"
             title="Launch travel software under your brand."

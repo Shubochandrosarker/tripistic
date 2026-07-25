@@ -1,20 +1,40 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Building2 } from "lucide-react";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { CtaBand, SectionIntro } from "@/components/marketing/marketing-sections";
 import { solutions } from "@/lib/marketing/content";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { webPageSchema } from "@/lib/seo/schema";
 
-export const metadata: Metadata = {
-  title: "Solutions · Tripistic",
-  description: "Tripistic solutions for tour operators, agencies, DMCs, adventure tours, city tours, private tours, multi-day tours, luxury travel, group travel, education, government tourism, and enterprise.",
-};
+const PATH = "/solutions";
+const TITLE = "Solutions";
+const DESCRIPTION =
+  "Tripistic for tour operators, travel agencies, DMCs, adventure, city, private, multi-day, corporate, luxury, group, educational, government tourism, and enterprise travel.";
+
+export const metadata = buildMetadata({
+  title: "Solutions · Built for every kind of travel business",
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "Industries",
+  keywords: [
+    "tour operator software",
+    "travel agency software",
+    "dmc software",
+    "group travel software",
+  ],
+});
 
 export default function SolutionsPage() {
   return (
     <MarketingShell>
-      <main className="px-4 py-16 sm:px-6">
+      <JsonLd
+        schema={[webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH })]}
+      />
+      <main id="main" className="px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-7xl">
+          <Breadcrumbs items={[{ name: TITLE, href: PATH }]} />
           <SectionIntro
             eyebrow="Solutions"
             title="One platform, shaped for every travel business model."

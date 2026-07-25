@@ -14,7 +14,7 @@ export default function ItineraryLayout({ children }: { children: React.ReactNod
           </Link>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">{children}</main>
+      <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">{children}</main>
       <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground print:hidden">
         Powered by Tripistic
       </footer>

@@ -1,12 +1,27 @@
-import type { Metadata } from "next";
 import { CheckCircle2, Clock, Vote } from "lucide-react";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { CtaBand, SectionIntro } from "@/components/marketing/marketing-sections";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { webPageSchema } from "@/lib/seo/schema";
 
-export const metadata: Metadata = {
-  title: "Roadmap · Tripistic",
-  description: "Tripistic public roadmap with planned, in progress, released, and voting sections.",
-};
+const PATH = "/roadmap";
+const TITLE = "Roadmap";
+const DESCRIPTION =
+  "The public Tripistic roadmap — what is planned, what is in progress, what has shipped, and how to vote on priorities.";
+
+export const metadata = buildMetadata({
+  title: "Roadmap · Planned, in progress, and released",
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "Product",
+  keywords: [
+    "tripistic roadmap",
+    "travel software roadmap",
+    "product roadmap voting",
+  ],
+});
 
 export default function RoadmapPage() {
   const columns = [
@@ -16,8 +31,12 @@ export default function RoadmapPage() {
   ] as const;
   return (
     <MarketingShell>
-      <main className="px-4 py-16 sm:px-6">
+      <JsonLd
+        schema={[webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH })]}
+      />
+      <main id="main" className="px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-7xl">
+          <Breadcrumbs items={[{ name: TITLE, href: PATH }]} />
           <SectionIntro eyebrow="Roadmap" title="Transparent product direction for travel operators." description="Track what is released, in progress, planned, and open for customer feedback." />
           <div className="mt-12 grid gap-4 lg:grid-cols-3">
             {columns.map(([title, Icon, items]) => (

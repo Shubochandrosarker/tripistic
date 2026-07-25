@@ -1,60 +1,227 @@
-import type { Metadata } from "next";
-import { CirclePlay, MousePointer2, Video } from "lucide-react";
-import { MarketingShell } from "@/components/marketing/marketing-shell";
-import { CtaBand, ProductPreview, SectionIntro } from "@/components/marketing/marketing-sections";
-import { ButtonLink } from "@/components/ui/button";
+import Link from "next/link";
+import { CalendarClock, PlayCircle } from "lucide-react";
 
-export const metadata: Metadata = {
-  title: "Demo · Tripistic",
-  description: "Explore the Tripistic dashboard, AI workflows, operations center, bookings, CRM, and white-label platform in an interactive product overview.",
-};
+import { AnimatedReveal } from "@/components/marketing/animated-reveal";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { JsonLd } from "@/components/marketing/json-ld";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
+import { CtaBand, SectionIntro } from "@/components/marketing/marketing-sections";
+import { GradientBackdrop } from "@/components/marketing/motion";
+import { ProductTour } from "@/components/marketing/product-tour";
+import { ButtonLink } from "@/components/ui/button";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { faqSchema, webPageSchema } from "@/lib/seo/schema";
+
+const PATH = "/demo";
+const TITLE = "Product Demo";
+const DESCRIPTION =
+  "Explore Tripistic hands-on — an interactive walkthrough of operations, bookings, CRM, and AI, plus guided videos and a live demo with our team.";
+
+export const metadata = buildMetadata({
+  title: `${TITLE} · Interactive product walkthrough`,
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "Demo",
+  keywords: [
+    "tripistic demo",
+    "tour operator software demo",
+    "booking software walkthrough",
+    "travel operations demo",
+  ],
+});
+
+const VIDEOS = [
+  {
+    title: "Platform overview",
+    length: "6:20",
+    description: "The full product in six minutes — catalog, bookings, operations, CRM, and AI.",
+    href: "/docs/videos",
+  },
+  {
+    title: "Taking a booking end to end",
+    length: "6:45",
+    description: "Public booking page to confirmed seat, including payment and waiver.",
+    href: "/docs/videos",
+  },
+  {
+    title: "Running a trip day",
+    length: "11:20",
+    description: "Manifests, check-in, delays, incidents, and traveller notifications.",
+    href: "/docs/videos",
+  },
+  {
+    title: "Building an AI itinerary",
+    length: "10:30",
+    description: "Brief to editable multi-day proposal, with vendors and costs attached.",
+    href: "/docs/videos",
+  },
+  {
+    title: "White label and custom domains",
+    length: "9:15",
+    description: "Brand kit across app, portal, emails, and PDFs, then DNS verification.",
+    href: "/docs/videos",
+  },
+  {
+    title: "First API call",
+    length: "6:20",
+    description: "Issuing a key, workspace scoping, pagination, and webhooks.",
+    href: "/developers",
+  },
+];
+
+const DEMO_FAQS = [
+  [
+    "How long is a live demo?",
+    "Thirty minutes. We walk your actual workflows rather than a scripted tour, and you leave with a written summary of whether it fits.",
+  ],
+  [
+    "Do I need to book a demo to try it?",
+    "No. Trials are fully functional and require no card. The demo is useful if you want migration or multi-tenant questions answered first.",
+  ],
+  [
+    "Can you show a migration from our current tool?",
+    "Yes. Bring a sample export and we will walk through how the records map, including the parts that are genuinely awkward.",
+  ],
+  [
+    "Is the interactive walkthrough real product data?",
+    "The walkthrough uses representative sample data. The interface, workflows, and terminology are the real product.",
+  ],
+] as const;
 
 export default function DemoPage() {
-  const steps = ["Dashboard overview", "Create a tour", "Open bookings", "Assign guide and vehicle", "Generate AI itinerary", "Review analytics"];
   return (
     <MarketingShell>
-      <main className="px-4 py-16 sm:px-6">
+      <JsonLd
+        schema={[
+          webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH }),
+          faqSchema(DEMO_FAQS),
+        ]}
+      />
+      <main id="main" className="relative px-4 py-16 sm:px-6">
+        <GradientBackdrop />
         <div className="mx-auto max-w-7xl">
+          <Breadcrumbs items={[{ name: "Demo", href: PATH }]} />
           <SectionIntro
             eyebrow="Interactive demo"
-            title="Walk through the product before your first booking."
-            description="Preview the operating rhythm of Tripistic: dashboard health, booking workflows, live operations, AI itineraries, and admin controls."
+            title="See the operating system, not a slide deck."
+            description="Explore the product yourself, watch a guided walkthrough, or book thirty minutes with someone who will answer the awkward questions."
           />
-          <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_.65fr]">
-            <ProductPreview />
-            <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-              <CirclePlay className="size-6 text-accent" aria-hidden />
-              <h2 className="mt-4 text-xl font-semibold text-foreground">Feature walkthrough</h2>
-              <div className="mt-5 space-y-2">
-                {steps.map((step, index) => (
-                  <div key={step} className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2 text-sm">
-                    <span className="flex size-6 items-center justify-center rounded-full bg-card text-xs font-semibold text-foreground">{index + 1}</span>
-                    <span className="text-muted-foreground">{step}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-5 flex gap-3">
-                <ButtonLink href="/contact">Book a demo</ButtonLink>
-                <ButtonLink href="/register" variant="secondary">Try free</ButtonLink>
+
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <ButtonLink href="/register" size="lg">
+              Start free trial
+            </ButtonLink>
+            <ButtonLink href="/contact" variant="secondary" size="lg">
+              <CalendarClock className="size-4" aria-hidden /> Book a live demo
+            </ButtonLink>
+          </div>
+
+          <section aria-labelledby="tour-heading" className="mt-16">
+            <h2 id="tour-heading" className="sr-only">
+              Interactive product walkthrough
+            </h2>
+            <ProductTour />
+          </section>
+
+          <section aria-labelledby="videos-heading" className="mt-16">
+            <h2 id="videos-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+              Guided videos
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+              Short, task-focused walkthroughs. Every video has captions and a transcript.
+            </p>
+            <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {VIDEOS.map((video, index) => (
+                <AnimatedReveal key={video.title} delay={Math.min(index * 0.03, 0.15)}>
+                  <Link
+                    href={video.href}
+                    className="group flex h-full flex-col rounded-lg border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"
+                  >
+                    <div className="flex aspect-video items-center justify-center rounded-lg border border-border bg-[linear-gradient(135deg,var(--muted),var(--card))]">
+                      <PlayCircle
+                        className="size-10 text-accent transition group-hover:scale-110"
+                        aria-hidden
+                      />
+                    </div>
+                    <div className="mt-4 flex items-start justify-between gap-3">
+                      <h3 className="text-base font-semibold text-foreground">{video.title}</h3>
+                      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        {video.length}
+                      </span>
+                    </div>
+                    <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
+                      {video.description}
+                    </p>
+                  </Link>
+                </AnimatedReveal>
+              ))}
+            </div>
+          </section>
+
+          <section aria-labelledby="live-demo-heading" className="mt-16">
+            <div className="rounded-lg border border-border bg-card p-6 shadow-sm sm:p-8">
+              <div className="grid gap-8 lg:grid-cols-[1.1fr_.9fr]">
+                <div>
+                  <h2
+                    id="live-demo-heading"
+                    className="text-2xl font-semibold tracking-tight text-foreground"
+                  >
+                    Book a live demo
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                    Thirty minutes, walked against your actual workflows. Useful if you are
+                    evaluating a migration, running multiple brands, or need procurement questions
+                    answered.
+                  </p>
+                  <ul className="mt-5 space-y-2 text-sm text-muted-foreground">
+                    {[
+                      "We map your current tools to the platform, honestly including the gaps",
+                      "We run your hardest operational case, not our easiest one",
+                      "You get a written summary and a migration outline afterwards",
+                      "No obligation, and no pressure to decide on the call",
+                    ].map((item) => (
+                      <li key={item} className="flex items-start gap-2">
+                        <span className="mt-2 size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-5">
+                  <p className="text-sm font-medium text-foreground">What to bring</p>
+                  <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    <li>Your tour catalog, or a sample of it</li>
+                    <li>A typical week of departures</li>
+                    <li>The workflow that currently costs you most time</li>
+                    <li>Any compliance or procurement requirements</li>
+                  </ul>
+                  <ButtonLink href="/contact" className="mt-5 w-full">
+                    Request a demo
+                  </ButtonLink>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {[
-              [Video, "Videos", "Short product tours for operators, admins, and agencies."],
-              [MousePointer2, "Hotspots", "Interactive callouts explain the core dashboard surfaces."],
-              [CirclePlay, "Guided flow", "See how a request becomes an itinerary, booking, operation, and report."],
-            ].map(([Icon, title, text]) => (
-              <div key={String(title)} className="rounded-lg border border-border bg-card p-5 shadow-sm">
-                <Icon className="size-5 text-accent" aria-hidden />
-                <h2 className="mt-4 text-lg font-semibold text-foreground">{title as string}</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{text as string}</p>
-              </div>
-            ))}
-          </div>
+          </section>
+
+          <section aria-labelledby="demo-faq-heading" className="mt-16">
+            <h2
+              id="demo-faq-heading"
+              className="text-2xl font-semibold tracking-tight text-foreground"
+            >
+              Demo questions
+            </h2>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {DEMO_FAQS.map(([question, answer]) => (
+                <div key={question} className="rounded-lg border border-border bg-card p-5 shadow-sm">
+                  <h3 className="text-base font-semibold text-foreground">{question}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{answer}</p>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       </main>
-      <CtaBand title="See Tripistic with your own operating model." />
+      <CtaBand />
     </MarketingShell>
   );
 }
