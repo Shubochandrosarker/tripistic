@@ -1,19 +1,38 @@
-import type { Metadata } from "next";
 import { Cable, Check } from "lucide-react";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { CtaBand, SectionIntro } from "@/components/marketing/marketing-sections";
 import { integrations } from "@/lib/marketing/content";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { webPageSchema } from "@/lib/seo/schema";
 
-export const metadata: Metadata = {
-  title: "Integrations · Tripistic",
-  description: "Tripistic integrations for Stripe, Google Maps, Google Calendar, Twilio, WhatsApp, OpenAI, OpenRouter, Cloudflare, n8n, Zapier, Webhooks, and REST API.",
-};
+const PATH = "/integrations";
+const TITLE = "Integrations";
+const DESCRIPTION =
+  "Connect Tripistic to Stripe, Google Maps, Google Calendar, Twilio, WhatsApp, OpenAI, OpenRouter, Cloudflare, n8n, Zapier, webhooks, and the REST API.";
+
+export const metadata = buildMetadata({
+  title: "Integrations · Stripe, Maps, Calendar, Twilio, OpenAI, Zapier, and more",
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "Ecosystem",
+  keywords: [
+    "tour operator integrations",
+    "stripe booking integration",
+    "travel software api integrations",
+  ],
+});
 
 export default function IntegrationsPage() {
   return (
     <MarketingShell>
-      <main className="px-4 py-16 sm:px-6">
+      <JsonLd
+        schema={[webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH })]}
+      />
+      <main id="main" className="px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-7xl">
+          <Breadcrumbs items={[{ name: TITLE, href: PATH }]} />
           <SectionIntro
             eyebrow="Integrations"
             title="Connect Tripistic to the tools travel teams already use."

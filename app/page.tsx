@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import {
   BarChart3,
@@ -20,13 +19,50 @@ import {
   SectionIntro,
 } from "@/components/marketing/marketing-sections";
 import { AnimatedReveal } from "@/components/marketing/animated-reveal";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { ButtonLink } from "@/components/ui/button";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { faqSchema, webPageSchema } from "@/lib/seo/schema";
 
-export const metadata: Metadata = {
-  title: "Tripistic v2.0.0 — AI Travel Operations Platform",
-  description:
-    "Tripistic is the AI-native operating system for tour operators, agencies, DMCs, and travel brands: bookings, CRM, operations, guides, vehicles, AI itineraries, analytics, white label, and custom domains.",
-};
+const PATH = "/";
+const TITLE = "Tripistic v2.0.0 — AI Travel Operations Platform";
+const DESCRIPTION =
+  "Tripistic is the AI-native operating system for tour operators, agencies, DMCs, and travel brands: bookings, CRM, operations, guides, vehicles, AI itineraries, analytics, white label, and custom domains.";
+
+export const metadata = buildMetadata({
+  title: TITLE,
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "AI Travel Operating System",
+  keywords: [
+    "tour operator software",
+    "travel operations platform",
+    "booking software for tour operators",
+    "ai travel software",
+    "white label booking software",
+    "dmc software",
+  ],
+});
+
+/** Mirrors the questions rendered by FaqSection so the structured data matches the page. */
+const HOME_FAQS = [
+  [
+    "Is Tripistic only for tour operators?",
+    "No. It supports operators, travel agencies, DMCs, private-tour teams, education travel, and enterprise travel brands.",
+  ],
+  [
+    "Does Tripistic replace my booking tool?",
+    "Tripistic includes direct booking, availability, payments, waivers, operations, CRM, and AI workflows in one system.",
+  ],
+  [
+    "Can agencies white-label the platform?",
+    "Yes. v2 includes the enterprise data model and admin surfaces for brand kits, custom domains, API branding, and reseller-ready operations.",
+  ],
+  [
+    "Does it support AI itineraries?",
+    "Yes. The itinerary builder creates editable multi-day proposals from tours, vendors, and trip context, then tracks versions.",
+  ],
+] as const;
 
 const pillars = [
   {
@@ -85,7 +121,14 @@ const testimonials = [
 export default function HomePage() {
   return (
     <MarketingShell>
+      <JsonLd
+        schema={[
+          webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH }),
+          faqSchema(HOME_FAQS),
+        ]}
+      />
       <HeroSection />
+      <div id="main">
 
       <section className="px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-7xl">
@@ -220,6 +263,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      </div>
       <FaqSection />
       <CtaBand />
     </MarketingShell>

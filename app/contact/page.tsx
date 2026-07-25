@@ -1,63 +1,134 @@
-import type { Metadata } from "next";
-import { Mail, MapPin, MessageSquare, Phone } from "lucide-react";
+import Link from "next/link";
+import { Handshake, Headphones, Mail, MapPin, Megaphone, Phone } from "lucide-react";
+
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { ContactForm } from "@/components/marketing/contact-form";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { SectionIntro } from "@/components/marketing/marketing-sections";
-import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/input";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { webPageSchema } from "@/lib/seo/schema";
+import { SITE } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
-  title: "Contact · Tripistic",
-  description: "Contact Tripistic for sales, support, partnerships, media, and general inquiries.",
-};
+const PATH = "/contact";
+const TITLE = "Contact";
+const DESCRIPTION =
+  "Talk to Tripistic about sales, support, partnerships, media, or general questions. Response targets by plan, and a real person on the other end.";
+
+export const metadata = buildMetadata({
+  title: `${TITLE} · Sales, support, partnerships, and media`,
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "Contact",
+  keywords: ["contact tripistic", "tour operator software sales", "travel software support"],
+});
+
+const CHANNELS = [
+  {
+    icon: Phone,
+    title: "Sales",
+    description:
+      "Book a 30-minute walkthrough against your own workflows, or ask about migration and enterprise terms.",
+    contact: SITE.salesEmail,
+  },
+  {
+    icon: Headphones,
+    title: "Support",
+    description:
+      "Product help for existing customers. Response targets are set by plan in our Service Level Agreement.",
+    contact: SITE.supportEmail,
+  },
+  {
+    icon: Handshake,
+    title: "Partnerships",
+    description:
+      "Technology, integration, agency, and affiliate partnerships — including reseller and white-label arrangements.",
+    contact: SITE.salesEmail,
+  },
+  {
+    icon: Megaphone,
+    title: "Media",
+    description: "Press enquiries, product briefings, and commentary on travel technology.",
+    contact: SITE.salesEmail,
+  },
+];
 
 export default function ContactPage() {
-  const reasons = ["Sales", "Support", "Partnership", "Media", "General Inquiry"];
   return (
     <MarketingShell>
-      <main className="px-4 py-16 sm:px-6">
+      <JsonLd schema={[webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH })]} />
+      <main id="main" className="px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-7xl">
-          <SectionIntro eyebrow="Contact" title="Talk with Tripistic." description="Reach the team for sales, support, partnerships, media, or general questions." />
-          <div className="mt-12 grid gap-6 lg:grid-cols-[1fr_.85fr]">
-            <form className="rounded-lg border border-border bg-card p-6 shadow-sm">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Name" htmlFor="name"><Input id="name" name="name" placeholder="Your name" /></Field>
-                <Field label="Email" htmlFor="email"><Input id="email" name="email" type="email" placeholder="you@example.com" /></Field>
-              </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field label="Company" htmlFor="company"><Input id="company" name="company" placeholder="Company name" /></Field>
-                <Field label="Inquiry type" htmlFor="reason">
-                  <select id="reason" name="reason" className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground">
-                    {reasons.map((reason) => <option key={reason}>{reason}</option>)}
-                  </select>
-                </Field>
-              </div>
-              <Field label="Message" htmlFor="message" hint="This static form is ready for a backend submission handler.">
-                <textarea id="message" name="message" rows={6} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground" placeholder="Tell us what you want to build with Tripistic." />
-              </Field>
-              <Button type="button" className="mt-4">Send message</Button>
-            </form>
+          <Breadcrumbs items={[{ name: "Contact", href: PATH }]} />
+          <SectionIntro
+            eyebrow="Contact"
+            title="Talk to the team."
+            description="Sales, support, partnerships, or media. Tell us what you are trying to solve and we will route it to the right person."
+          />
+
+          <div className="mt-12 grid gap-8 lg:grid-cols-[1.15fr_.85fr]">
+            <ContactForm />
+
             <div className="space-y-4">
-              {[
-                [Mail, "Email", "hello@tripistic.com"],
-                [Phone, "Sales", "Book a guided platform walkthrough"],
-                [MessageSquare, "Support", "Help center and account support"],
-              ].map(([Icon, title, text]) => (
-                <div key={String(title)} className="rounded-lg border border-border bg-card p-5 shadow-sm">
-                  <Icon className="size-5 text-accent" aria-hidden />
-                  <h2 className="mt-4 text-lg font-semibold text-foreground">{title as string}</h2>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{text as string}</p>
+              {CHANNELS.map((channel) => (
+                <div key={channel.title} className="rounded-lg border border-border bg-card p-5 shadow-sm">
+                  <span className="flex size-9 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                    <channel.icon className="size-4.5" aria-hidden />
+                  </span>
+                  <h2 className="mt-4 text-base font-semibold text-foreground">{channel.title}</h2>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {channel.description}
+                  </p>
+                  <a
+                    href={`mailto:${channel.contact}`}
+                    className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+                  >
+                    <Mail className="size-3.5" aria-hidden />
+                    {channel.contact}
+                  </a>
                 </div>
               ))}
+
               <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-                <MapPin className="size-5 text-accent" aria-hidden />
-                <h2 className="mt-4 text-lg font-semibold text-foreground">Map</h2>
-                <div className="mt-3 h-48 rounded-lg border border-border bg-[radial-gradient(circle_at_30%_30%,rgba(16,185,129,.22),transparent_34%),linear-gradient(135deg,var(--muted),var(--card))] p-4">
-                  <div className="flex h-full items-center justify-center rounded-lg border border-border bg-background/70 text-sm text-muted-foreground">
-                    Google Map embed area
-                  </div>
+                <span className="flex size-9 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                  <MapPin className="size-4.5" aria-hidden />
+                </span>
+                <h2 className="mt-4 text-base font-semibold text-foreground">Where we work</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Tripistic is a remote-first company supporting operators across the Americas,
+                  Europe, and Asia-Pacific. Our registered postal address and the details of our EU
+                  and UK data protection representatives are available on request.
+                </p>
+                <div
+                  role="img"
+                  aria-label="Map placeholder showing Tripistic's remote-first coverage across the Americas, Europe, and Asia-Pacific"
+                  className="mt-4 flex h-40 items-center justify-center rounded-lg border border-border bg-[linear-gradient(135deg,var(--muted),var(--card))]"
+                >
+                  <MapPin className="size-6 text-accent" aria-hidden />
                 </div>
+                <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                  An embedded map loads only after you accept functional cookies, so this page stays
+                  fast and privacy-respecting by default.
+                </p>
               </div>
             </div>
+          </div>
+
+          <div className="mt-12 grid gap-4 md:grid-cols-3">
+            {[
+              ["Security review or procurement", "Request our security pack, DPA, and questionnaires.", "/legal"],
+              ["Already a customer?", "Search the help center before you write — most answers are there.", "/help"],
+              ["Building an integration?", "Start with the developer reference and OpenAPI document.", "/developers"],
+            ].map(([title, description, href]) => (
+              <Link
+                key={href}
+                href={href}
+                className="rounded-lg border border-border bg-card p-5 shadow-sm transition hover:border-accent/40"
+              >
+                <h2 className="text-base font-semibold text-foreground">{title}</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
+              </Link>
+            ))}
           </div>
         </div>
       </main>

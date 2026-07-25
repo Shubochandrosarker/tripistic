@@ -1,12 +1,28 @@
-import type { Metadata } from "next";
 import { Bot, Brain, FileText, Search, Sparkles, Wand2, Zap } from "lucide-react";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { CtaBand, ProductPreview, SectionIntro } from "@/components/marketing/marketing-sections";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { webPageSchema } from "@/lib/seo/schema";
 
-export const metadata: Metadata = {
-  title: "AI Platform · Tripistic",
-  description: "Tripistic AI Copilot, AI Search, AI Scheduling, AI Reports, AI Itinerary Builder, AI Business Insights, Knowledge Base, and Automation.",
-};
+const PATH = "/ai-platform";
+const TITLE = "AI Platform";
+const DESCRIPTION =
+  "Tripistic AI copilot, AI search, AI scheduling, AI reports, AI itinerary builder, business insights, knowledge base, and automation — reading your own operational data.";
+
+export const metadata = buildMetadata({
+  title: "AI Platform · Copilot, search, scheduling, itineraries, and insights",
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "AI",
+  keywords: [
+    "ai for tour operators",
+    "ai itinerary builder",
+    "travel ai platform",
+    "ai travel operations",
+  ],
+});
 
 export default function AiPlatformPage() {
   const items = [
@@ -20,8 +36,12 @@ export default function AiPlatformPage() {
   ];
   return (
     <MarketingShell>
-      <main className="px-4 py-16 sm:px-6">
+      <JsonLd
+        schema={[webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH })]}
+      />
+      <main id="main" className="px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-7xl">
+          <Breadcrumbs items={[{ name: TITLE, href: PATH }]} />
           <div className="grid gap-10 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
             <SectionIntro
               align="left"

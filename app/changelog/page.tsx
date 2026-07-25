@@ -1,12 +1,27 @@
-import type { Metadata } from "next";
 import { Rocket } from "lucide-react";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { CtaBand, SectionIntro } from "@/components/marketing/marketing-sections";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { webPageSchema } from "@/lib/seo/schema";
 
-export const metadata: Metadata = {
-  title: "Changelog · Tripistic",
-  description: "Tripistic version history, release notes, roadmap, and upcoming features.",
-};
+const PATH = "/changelog";
+const TITLE = "Changelog";
+const DESCRIPTION =
+  "Version history and release notes for the Tripistic travel operations platform.";
+
+export const metadata = buildMetadata({
+  title: "Changelog · What shipped and when",
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "Product",
+  keywords: [
+    "tripistic changelog",
+    "travel software release notes",
+    "product updates",
+  ],
+});
 
 export default function ChangelogPage() {
   const releases = [
@@ -17,8 +32,12 @@ export default function ChangelogPage() {
   ];
   return (
     <MarketingShell>
-      <main className="px-4 py-16 sm:px-6">
+      <JsonLd
+        schema={[webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH })]}
+      />
+      <main id="main" className="px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-5xl">
+          <Breadcrumbs items={[{ name: TITLE, href: PATH }]} />
           <SectionIntro eyebrow="Changelog" title="A public record of the platform becoming a travel OS." description="Version history, release notes, roadmap direction, and upcoming features for teams evaluating Tripistic." />
           <div className="mt-12 space-y-4">
             {releases.map(([version, title, text]) => (

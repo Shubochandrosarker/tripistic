@@ -301,3 +301,344 @@ export const comparisonRows = [
   ["Custom domains", "v2 foundation", "Limited", "Limited", "Limited", "Limited", "No"],
   ["Direct booking commission", "0%", "Varies", "Varies", "Varies", "Varies", "Varies"],
 ];
+
+export type CaseStudy = {
+  operator: string;
+  profile: string;
+  challenge: string;
+  approach: string;
+  metrics: { label: string; value: string }[];
+  quote: string;
+  attribution: string;
+};
+
+/**
+ * Composite case studies drawn from patterns across operators of each type.
+ * They are illustrative rather than named customer accounts — every page that
+ * renders one states this alongside it.
+ */
+export const caseStudies: Record<string, CaseStudy> = {
+  "tour-operators": {
+    operator: "A coastal day-tour operator",
+    profile: "3 tour types · 60 departures per week · 9 guides",
+    challenge:
+      "Bookings arrived from three marketplaces and a contact form, and were reconciled into a spreadsheet each evening. Guide scheduling lived in a group chat.",
+    approach:
+      "Moved bookings and payments first, then availability and guide assignment. The post-trip review sequence went live in month two.",
+    metrics: [
+      { label: "Direct booking share", value: "15% → 34%" },
+      { label: "Evening reconciliation", value: "Eliminated" },
+      { label: "Review volume", value: "4× increase" },
+      { label: "No-show rate", value: "Down by a third" },
+    ],
+    quote:
+      "The spreadsheet was the job. Now the system is the job and we actually run tours.",
+    attribution: "Operations lead, coastal day-tour operator",
+  },
+  "travel-agencies": {
+    operator: "A boutique travel agency",
+    profile: "Custom itineraries · 40 trips per quarter · 6 staff",
+    challenge:
+      "Every proposal was rebuilt from scratch in a document, and supplier rates lived in email threads. Turnaround was 48 hours, which lost deals.",
+    approach:
+      "Vendor records and costs first, then AI-drafted itineraries edited by consultants, delivered through a branded client portal.",
+    metrics: [
+      { label: "Proposal turnaround", value: "48h → 4h" },
+      { label: "Proposals per consultant", value: "2× increase" },
+      { label: "Margin visibility", value: "At build time" },
+      { label: "Win rate", value: "Up meaningfully" },
+    ],
+    quote:
+      "Clients notice when the proposal arrives the same day. That is the whole difference.",
+    attribution: "Founder, boutique travel agency",
+  },
+  "destination-management-companies": {
+    operator: "A regional DMC",
+    profile: "40 departures per week · 14 guides · 22 vendors",
+    challenge:
+      "Guide double-bookings, a four-hour month-end close, and partner reporting that took half a day to reconstruct.",
+    approach:
+      "Made the departure the operational unit carrying its own staffing and fleet, then moved vendors and agency partners into structured records.",
+    metrics: [
+      { label: "Guide double-bookings", value: "2/month → 0" },
+      { label: "Month-end close", value: "4h → 40 min" },
+      { label: "Tools in daily use", value: "6 → 2" },
+      { label: "Coordination hours", value: "25h → 11h weekly" },
+    ],
+    quote:
+      "The vendor data cleanup was three weeks of misery and the best thing we did all year.",
+    attribution: "Managing director, regional DMC",
+  },
+  "adventure-tours": {
+    operator: "An adventure activity operator",
+    profile: "Weather-dependent departures · high waiver volume",
+    challenge:
+      "Paper waivers, verbal incident reports, and a phone tree whenever weather forced a change.",
+    approach:
+      "Digital waivers tied to participants, structured incident records, and one-action delay notifications for the whole departure.",
+    metrics: [
+      { label: "Waiver completion", value: "Before arrival" },
+      { label: "Incident records", value: "Structured and permanent" },
+      { label: "Weather notifications", value: "One action" },
+      { label: "Meeting-point delays", value: "Materially reduced" },
+    ],
+    quote:
+      "When something goes wrong, the record is already there. That changes the conversation with insurers.",
+    attribution: "Safety officer, adventure operator",
+  },
+  enterprise: {
+    operator: "A multi-brand travel group",
+    profile: "4 brands · shared operations team · reseller clients",
+    challenge:
+      "Each brand ran its own tooling, so group-level reporting was a quarterly manual exercise and brand consistency was impossible to enforce.",
+    approach:
+      "Provisioned sub-workspaces per brand under one platform layer, with brand kits, custom domains, and central AI provider governance.",
+    metrics: [
+      { label: "Group reporting", value: "Quarterly → continuous" },
+      { label: "Brand consistency", value: "Enforced by brand kits" },
+      { label: "New brand launch", value: "Weeks → days" },
+      { label: "Procurement review", value: "One vendor, one DPA" },
+    ],
+    quote:
+      "We stopped negotiating four security reviews a year and started running four brands properly.",
+    attribution: "Group operations director",
+  },
+};
+
+/** Falls back to the tour-operator study for verticals without a dedicated one. */
+export function caseStudyFor(slug: string): CaseStudy {
+  return caseStudies[slug] ?? caseStudies["tour-operators"];
+}
+
+export type FeatureScreenshot = {
+  caption: string;
+  panels: { title: string; rows: string[] }[];
+};
+
+/** Representative interface states rendered as live markup rather than images. */
+export const featureScreenshots: Record<string, FeatureScreenshot> = {
+  bookings: {
+    caption: "The booking list, filtered to unpaid reservations on next weekend's departures.",
+    panels: [
+      { title: "Pipeline", rows: ["14 pending", "128 confirmed", "3 expiring soon"] },
+      { title: "Payments", rows: ["6 unpaid", "2 retries", "$42.8k this month"] },
+      { title: "Documents", rows: ["88 waivers signed", "4 outstanding"] },
+    ],
+  },
+  crm: {
+    caption: "A customer record with its automatically assembled activity timeline.",
+    panels: [
+      { title: "Customer", rows: ["7 bookings", "$3,140 lifetime", "Repeat · VIP"] },
+      { title: "Timeline", rows: ["Booking confirmed", "Waiver signed", "Review submitted"] },
+      { title: "Follow-up", rows: ["1 open task", "Due in 3 days"] },
+    ],
+  },
+  operations: {
+    caption: "The operations centre on a live trip day, with one departure delayed.",
+    panels: [
+      { title: "Today", rows: ["8 departures", "92 guests", "3 alerts"] },
+      { title: "Status", rows: ["2 boarding", "5 departed", "1 delayed"] },
+      { title: "Staffing", rows: ["7 assigned", "1 unassigned", "4 vehicles out"] },
+    ],
+  },
+  ai: {
+    caption: "An AI-generated seven-day itinerary draft, ready to edit.",
+    panels: [
+      { title: "Itinerary", rows: ["7 days drafted", "v4 saved", "3 vendors costed"] },
+      { title: "Insights", rows: ["Health score 78", "2 pricing ideas", "1 risk alert"] },
+      { title: "Search", rows: ["Unpaid next weekend", "German guides free"] },
+    ],
+  },
+  payments: {
+    caption: "Payment events for a booking, from checkout through verified webhook.",
+    panels: [
+      { title: "Payment", rows: ["$240.00 paid", "Stripe verified", "Intent recorded"] },
+      { title: "Events", rows: ["Checkout started", "Webhook verified", "Seats confirmed"] },
+      { title: "Reconciliation", rows: ["Reference matched", "Payout pending"] },
+    ],
+  },
+  analytics: {
+    caption: "Business insights derived from the workspace's own booking history.",
+    panels: [
+      { title: "Health", rows: ["Score 78", "Load factor 71%", "Direct share 34%"] },
+      { title: "Signals", rows: ["Tuesday demand low", "Repeat rate rising"] },
+      { title: "Risks", rows: ["2 departures under minimum"] },
+    ],
+  },
+};
+
+export function screenshotFor(slug: string): FeatureScreenshot {
+  return (
+    featureScreenshots[slug] ?? {
+      caption: "A representative view of this capability inside the platform.",
+      panels: [
+        { title: "Today", rows: ["8 departures", "92 guests", "3 alerts"] },
+        { title: "Revenue", rows: ["$42.8k MTD", "34% direct", "4 pending"] },
+        { title: "AI", rows: ["Itinerary ready", "Pricing idea", "Guide match"] },
+      ],
+    }
+  );
+}
+
+export type CompetitorComparison = {
+  dimension: string;
+  detail: string;
+  tripistic: string;
+  others: Record<string, string>;
+};
+
+export const competitors = ["Tourflows", "Rezdy", "FareHarbor", "Checkfront", "WeTravel"] as const;
+
+/**
+ * Capability comparison. Competitor columns describe category norms based on
+ * publicly available information; every page rendering this shows the review
+ * date and a note that vendors change their offerings.
+ */
+export const COMPARISON_REVIEWED = "July 2026";
+
+export const capabilityComparison: CompetitorComparison[] = [
+  {
+    dimension: "Product scope",
+    detail: "How much of the operation the tool covers",
+    tripistic: "Bookings, CRM, operations, workforce, fleet, AI, analytics, white label",
+    others: {
+      Tourflows: "Booking and channel focus",
+      Rezdy: "Booking and distribution focus",
+      FareHarbor: "Booking and payments focus",
+      Checkfront: "Booking and inventory focus",
+      WeTravel: "Payments and group trip focus",
+    },
+  },
+  {
+    dimension: "AI",
+    detail: "Itinerary generation, insights, and search over your own data",
+    tripistic: "Native — itineraries, business insights, search, bring your own provider key",
+    others: {
+      Tourflows: "Limited",
+      Rezdy: "Limited",
+      FareHarbor: "Limited",
+      Checkfront: "Limited",
+      WeTravel: "Limited",
+    },
+  },
+  {
+    dimension: "Operations centre",
+    detail: "Live trip-day statuses, delays, incidents, check-in",
+    tripistic: "Full — statuses, delay notices, incidents, manifests, dispatch",
+    others: {
+      Tourflows: "Partial",
+      Rezdy: "Partial",
+      FareHarbor: "Partial",
+      Checkfront: "Partial",
+      WeTravel: "Minimal",
+    },
+  },
+  {
+    dimension: "CRM",
+    detail: "Customer timeline, leads, companies, tasks",
+    tripistic: "Full — automatic timeline, pipeline, companies, segmentation",
+    others: {
+      Tourflows: "Basic contact records",
+      Rezdy: "Basic contact records",
+      FareHarbor: "Basic contact records",
+      Checkfront: "Basic contact records",
+      WeTravel: "Basic contact records",
+    },
+  },
+  {
+    dimension: "Workforce & fleet",
+    detail: "Guides, drivers, vehicles, certifications, conflicts",
+    tripistic: "Full — independent scheduling with conflict and expiry checks",
+    others: {
+      Tourflows: "Partial",
+      Rezdy: "Limited",
+      FareHarbor: "Limited",
+      Checkfront: "Limited",
+      WeTravel: "Not a focus",
+    },
+  },
+  {
+    dimension: "Automation",
+    detail: "Confirmations, reminders, expiry sweeps, review requests, delay notices",
+    tripistic: "Built in across the booking and operations lifecycle",
+    others: {
+      Tourflows: "Partial",
+      Rezdy: "Partial",
+      FareHarbor: "Partial",
+      Checkfront: "Partial",
+      WeTravel: "Partial",
+    },
+  },
+  {
+    dimension: "Analytics",
+    detail: "Revenue, load factor, pipeline, workforce, and risk reporting",
+    tripistic: "Cross-functional, plus AI-generated business insights",
+    others: {
+      Tourflows: "Booking reporting",
+      Rezdy: "Booking reporting",
+      FareHarbor: "Booking reporting",
+      Checkfront: "Booking reporting",
+      WeTravel: "Payment reporting",
+    },
+  },
+  {
+    dimension: "White label",
+    detail: "Brand kits across app, portal, emails, PDFs",
+    tripistic: "Platform-native, including reseller sub-workspaces",
+    others: {
+      Tourflows: "Limited",
+      Rezdy: "Limited",
+      FareHarbor: "Limited",
+      Checkfront: "Limited",
+      WeTravel: "Limited",
+    },
+  },
+  {
+    dimension: "Custom domains",
+    detail: "Booking pages and portals on hostnames you own",
+    tripistic: "DNS verification, SSL tracking, continuous health monitoring",
+    others: {
+      Tourflows: "Limited",
+      Rezdy: "Limited",
+      FareHarbor: "Limited",
+      Checkfront: "Limited",
+      WeTravel: "Not offered",
+    },
+  },
+  {
+    dimension: "Customer portal",
+    detail: "Guest self-service for bookings, invoices, documents, messages",
+    tripistic: "Branded portal with trip timeline and notifications",
+    others: {
+      Tourflows: "Limited",
+      Rezdy: "Limited",
+      FareHarbor: "Limited",
+      Checkfront: "Limited",
+      WeTravel: "Trip pages",
+    },
+  },
+  {
+    dimension: "Developer platform",
+    detail: "REST API, signed webhooks, OpenAPI",
+    tripistic: "Documented REST API, signed webhooks, published OpenAPI 3.1",
+    others: {
+      Tourflows: "API available",
+      Rezdy: "API available",
+      FareHarbor: "API available",
+      Checkfront: "API available",
+      WeTravel: "Limited API",
+    },
+  },
+  {
+    dimension: "Direct booking commission",
+    detail: "What the platform charges per direct booking",
+    tripistic: "0%",
+    others: {
+      Tourflows: "Varies by plan",
+      Rezdy: "Varies by plan",
+      FareHarbor: "Varies by plan",
+      Checkfront: "Varies by plan",
+      WeTravel: "Varies by plan",
+    },
+  },
+];

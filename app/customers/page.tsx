@@ -1,12 +1,27 @@
-import type { Metadata } from "next";
 import { BarChart3, Quote } from "lucide-react";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { CtaBand, SectionIntro } from "@/components/marketing/marketing-sections";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { webPageSchema } from "@/lib/seo/schema";
 
-export const metadata: Metadata = {
-  title: "Customer Stories · Tripistic",
-  description: "Tripistic customer stories, testimonials, ROI, growth metrics, and success stories.",
-};
+const PATH = "/customers";
+const TITLE = "Customer Stories";
+const DESCRIPTION =
+  "How tour operators, agencies, and DMCs run better operations on Tripistic — case studies, testimonials, ROI, and growth metrics.";
+
+export const metadata = buildMetadata({
+  title: "Customer Stories · Results, ROI, and growth metrics",
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "Proof",
+  keywords: [
+    "tour operator case study",
+    "travel software roi",
+    "tripistic customer stories",
+  ],
+});
 
 export default function CustomerStoriesPage() {
   const stories = [
@@ -16,8 +31,12 @@ export default function CustomerStoriesPage() {
   ];
   return (
     <MarketingShell>
-      <main className="px-4 py-16 sm:px-6">
+      <JsonLd
+        schema={[webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH })]}
+      />
+      <main id="main" className="px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-7xl">
+          <Breadcrumbs items={[{ name: TITLE, href: PATH }]} />
           <SectionIntro eyebrow="Customer Stories" title="Operators grow when their systems stop fighting them." description="Case-study structures, testimonials, ROI snapshots, growth metrics, and success stories for public proof." />
           <div className="mt-12 grid gap-4 lg:grid-cols-3">
             {stories.map(([title, text, metric]) => (

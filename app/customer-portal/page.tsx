@@ -1,12 +1,27 @@
-import type { Metadata } from "next";
 import { Bell, CreditCard, FileText, ListTree, MessageSquare, Smartphone } from "lucide-react";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { CtaBand, SectionIntro } from "@/components/marketing/marketing-sections";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { webPageSchema } from "@/lib/seo/schema";
 
-export const metadata: Metadata = {
-  title: "Customer Portal · Tripistic",
-  description: "A branded customer portal for bookings, invoices, documents, payments, chat, trip timeline, notifications, and mobile self-service.",
-};
+const PATH = "/customer-portal";
+const TITLE = "Customer Portal";
+const DESCRIPTION =
+  "Give travellers a branded portal for bookings, invoices, documents, payments, messaging, trip timeline, and notifications — on any device.";
+
+export const metadata = buildMetadata({
+  title: "Customer Portal · Branded guest self-service",
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "Guest experience",
+  keywords: [
+    "traveller portal",
+    "guest self service travel",
+    "booking portal software",
+  ],
+});
 
 export default function CustomerPortalPage() {
   const items = [
@@ -19,8 +34,12 @@ export default function CustomerPortalPage() {
   ];
   return (
     <MarketingShell>
-      <main className="px-4 py-16 sm:px-6">
+      <JsonLd
+        schema={[webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH })]}
+      />
+      <main id="main" className="px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-7xl">
+          <Breadcrumbs items={[{ name: TITLE, href: PATH }]} />
           <SectionIntro
             eyebrow="Customer Portal"
             title="A premium self-service portal for every traveler."

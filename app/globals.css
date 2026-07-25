@@ -299,3 +299,10 @@ body {
 .prose-content tbody tr:last-child td {
   border-bottom: 0;
 }
+
+/* Shimmer keyframe used by the marketing LoadingShimmer component. */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

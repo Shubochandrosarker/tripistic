@@ -1,12 +1,27 @@
-import type { Metadata } from "next";
 import { Compass, Flag, HeartHandshake, Telescope } from "lucide-react";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { CtaBand, SectionIntro } from "@/components/marketing/marketing-sections";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { webPageSchema } from "@/lib/seo/schema";
 
-export const metadata: Metadata = {
-  title: "About · Tripistic",
-  description: "Tripistic mission, vision, story, leadership, values, and timeline.",
-};
+const PATH = "/about";
+const TITLE = "About";
+const DESCRIPTION =
+  "Tripistic exists to give tour operators, agencies, and DMCs software worth running a business on. Our mission, vision, story, values, and timeline.";
+
+export const metadata = buildMetadata({
+  title: "About · Our mission, story, and values",
+  description: DESCRIPTION,
+  path: PATH,
+  eyebrow: "Company",
+  keywords: [
+    "about tripistic",
+    "travel technology company",
+    "tour operator software company",
+  ],
+});
 
 export default function AboutPage() {
   const values = [
@@ -17,8 +32,12 @@ export default function AboutPage() {
   ];
   return (
     <MarketingShell>
-      <main className="px-4 py-16 sm:px-6">
+      <JsonLd
+        schema={[webPageSchema({ title: TITLE, description: DESCRIPTION, path: PATH })]}
+      />
+      <main id="main" className="px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-7xl">
+          <Breadcrumbs items={[{ name: TITLE, href: PATH }]} />
           <SectionIntro eyebrow="About" title="Tripistic exists because travel operators deserve better software." description="The product brings together bookings, teams, guests, suppliers, operations, and AI into one elegant system." />
           <div className="mt-12 grid gap-4 md:grid-cols-4">
             {values.map(([Icon, title, text]) => (
