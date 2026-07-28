@@ -1,6 +1,7 @@
 import { badRequest, handleApiError, json } from "@/lib/api";
 import { constructStripeEvent } from "@/lib/payments/stripe-client";
 import { processStripeWebhookEvent } from "@/lib/payments/webhook-service";
+import { isStripeBillingEvent, processStripeBillingWebhookEvent } from "@/lib/billing/webhook-service";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +28,13 @@ export async function POST(request: Request) {
       throw badRequest("Invalid webhook signature");
     }
 
+    if (isStripeBillingEvent(event)) {
+      const result = await processStripeBillingWebhookEvent(event);
+      return json({ received: true, domain: "billing", duplicate: result.duplicate });
+    }
+
     const result = await processStripeWebhookEvent(event);
-    return json({ received: true, duplicate: result.duplicate });
+    return json({ received: true, domain: "payments", duplicate: result.duplicate });
   } catch (error) {
     return handleApiError(error);
   }

@@ -6,6 +6,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import {
+  E2E_CUSTOM_DOMAIN,
   E2E_OWNER_EMAIL,
   E2E_OWNER_PASSWORD,
   E2E_TOUR_SLUG,
@@ -46,6 +47,35 @@ async function main() {
     where: { workspaceId_userId: { workspaceId: workspace.id, userId: owner.id } },
     create: { workspaceId: workspace.id, userId: owner.id, role: "workspace_owner" },
     update: { role: "workspace_owner", status: "active" },
+  });
+
+  await prisma.customDomain.upsert({
+    where: { hostname: E2E_CUSTOM_DOMAIN },
+    create: {
+      workspaceId: workspace.id,
+      hostname: E2E_CUSTOM_DOMAIN,
+      status: "active",
+      verificationToken: "tripistic-domain-verification=e2e-custom-domain",
+      expectedCname: "cname.tripistic.test",
+      provider: "manual",
+      providerStatus: "active",
+      providerSslStatus: "active",
+      verifiedAt: new Date(),
+      sslIssuedAt: new Date(),
+      lastCheckedAt: new Date(),
+      lastCheckMessage: "E2E custom domain fixture.",
+    },
+    update: {
+      workspaceId: workspace.id,
+      status: "active",
+      provider: "manual",
+      providerStatus: "active",
+      providerSslStatus: "active",
+      verifiedAt: new Date(),
+      sslIssuedAt: new Date(),
+      lastCheckedAt: new Date(),
+      lastCheckMessage: "E2E custom domain fixture.",
+    },
   });
 
   // basePrice/addon price are deliberately 0 — this sandbox has no real

@@ -1,0 +1,29 @@
+# dependencies and build output
+node_modules
+.next
+out
+build
+
+# local secrets
+.env
+.env.*
+!.env.example
+!.env.docker.example
+*.pem
+
+# tests and generated reports
+coverage
+playwright-report
+test-results
+blob-report
+playwright/.cache
+tests
+
+# repository/dev noise
+.git
+.github
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tsbuildinfo

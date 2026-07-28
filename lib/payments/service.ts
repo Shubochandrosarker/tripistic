@@ -5,6 +5,11 @@ import { badRequest } from "@/lib/api";
 import { DEFAULT_PAYMENT_PENDING_EXPIRY_MINUTES, STRIPE_MIN_CHECKOUT_SESSION_MINUTES } from "@/lib/constants";
 import type { BookingWithRelations } from "@/lib/bookings/service";
 import { getStripeClient, toStripeAmount } from "./stripe-client";
+import {
+  calculatePlatformFeeAmount,
+  connectedPaymentIntentData,
+  getChargeReadyPaymentAccount,
+} from "@/lib/payments/connect";
 
 export function getPaymentExpiryMinutes(): number {
   const raw = Number(process.env.PAYMENT_PENDING_EXPIRY_MINUTES);
@@ -52,6 +57,8 @@ export async function createCheckoutSessionForBooking(
 
   const stripe = getStripeClient();
   const currency = booking.currency.toLowerCase();
+  const paymentAccount = await getChargeReadyPaymentAccount(booking.workspaceId);
+  const platformFeeAmount = calculatePlatformFeeAmount(booking.totalAmount, paymentAccount.platformFeeBps);
 
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
     {
@@ -90,11 +97,7 @@ export async function createCheckoutSessionForBooking(
       bookingReference: booking.reference,
     },
     payment_intent_data: {
-      metadata: {
-        bookingId: booking.id,
-        workspaceId: booking.workspaceId,
-        bookingReference: booking.reference,
-      },
+      ...connectedPaymentIntentData({ booking, paymentAccount }),
     },
   });
 
@@ -103,10 +106,13 @@ export async function createCheckoutSessionForBooking(
       workspaceId: booking.workspaceId,
       bookingId: booking.id,
       provider: "stripe",
+      paymentAccountId: paymentAccount.id,
       providerCheckoutSessionId: session.id,
       providerPaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
+      providerConnectedAccountId: paymentAccount.providerAccountId,
       amount: booking.totalAmount,
       currency: booking.currency,
+      platformFeeAmount,
       status: "requires_payment",
       expiresAt: new Date(expiresAtSeconds * 1000),
       metadata: { checkoutUrl: session.url },

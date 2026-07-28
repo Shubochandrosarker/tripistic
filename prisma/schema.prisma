@@ -83,6 +83,15 @@ enum SubscriptionStatus {
   @@map("subscription_status")
 }
 
+enum SubscriptionChangeStatus {
+  scheduled
+  applied
+  cancelled
+  failed
+
+  @@map("subscription_change_status")
+}
+
 enum TourKind {
   tour
   activity
@@ -149,6 +158,16 @@ enum PaymentStatus {
   @@map("payment_status")
 }
 
+enum WorkspacePaymentAccountStatus {
+  not_started
+  onboarding
+  restricted
+  enabled
+  disabled
+
+  @@map("workspace_payment_account_status")
+}
+
 enum ConsentStatus {
   subscribed
   unsubscribed
@@ -198,24 +217,29 @@ model User {
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
-  memberships              WorkspaceMember[]    @relation("MemberUser")
-  invitedMembers           WorkspaceMember[]    @relation("MemberInviter")
-  ownedWorkspaces          Workspace[]          @relation("WorkspaceOwner")
-  invitationsSent          Invitation[]         @relation("InvitationInviter")
-  auditLogs                AuditLog[]
-  toursCreated             Tour[]               @relation("TourCreatedBy")
-  bookingsCreated          Booking[]            @relation("BookingCreatedBy")
-  bookingStatusEvents      BookingStatusEvent[] @relation("BookingStatusActor")
-  waiverVersionsCreated    WaiverVersion[]
-  leadsCreated             Lead[]
-  crmTasksCreated          CrmTask[]
-  crmActivitiesLogged      CrmActivity[]
-  staffTimeEntriesLogged   StaffTimeEntry[]
-  guideRatingsGiven        GuideRating[]
-  opsEventsActed           OpsEvent[]
-  incidentReportsFiled     IncidentReport[]
-  itinerariesCreated       Itinerary[]
-  itineraryVersionsCreated ItineraryVersion[]
+  memberships                  WorkspaceMember[]             @relation("MemberUser")
+  invitedMembers               WorkspaceMember[]             @relation("MemberInviter")
+  ownedWorkspaces              Workspace[]                   @relation("WorkspaceOwner")
+  invitationsSent              Invitation[]                  @relation("InvitationInviter")
+  subscriptionChangesRequested SubscriptionChange[]
+  paymentRefundsCreated        PaymentRefund[]
+  mediaAssetsUploaded          WorkspaceMediaAsset[]         @relation("MediaAssetUploadedBy")
+  storefrontsUpdated           WorkspaceStorefront[]         @relation("StorefrontUpdatedBy")
+  storefrontRevisionsCreated   WorkspaceStorefrontRevision[] @relation("StorefrontRevisionCreatedBy")
+  auditLogs                    AuditLog[]
+  toursCreated                 Tour[]                        @relation("TourCreatedBy")
+  bookingsCreated              Booking[]                     @relation("BookingCreatedBy")
+  bookingStatusEvents          BookingStatusEvent[]          @relation("BookingStatusActor")
+  waiverVersionsCreated        WaiverVersion[]
+  leadsCreated                 Lead[]
+  crmTasksCreated              CrmTask[]
+  crmActivitiesLogged          CrmActivity[]
+  staffTimeEntriesLogged       StaffTimeEntry[]
+  guideRatingsGiven            GuideRating[]
+  opsEventsActed               OpsEvent[]
+  incidentReportsFiled         IncidentReport[]
+  itinerariesCreated           Itinerary[]
+  itineraryVersionsCreated     ItineraryVersion[]
 
   @@map("users")
 }
@@ -235,11 +259,14 @@ model Workspace {
   updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?       @map("deleted_at") @db.Timestamptz(6)
 
-  owner                     User                       @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner                     User                          @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   members                   WorkspaceMember[]
   invitations               Invitation[]
   settings                  Setting[]
   subscriptions             Subscription[]
+  subscriptionChanges       SubscriptionChange[]
+  usageMeters               UsageMeter[]
+  billingEvents             BillingEvent[]
   featureFlags              FeatureFlag[]
   auditLogs                 AuditLog[]
   tours                     Tour[]
@@ -250,6 +277,9 @@ model Workspace {
   bookings                  Booking[]
   payments                  Payment[]
   paymentEvents             PaymentEvent[]
+  paymentRefunds            PaymentRefund[]
+  paymentDisputes           PaymentDispute[]
+  paymentAccount            WorkspacePaymentAccount?
   customers                 Customer[]
   messages                  Message[]
   guideProfiles             GuideProfile[]
@@ -275,6 +305,9 @@ model Workspace {
   itineraryItems            ItineraryItem[]
   itineraryVersions         ItineraryVersion[]
   whiteLabel                WorkspaceWhiteLabel?
+  storefront                WorkspaceStorefront?
+  mediaAssets               WorkspaceMediaAsset[]
+  storefrontRevisions       WorkspaceStorefrontRevision[]
   customDomains             CustomDomain[]
 
   @@index([ownerId])
@@ -387,10 +420,50 @@ model Plan {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  subscriptions Subscription[]
-  featureFlags  FeatureFlag[]
+  subscriptions           Subscription[]
+  featureFlags            FeatureFlag[]
+  prices                  PlanPrice[]
+  entitlements            Entitlement[]
+  subscriptionChangesFrom SubscriptionChange[] @relation("SubscriptionChangeFromPlan")
+  subscriptionChangesTo   SubscriptionChange[] @relation("SubscriptionChangeToPlan")
 
   @@map("plans")
+}
+
+model PlanPrice {
+  id              String   @id @default(cuid())
+  planId          String   @map("plan_id")
+  interval        String
+  amount          Int
+  currency        String   @default("USD")
+  billingProvider String?  @map("billing_provider")
+  providerPriceId String?  @unique @map("provider_price_id")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, interval, currency])
+  @@index([planId, isActive])
+  @@map("plan_prices")
+}
+
+model Entitlement {
+  id         String   @id @default(cuid())
+  planId     String   @map("plan_id")
+  key        String
+  enabled    Boolean  @default(false)
+  limitValue Int?     @map("limit_value")
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, key])
+  @@index([key, enabled])
+  @@map("entitlements")
 }
 
 model Subscription {
@@ -398,22 +471,97 @@ model Subscription {
   workspaceId            String             @map("workspace_id")
   planId                 String             @map("plan_id")
   status                 SubscriptionStatus @default(trialing)
+  billingInterval        String?            @map("billing_interval")
   billingProvider        String?            @map("billing_provider")
   providerCustomerId     String?            @map("provider_customer_id")
   providerSubscriptionId String?            @map("provider_subscription_id")
   trialEndsAt            DateTime?          @map("trial_ends_at") @db.Timestamptz(6)
   currentPeriodStart     DateTime?          @map("current_period_start") @db.Timestamptz(6)
   currentPeriodEnd       DateTime?          @map("current_period_end") @db.Timestamptz(6)
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
   cancelAt               DateTime?          @map("cancel_at") @db.Timestamptz(6)
+  graceEndsAt            DateTime?          @map("grace_ends_at") @db.Timestamptz(6)
+  lastPaymentFailedAt    DateTime?          @map("last_payment_failed_at") @db.Timestamptz(6)
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  plan      Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  workspace        Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan             Plan                 @relation(fields: [planId], references: [id], onDelete: Restrict)
+  billingEvents    BillingEvent[]
+  scheduledChanges SubscriptionChange[]
 
   @@index([workspaceId])
   @@index([planId])
+  @@index([status, graceEndsAt])
   @@map("subscriptions")
+}
+
+model SubscriptionChange {
+  id                 String                   @id @default(cuid())
+  workspaceId        String                   @map("workspace_id")
+  subscriptionId     String                   @map("subscription_id")
+  fromPlanId         String?                  @map("from_plan_id")
+  toPlanId           String                   @map("to_plan_id")
+  interval           String
+  providerScheduleId String?                  @unique @map("provider_schedule_id")
+  status             SubscriptionChangeStatus @default(scheduled)
+  effectiveAt        DateTime                 @map("effective_at") @db.Timestamptz(6)
+  requestedById      String?                  @map("requested_by")
+  appliedAt          DateTime?                @map("applied_at") @db.Timestamptz(6)
+  cancelledAt        DateTime?                @map("cancelled_at") @db.Timestamptz(6)
+  metadata           Json                     @default("{}")
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  fromPlan     Plan?        @relation("SubscriptionChangeFromPlan", fields: [fromPlanId], references: [id], onDelete: SetNull)
+  toPlan       Plan         @relation("SubscriptionChangeToPlan", fields: [toPlanId], references: [id], onDelete: Restrict)
+  requestedBy  User?        @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status, effectiveAt])
+  @@index([subscriptionId, status])
+  @@index([toPlanId])
+  @@index([requestedById])
+  @@map("subscription_changes")
+}
+
+model BillingEvent {
+  id              String    @id @default(cuid())
+  workspaceId     String?   @map("workspace_id")
+  subscriptionId  String?   @map("subscription_id")
+  provider        String
+  providerEventId String    @unique @map("provider_event_id")
+  eventType       String    @map("event_type")
+  payload         Json
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([subscriptionId])
+  @@index([eventType])
+  @@map("billing_events")
+}
+
+model UsageMeter {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  key         String
+  periodStart DateTime @map("period_start") @db.Timestamptz(6)
+  periodEnd   DateTime @map("period_end") @db.Timestamptz(6)
+  used        Int      @default(0)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key, periodStart, periodEnd])
+  @@index([workspaceId, key, periodEnd])
+  @@map("usage_meters")
 }
 
 model Tour {
@@ -775,39 +923,131 @@ model BookingStatusEvent {
 /// (workspace_id, ...) foreign key pattern as the rest of the booking
 /// subtree, so a payment can never reference a booking from another tenant.
 model Payment {
-  id                        String        @id @default(cuid())
-  workspaceId               String        @map("workspace_id")
-  bookingId                 String        @map("booking_id")
-  provider                  String        @default("stripe")
-  providerPaymentIntentId   String?       @map("provider_payment_intent_id")
-  providerCheckoutSessionId String?       @map("provider_checkout_session_id")
-  amount                    Int
-  currency                  String
-  status                    PaymentStatus @default(requires_payment)
-  paymentMethod             String?       @map("payment_method")
-  receiptUrl                String?       @map("receipt_url")
-  failureCode               String?       @map("failure_code")
-  failureMessage            String?       @map("failure_message")
-  refundedAmount            Int?          @map("refunded_amount")
+  id                         String        @id @default(cuid())
+  workspaceId                String        @map("workspace_id")
+  bookingId                  String        @map("booking_id")
+  paymentAccountId           String?       @map("payment_account_id")
+  provider                   String        @default("stripe")
+  providerPaymentIntentId    String?       @map("provider_payment_intent_id")
+  providerCheckoutSessionId  String?       @map("provider_checkout_session_id")
+  providerChargeId           String?       @map("provider_charge_id")
+  providerTransferId         String?       @map("provider_transfer_id")
+  providerBalanceTxnId       String?       @map("provider_balance_txn_id")
+  providerConnectedAccountId String?       @map("provider_connected_account_id")
+  amount                     Int
+  currency                   String
+  platformFeeAmount          Int           @default(0) @map("platform_fee_amount")
+  stripeFeeAmount            Int?          @map("stripe_fee_amount")
+  status                     PaymentStatus @default(requires_payment)
+  paymentMethod              String?       @map("payment_method")
+  receiptUrl                 String?       @map("receipt_url")
+  failureCode                String?       @map("failure_code")
+  failureMessage             String?       @map("failure_message")
+  refundedAmount             Int?          @map("refunded_amount")
   /// End of this payment attempt's window (Checkout Session expiry / our own
   /// unpaid-booking hold). The expiration sweep in lib/payments/expiration.ts
   /// targets rows where this has passed and status is still unsettled.
-  expiresAt                 DateTime?     @map("expires_at") @db.Timestamptz(6)
+  expiresAt                  DateTime?     @map("expires_at") @db.Timestamptz(6)
   /// Non-sensitive cache only — e.g. the last-created Checkout Session URL,
   /// so a guest reloading the confirmation page doesn't require a fresh
   /// Stripe API call to redisplay the same link. Never card data.
-  metadata                  Json?
-  createdAt                 DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                 DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  metadata                   Json?
+  createdAt                  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  booking   Booking        @relation(fields: [workspaceId, bookingId], references: [workspaceId, id], onDelete: Cascade)
-  events    PaymentEvent[]
+  workspace      Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  booking        Booking                  @relation(fields: [workspaceId, bookingId], references: [workspaceId, id], onDelete: Cascade)
+  paymentAccount WorkspacePaymentAccount? @relation(fields: [paymentAccountId], references: [id], onDelete: SetNull)
+  events         PaymentEvent[]
+  refunds        PaymentRefund[]
+  disputes       PaymentDispute[]
 
   @@index([workspaceId, bookingId])
+  @@index([paymentAccountId])
   @@index([providerPaymentIntentId])
   @@index([providerCheckoutSessionId])
+  @@index([providerConnectedAccountId])
   @@map("payments")
+}
+
+model PaymentRefund {
+  id                   String   @id @default(cuid())
+  workspaceId          String   @map("workspace_id")
+  paymentId            String   @map("payment_id")
+  provider             String   @default("stripe")
+  providerRefundId     String   @unique @map("provider_refund_id")
+  providerBalanceTxnId String?  @map("provider_balance_txn_id")
+  amount               Int
+  currency             String
+  status               String
+  reason               String?
+  createdById          String?  @map("created_by")
+  metadata             Json     @default("{}")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  payment   Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([paymentId])
+  @@index([createdById])
+  @@map("payment_refunds")
+}
+
+model PaymentDispute {
+  id                String    @id @default(cuid())
+  workspaceId       String    @map("workspace_id")
+  paymentId         String?   @map("payment_id")
+  provider          String    @default("stripe")
+  providerDisputeId String    @unique @map("provider_dispute_id")
+  providerChargeId  String?   @map("provider_charge_id")
+  amount            Int
+  currency          String
+  status            String
+  reason            String?
+  evidenceDueBy     DateTime? @map("evidence_due_by") @db.Timestamptz(6)
+  createdAtStripe   DateTime? @map("created_at_stripe") @db.Timestamptz(6)
+  closedAt          DateTime? @map("closed_at") @db.Timestamptz(6)
+  metadata          Json      @default("{}")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  payment   Payment?  @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status, createdAt])
+  @@index([paymentId])
+  @@index([providerChargeId])
+  @@map("payment_disputes")
+}
+
+model WorkspacePaymentAccount {
+  id                String                        @id @default(cuid())
+  workspaceId       String                        @unique @map("workspace_id")
+  provider          String                        @default("stripe")
+  providerAccountId String                        @unique @map("provider_account_id")
+  accountType       String                        @default("express") @map("account_type")
+  status            WorkspacePaymentAccountStatus @default(onboarding)
+  country           String?
+  defaultCurrency   String?                       @map("default_currency")
+  chargesEnabled    Boolean                       @default(false) @map("charges_enabled")
+  payoutsEnabled    Boolean                       @default(false) @map("payouts_enabled")
+  detailsSubmitted  Boolean                       @default(false) @map("details_submitted")
+  platformFeeBps    Int                           @default(0) @map("platform_fee_bps")
+  disabledReason    String?                       @map("disabled_reason")
+  requirements      Json                          @default("{}")
+  capabilities      Json                          @default("{}")
+  lastSyncedAt      DateTime?                     @map("last_synced_at") @db.Timestamptz(6)
+  createdAt         DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  payments  Payment[]
+
+  @@index([status, chargesEnabled, payoutsEnabled])
+  @@map("workspace_payment_accounts")
 }
 
 /// Append-only webhook receipt log. `providerEventId` is globally unique per
@@ -819,16 +1059,17 @@ model Payment {
 /// account/mode, an event type we don't track a payment for) is still
 /// recorded rather than silently dropped.
 model PaymentEvent {
-  id              String    @id @default(cuid())
-  workspaceId     String?   @map("workspace_id")
-  paymentId       String?   @map("payment_id")
-  bookingId       String?   @map("booking_id")
-  provider        String    @default("stripe")
-  providerEventId String    @unique @map("provider_event_id")
-  eventType       String    @map("event_type")
-  payload         Json
-  processedAt     DateTime? @map("processed_at") @db.Timestamptz(6)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                String    @id @default(cuid())
+  workspaceId       String?   @map("workspace_id")
+  paymentId         String?   @map("payment_id")
+  bookingId         String?   @map("booking_id")
+  provider          String    @default("stripe")
+  providerEventId   String    @unique @map("provider_event_id")
+  providerAccountId String?   @map("provider_account_id")
+  eventType         String    @map("event_type")
+  payload           Json
+  processedAt       DateTime? @map("processed_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   payment   Payment?   @relation(fields: [paymentId], references: [id], onDelete: SetNull)
@@ -1790,6 +2031,23 @@ enum WhiteLabelStatus {
   @@map("white_label_status")
 }
 
+enum WorkspaceStorefrontStatus {
+  draft
+  published
+  disabled
+
+  @@map("workspace_storefront_status")
+}
+
+enum WorkspaceMediaAssetStatus {
+  pending
+  uploaded
+  rejected
+  deleted
+
+  @@map("workspace_media_asset_status")
+}
+
 enum CustomDomainStatus {
   pending_dns
   verifying
@@ -1833,19 +2091,96 @@ model WorkspaceWhiteLabel {
   @@map("workspace_white_labels")
 }
 
+model WorkspaceStorefront {
+  id               String                    @id @default(cuid())
+  workspaceId      String                    @unique @map("workspace_id")
+  status           WorkspaceStorefrontStatus @default(draft)
+  draft            Json                      @default("{}")
+  published        Json?
+  publishedVersion Int                       @default(0) @map("published_version")
+  publishedAt      DateTime?                 @map("published_at") @db.Timestamptz(6)
+  updatedById      String?                   @map("updated_by")
+  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace                     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  updatedBy User?                         @relation("StorefrontUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  revisions WorkspaceStorefrontRevision[]
+
+  @@index([workspaceId, status])
+  @@map("workspace_storefronts")
+}
+
+model WorkspaceStorefrontRevision {
+  id            String   @id @default(cuid())
+  workspaceId   String   @map("workspace_id")
+  storefrontId  String   @map("storefront_id")
+  versionNumber Int      @map("version_number")
+  snapshot      Json
+  note          String?
+  createdById   String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace  Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  storefront WorkspaceStorefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  createdBy  User?               @relation("StorefrontRevisionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([storefrontId, versionNumber])
+  @@index([workspaceId, createdAt])
+  @@map("workspace_storefront_revisions")
+}
+
+model WorkspaceMediaAsset {
+  id           String                    @id @default(cuid())
+  workspaceId  String                    @map("workspace_id")
+  storageKey   String                    @unique @map("storage_key")
+  url          String
+  fileName     String                    @map("file_name")
+  contentType  String                    @map("content_type")
+  byteSize     Int                       @map("byte_size")
+  width        Int?
+  height       Int?
+  altText      String                    @map("alt_text")
+  focalX       Decimal                   @default(0.5) @map("focal_x") @db.Decimal(4, 3)
+  focalY       Decimal                   @default(0.5) @map("focal_y") @db.Decimal(4, 3)
+  status       WorkspaceMediaAssetStatus @default(pending)
+  uploadedById String?                   @map("uploaded_by")
+  uploadedAt   DateTime?                 @map("uploaded_at") @db.Timestamptz(6)
+  createdAt    DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  uploadedBy User?     @relation("MediaAssetUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, status, createdAt])
+  @@map("workspace_media_assets")
+}
+
 model CustomDomain {
-  id                String             @id @default(cuid())
-  workspaceId       String             @map("workspace_id")
-  hostname          String             @unique
-  status            CustomDomainStatus @default(pending_dns)
-  verificationToken String             @unique @map("verification_token")
-  expectedCname     String             @map("expected_cname")
-  verifiedAt        DateTime?          @map("verified_at") @db.Timestamptz(6)
-  sslIssuedAt       DateTime?          @map("ssl_issued_at") @db.Timestamptz(6)
-  lastCheckedAt     DateTime?          @map("last_checked_at") @db.Timestamptz(6)
-  lastCheckMessage  String?            @map("last_check_message")
-  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                 String             @id @default(cuid())
+  workspaceId        String             @map("workspace_id")
+  hostname           String             @unique
+  status             CustomDomainStatus @default(pending_dns)
+  verificationToken  String             @unique @map("verification_token")
+  expectedCname      String             @map("expected_cname")
+  provider           String             @default("manual")
+  providerHostnameId String?            @unique @map("provider_hostname_id")
+  providerStatus     String?            @map("provider_status")
+  providerSslStatus  String?            @map("provider_ssl_status")
+  providerErrors     Json               @default("[]") @map("provider_errors")
+  providerTxtName    String?            @map("provider_txt_name")
+  providerTxtValue   String?            @map("provider_txt_value")
+  providerHttpUrl    String?            @map("provider_http_url")
+  providerHttpBody   String?            @map("provider_http_body")
+  redirectTo         String?            @map("redirect_to")
+  cacheInvalidatedAt DateTime?          @map("cache_invalidated_at") @db.Timestamptz(6)
+  verifiedAt         DateTime?          @map("verified_at") @db.Timestamptz(6)
+  sslIssuedAt        DateTime?          @map("ssl_issued_at") @db.Timestamptz(6)
+  lastCheckedAt      DateTime?          @map("last_checked_at") @db.Timestamptz(6)
+  lastCheckMessage   String?            @map("last_check_message")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 

@@ -9,3 +9,4 @@ export const E2E_OWNER_PASSWORD = "E2ePassword123!";
 export const E2E_WORKSPACE_SLUG = "e2e-tours";
 export const E2E_TOUR_SLUG = "desert-jeep-tour";
 export const E2E_WAIVER_TOUR_SLUG = "canyon-rappel-tour";
+export const E2E_CUSTOM_DOMAIN = "e2e-custom.tripistic.test";

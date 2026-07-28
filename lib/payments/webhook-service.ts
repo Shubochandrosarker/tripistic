@@ -5,6 +5,8 @@ import { recordAuditEvent, type AuditAction } from "@/lib/audit/audit-log";
 import { uniqueViolationTargets } from "@/lib/prisma-errors";
 import { transitionBookingStatusInTx } from "@/lib/bookings/status-service";
 import { sendBookingConfirmationEmail } from "@/lib/messaging/service";
+import { upsertWorkspacePaymentAccountFromStripe } from "@/lib/payments/connect";
+import { fromStripeAmount } from "@/lib/payments/stripe-client";
 
 export function isProviderEventUniqueViolation(error: unknown): boolean {
   return uniqueViolationTargets(error).some((target) => /provider_event/i.test(target));
@@ -12,9 +14,11 @@ export function isProviderEventUniqueViolation(error: unknown): boolean {
 
 type WebhookOutcome = {
   workspaceId: string;
-  bookingId: string;
-  paymentId: string;
+  bookingId: string | null;
+  paymentId: string | null;
   auditAction: AuditAction;
+  entityType?: string;
+  entityId?: string;
 };
 
 export type ProcessWebhookResult = {
@@ -29,6 +33,22 @@ async function findPaymentByCheckoutSessionId(tx: Db, sessionId: string): Promis
 
 async function findPaymentByPaymentIntentId(tx: Db, paymentIntentId: string): Promise<Payment | null> {
   return tx.payment.findFirst({ where: { providerPaymentIntentId: paymentIntentId } });
+}
+
+async function findPaymentByChargeId(tx: Db, chargeId: string): Promise<Payment | null> {
+  return tx.payment.findFirst({ where: { providerChargeId: chargeId } });
+}
+
+function idFromStripeRef(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "id" in value && typeof (value as { id?: unknown }).id === "string") {
+    return (value as { id: string }).id;
+  }
+  return null;
+}
+
+function unixDate(value: unknown): Date | null {
+  return typeof value === "number" && Number.isFinite(value) ? new Date(value * 1000) : null;
 }
 
 /**
@@ -50,7 +70,12 @@ async function findPaymentByPaymentIntentId(tx: Db, paymentIntentId: string): Pr
 async function confirmPaymentAndBooking(
   tx: Db,
   payment: Payment,
-  info: { paymentIntentId?: string | null; paymentMethod?: string | null },
+  info: {
+    paymentIntentId?: string | null;
+    paymentMethod?: string | null;
+    connectedAccountId?: string | null;
+    chargeId?: string | null;
+  },
 ): Promise<WebhookOutcome> {
   if (payment.status !== "succeeded") {
     await tx.payment.update({
@@ -58,6 +83,8 @@ async function confirmPaymentAndBooking(
       data: {
         status: "succeeded",
         providerPaymentIntentId: info.paymentIntentId ?? payment.providerPaymentIntentId,
+        providerChargeId: info.chargeId ?? payment.providerChargeId,
+        providerConnectedAccountId: info.connectedAccountId ?? payment.providerConnectedAccountId,
         paymentMethod: info.paymentMethod ?? payment.paymentMethod,
       },
     });
@@ -111,12 +138,102 @@ async function markPaymentCancelled(tx: Db, payment: Payment): Promise<void> {
 async function markPaymentRefunded(tx: Db, payment: Payment, charge: Stripe.Charge): Promise<void> {
   const refundedAmount = charge.amount_refunded ?? 0;
   const isFullRefund = refundedAmount >= payment.amount;
+  const balanceTransactionId =
+    typeof charge.balance_transaction === "string" ? charge.balance_transaction : (charge.balance_transaction?.id ?? null);
+  const transferId = typeof charge.transfer === "string" ? charge.transfer : (charge.transfer?.id ?? null);
   // Deliberately does not touch booking status — an operator decides
   // separately whether a refunded booking should also be cancelled.
   await tx.payment.update({
     where: { id: payment.id },
-    data: { status: isFullRefund ? "refunded" : "partially_refunded", refundedAmount },
+    data: {
+      status: isFullRefund ? "refunded" : "partially_refunded",
+      refundedAmount,
+      providerChargeId: charge.id,
+      providerBalanceTxnId: balanceTransactionId,
+      providerTransferId: transferId,
+      receiptUrl: charge.receipt_url ?? payment.receiptUrl,
+    },
   });
+}
+
+async function syncPaymentAccountFromWebhook(tx: Db, account: Stripe.Account): Promise<WebhookOutcome | null> {
+  const existing = await tx.workspacePaymentAccount.findUnique({
+    where: { providerAccountId: account.id },
+    select: { workspaceId: true },
+  });
+  const workspaceId = account.metadata?.workspaceId ?? existing?.workspaceId ?? null;
+  if (!workspaceId) return null;
+
+  const paymentAccount = await upsertWorkspacePaymentAccountFromStripe(tx, workspaceId, account);
+  return {
+    workspaceId,
+    bookingId: null,
+    paymentId: null,
+    auditAction: "payment_account_synced",
+    entityType: "workspace_payment_account",
+    entityId: paymentAccount.id,
+  };
+}
+
+async function syncDisputeFromWebhook(tx: Db, dispute: Stripe.Dispute, event: Stripe.Event): Promise<WebhookOutcome | null> {
+  const raw = dispute as unknown as {
+    charge?: string | { id?: string } | null;
+    payment_intent?: string | { id?: string } | null;
+    evidence_details?: { due_by?: number | null };
+  };
+  const chargeId = idFromStripeRef(raw.charge);
+  const paymentIntentId = idFromStripeRef(raw.payment_intent);
+  const payment =
+    (chargeId ? await findPaymentByChargeId(tx, chargeId) : null) ??
+    (paymentIntentId ? await findPaymentByPaymentIntentId(tx, paymentIntentId) : null);
+
+  const paymentAccount = event.account
+    ? await tx.workspacePaymentAccount.findUnique({
+        where: { providerAccountId: event.account },
+        select: { workspaceId: true },
+      })
+    : null;
+  const workspaceId = payment?.workspaceId ?? paymentAccount?.workspaceId ?? dispute.metadata?.workspaceId ?? null;
+  if (!workspaceId) return null;
+
+  const disputeRow = await tx.paymentDispute.upsert({
+    where: { providerDisputeId: dispute.id },
+    create: {
+      workspaceId,
+      paymentId: payment?.id ?? null,
+      provider: "stripe",
+      providerDisputeId: dispute.id,
+      providerChargeId: chargeId,
+      amount: fromStripeAmount(dispute.amount, dispute.currency),
+      currency: dispute.currency.toUpperCase(),
+      status: dispute.status,
+      reason: dispute.reason ?? null,
+      evidenceDueBy: unixDate(raw.evidence_details?.due_by),
+      createdAtStripe: unixDate(dispute.created),
+      closedAt: dispute.status === "lost" || dispute.status === "won" ? new Date() : null,
+      metadata: { providerAccountId: event.account ?? null },
+    },
+    update: {
+      paymentId: payment?.id ?? undefined,
+      providerChargeId: chargeId,
+      amount: fromStripeAmount(dispute.amount, dispute.currency),
+      currency: dispute.currency.toUpperCase(),
+      status: dispute.status,
+      reason: dispute.reason ?? null,
+      evidenceDueBy: unixDate(raw.evidence_details?.due_by),
+      closedAt: dispute.status === "lost" || dispute.status === "won" ? new Date() : null,
+      metadata: { providerAccountId: event.account ?? null },
+    },
+  });
+
+  return {
+    workspaceId,
+    bookingId: payment?.bookingId ?? null,
+    paymentId: payment?.id ?? null,
+    auditAction: "payment_dispute_updated",
+    entityType: "payment_dispute",
+    entityId: disputeRow.id,
+  };
 }
 
 async function dispatch(tx: Db, event: Stripe.Event): Promise<WebhookOutcome | null> {
@@ -129,7 +246,12 @@ async function dispatch(tx: Db, event: Stripe.Event): Promise<WebhookOutcome | n
         typeof session.payment_intent === "string" ? session.payment_intent : (session.payment_intent?.id ?? null);
       const paymentMethod = session.payment_method_types?.[0] ?? null;
       if (session.payment_status === "paid") {
-        return confirmPaymentAndBooking(tx, payment, { paymentIntentId, paymentMethod });
+        return confirmPaymentAndBooking(tx, payment, {
+          paymentIntentId,
+          paymentMethod,
+          connectedAccountId: event.account ?? payment.providerConnectedAccountId,
+          chargeId: idFromStripeRef(session.payment_intent && typeof session.payment_intent === "object" ? session.payment_intent.latest_charge : null),
+        });
       }
       await markPaymentProcessing(tx, payment);
       return { workspaceId: payment.workspaceId, bookingId: payment.bookingId, paymentId: payment.id, auditAction: "payment_created" };
@@ -138,10 +260,36 @@ async function dispatch(tx: Db, event: Stripe.Event): Promise<WebhookOutcome | n
       const pi = event.data.object as Stripe.PaymentIntent;
       const payment = await findPaymentByPaymentIntentId(tx, pi.id);
       if (!payment) return null;
+      const transferDestination =
+        typeof pi.transfer_data?.destination === "string"
+          ? pi.transfer_data.destination
+          : (pi.transfer_data?.destination?.id ?? null);
       return confirmPaymentAndBooking(tx, payment, {
         paymentIntentId: pi.id,
         paymentMethod: pi.payment_method_types?.[0] ?? null,
+        connectedAccountId: event.account ?? transferDestination ?? payment.providerConnectedAccountId,
+        chargeId: idFromStripeRef(pi.latest_charge),
       });
+    }
+    case "charge.succeeded": {
+      const charge = event.data.object as Stripe.Charge;
+      const paymentIntentId = idFromStripeRef(charge.payment_intent);
+      if (!paymentIntentId) return null;
+      const payment = await findPaymentByPaymentIntentId(tx, paymentIntentId);
+      if (!payment) return null;
+      const balanceTransactionId = idFromStripeRef(charge.balance_transaction);
+      const transferId = idFromStripeRef((charge as unknown as { transfer?: unknown }).transfer);
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          providerChargeId: charge.id,
+          providerBalanceTxnId: balanceTransactionId,
+          providerTransferId: transferId,
+          receiptUrl: charge.receipt_url ?? payment.receiptUrl,
+          providerConnectedAccountId: event.account ?? payment.providerConnectedAccountId,
+        },
+      });
+      return { workspaceId: payment.workspaceId, bookingId: payment.bookingId, paymentId: payment.id, auditAction: "payment_reconciled" };
     }
     case "payment_intent.payment_failed": {
       const pi = event.data.object as Stripe.PaymentIntent;
@@ -170,6 +318,14 @@ async function dispatch(tx: Db, event: Stripe.Event): Promise<WebhookOutcome | n
       await markPaymentRefunded(tx, payment, charge);
       return { workspaceId: payment.workspaceId, bookingId: payment.bookingId, paymentId: payment.id, auditAction: "payment_refunded" };
     }
+    case "account.updated": {
+      return syncPaymentAccountFromWebhook(tx, event.data.object as Stripe.Account);
+    }
+    case "charge.dispute.created":
+    case "charge.dispute.updated":
+    case "charge.dispute.closed": {
+      return syncDisputeFromWebhook(tx, event.data.object as Stripe.Dispute, event);
+    }
     default:
       // Every other event type Stripe might deliver (this webhook endpoint
       // isn't narrowed to a subset in the Stripe dashboard) is recorded via
@@ -196,6 +352,7 @@ export async function processStripeWebhookEvent(event: Stripe.Event): Promise<Pr
         data: {
           providerEventId: event.id,
           provider: "stripe",
+          providerAccountId: event.account ?? null,
           eventType: event.type,
           payload: event as unknown as Prisma.InputJsonValue,
         },
@@ -226,8 +383,8 @@ export async function processStripeWebhookEvent(event: Stripe.Event): Promise<Pr
       action: settled.auditAction,
       workspaceId: settled.workspaceId,
       userId: null,
-      entityType: "payment",
-      entityId: settled.paymentId,
+      entityType: settled.entityType ?? "payment",
+      entityId: settled.entityId ?? settled.paymentId ?? undefined,
       metadata: { bookingId: settled.bookingId, eventType: event.type, providerEventId: event.id },
     });
 
@@ -235,7 +392,7 @@ export async function processStripeWebhookEvent(event: Stripe.Event): Promise<Pr
     // payment is one of the three places a booking becomes `confirmed`
     // (see docs/19_PHASE_5_IMPLEMENTATION_PLAN.md §5). Sent after this
     // transaction has committed, same as the audit event above.
-    if (settled.auditAction === "payment_succeeded") {
+    if (settled.auditAction === "payment_succeeded" && settled.bookingId) {
       await sendBookingConfirmationEmail(settled.bookingId);
     }
   }

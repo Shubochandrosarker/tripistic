@@ -73,6 +73,7 @@ export async function POST(request: Request) {
             workspaceId: created.id,
             planId: defaultPlan.id,
             status: "trialing",
+            billingInterval: "monthly",
             trialEndsAt,
             currentPeriodStart: new Date(),
             currentPeriodEnd: trialEndsAt,

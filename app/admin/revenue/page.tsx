@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { CreditCard, DollarSign, TrendingUp, Users } from "lucide-react";
+import { CalendarClock, CreditCard, DollarSign, TrendingUp, Users } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { formatMoney } from "@/lib/utils";
+import { formatDate, formatMoney } from "@/lib/utils";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
@@ -13,10 +13,19 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminRevenuePage() {
-  const [subscriptions, succeededPayments, planRows] = await Promise.all([
+  const [subscriptions, succeededPayments, planRows, pendingChanges] = await Promise.all([
     prisma.subscription.findMany({
       where: { status: { in: ["trialing", "active", "past_due"] } },
-      include: { plan: true, workspace: { select: { name: true, slug: true } } },
+      include: {
+        plan: true,
+        workspace: { select: { name: true, slug: true } },
+        scheduledChanges: {
+          where: { status: "scheduled" },
+          include: { toPlan: true },
+          orderBy: { effectiveAt: "asc" },
+          take: 1,
+        },
+      },
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
@@ -30,6 +39,7 @@ export default async function AdminRevenuePage() {
       include: { _count: { select: { subscriptions: true } } },
       orderBy: { priceMonthly: "asc" },
     }),
+    prisma.subscriptionChange.count({ where: { status: "scheduled" } }),
   ]);
 
   const activeSubscriptions = subscriptions.filter((item) => item.status === "active");
@@ -43,11 +53,12 @@ export default async function AdminRevenuePage() {
         description="Platform revenue, MRR, ARR, and plan mix across active subscriptions."
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard icon={DollarSign} label="MRR" value={formatMoney(mrr)} hint="Active subscription monthly value" />
         <MetricCard icon={TrendingUp} label="ARR" value={formatMoney(arr)} hint="MRR annualized" />
         <MetricCard icon={CreditCard} label="Succeeded payments" value={formatMoney(succeededPayments._sum.amount ?? 0)} hint={`${succeededPayments._count} guest payments`} />
         <MetricCard icon={Users} label="Active subscriptions" value={String(activeSubscriptions.length)} hint={`${subscriptions.length} total billing records shown`} />
+        <MetricCard icon={CalendarClock} label="Scheduled changes" value={String(pendingChanges)} hint="Plan changes queued at renewal" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -82,24 +93,42 @@ export default async function AdminRevenuePage() {
       </div>
 
       <TableShell
-        headers={["Workspace", "Plan", "Status", "Monthly", "Yearly"]}
+        headers={["Workspace", "Plan", "Status", "Interval", "Renewal", "Grace", "Pending Change"]}
         isEmpty={subscriptions.length === 0}
         emptyMessage="No subscription records yet."
       >
-        {subscriptions.map((subscription) => (
-          <tr key={subscription.id}>
-            <Td>
-              <span className="font-medium">{subscription.workspace.name}</span>
-              <span className="block text-xs text-muted-foreground">/{subscription.workspace.slug}</span>
-            </Td>
-            <Td>{subscription.plan.name}</Td>
-            <Td>
-              <StatusBadge status={subscription.status} />
-            </Td>
-            <Td className="text-muted-foreground">{formatMoney(subscription.plan.priceMonthly, subscription.plan.currency)}</Td>
-            <Td className="text-muted-foreground">{formatMoney(subscription.plan.priceYearly, subscription.plan.currency)}</Td>
-          </tr>
-        ))}
+        {subscriptions.map((subscription) => {
+          const change = subscription.scheduledChanges[0];
+          return (
+            <tr key={subscription.id}>
+              <Td>
+                <span className="font-medium">{subscription.workspace.name}</span>
+                <span className="block text-xs text-muted-foreground">/{subscription.workspace.slug}</span>
+              </Td>
+              <Td>
+                <span>{subscription.plan.name}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {formatMoney(subscription.plan.priceMonthly, subscription.plan.currency)}/mo
+                </span>
+              </Td>
+              <Td>
+                <StatusBadge status={subscription.status} />
+              </Td>
+              <Td className="text-muted-foreground">{subscription.billingInterval ?? "monthly"}</Td>
+              <Td className="text-muted-foreground">
+                {subscription.currentPeriodEnd ? formatDate(subscription.currentPeriodEnd) : "Not synced"}
+              </Td>
+              <Td className="text-muted-foreground">
+                {subscription.graceEndsAt ? formatDate(subscription.graceEndsAt) : "None"}
+              </Td>
+              <Td className="text-muted-foreground">
+                {change
+                  ? `${change.toPlan.name} ${change.interval} on ${formatDate(change.effectiveAt)}`
+                  : "None"}
+              </Td>
+            </tr>
+          );
+        })}
       </TableShell>
     </>
   );

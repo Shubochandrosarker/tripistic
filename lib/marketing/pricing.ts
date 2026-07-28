@@ -1,3 +1,5 @@
+import { canonicalPlans, effectiveMonthlyPriceCents, type CanonicalPlanSlug } from "@/lib/plans/catalog";
+
 export type PlanId = "solo" | "operator" | "agency" | "enterprise";
 
 export type Plan = {
@@ -12,76 +14,24 @@ export type Plan = {
   popular?: boolean;
 };
 
-/** Annual billing is 20% off the monthly rate, charged up front. */
-export const YEARLY_DISCOUNT = 0.2;
+export const YEARLY_SAVINGS_LABEL = "2 months free";
 
-export const plans: Plan[] = [
-  {
-    id: "solo",
-    name: "Solo",
-    monthly: 49,
-    yearly: Math.round(49 * 12 * (1 - YEARLY_DISCOUNT)),
-    summary: "For independent guides launching direct bookings.",
-    seats: "1 seat",
-    highlights: [
-      "Direct booking pages",
-      "Tours, schedules, and availability",
-      "Stripe payments and payment links",
-      "Digital waivers",
-      "Booking confirmations and reminders",
-    ],
-    cta: { label: "Start free", href: "/register" },
+export const plans: Plan[] = canonicalPlans.map((plan) => ({
+  id: plan.slug as CanonicalPlanSlug,
+  name: plan.name,
+  monthly: plan.monthlyPriceCents === null ? null : plan.monthlyPriceCents / 100,
+  yearly: plan.yearlyPriceCents === null ? null : plan.yearlyPriceCents / 100,
+  summary: plan.summary,
+  seats: plan.seatsLabel,
+  highlights: plan.highlights,
+  cta: {
+    label: plan.slug === "enterprise" ? "Contact sales" : "Start free",
+    href: plan.slug === "enterprise" ? "/contact" : "/register",
   },
-  {
-    id: "operator",
-    name: "Operator",
-    monthly: 149,
-    yearly: Math.round(149 * 12 * (1 - YEARLY_DISCOUNT)),
-    summary: "For teams running daily departures and staff.",
-    seats: "Up to 10 seats",
-    highlights: [
-      "Everything in Solo",
-      "CRM, leads, and tasks",
-      "Live operations centre",
-      "Guides, drivers, and vehicles",
-      "Incident reporting and manifests",
-    ],
-    cta: { label: "Start free", href: "/register" },
-    popular: true,
-  },
-  {
-    id: "agency",
-    name: "Agency",
-    monthly: 399,
-    yearly: Math.round(399 * 12 * (1 - YEARLY_DISCOUNT)),
-    summary: "For agencies and DMCs building itineraries and partner workflows.",
-    seats: "Up to 30 seats",
-    highlights: [
-      "Everything in Operator",
-      "AI itinerary builder",
-      "Vendors, costs, and margins",
-      "Branded customer portal",
-      "White label and custom domains",
-    ],
-    cta: { label: "Start free", href: "/register" },
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    monthly: null,
-    yearly: null,
-    summary: "For platform operators, resellers, and governed deployments.",
-    seats: "Unlimited seats",
-    highlights: [
-      "Everything in Agency",
-      "Super-admin platform layer",
-      "Multi-tenant provisioning",
-      "AI provider governance",
-      "Negotiated SLA and DPA",
-    ],
-    cta: { label: "Contact sales", href: "/contact" },
-  },
-];
+  popular: plan.slug === "solo",
+}));
+
+export const soloEffectiveMonthlyAnnualCents = effectiveMonthlyPriceCents(canonicalPlans[0]);
 
 export type ComparisonRow = {
   feature: string;
@@ -111,7 +61,7 @@ export const comparison: ComparisonGroup[] = [
       row("Stripe payments and payment links", true, true, true, true),
       row("Deposits and partial payments", false, true, true, true),
       row("Digital waivers", true, true, true, true),
-      row("Direct booking commission", "0%", "0%", "0%", "0%"),
+      row("Tripistic direct-booking commission", "0%", "0%", "0%", "0%"),
     ],
   },
   {
@@ -132,7 +82,7 @@ export const comparison: ComparisonGroup[] = [
       row("Leads and pipeline", false, true, true, true),
       row("Companies and agency clients", false, true, true, true),
       row("Segmentation and review requests", false, true, true, true),
-      row("Vendors, costs, and margins", false, false, true, true),
+      row("Suppliers, costs, and margins", false, false, true, true),
     ],
   },
   {
@@ -149,8 +99,8 @@ export const comparison: ComparisonGroup[] = [
     group: "Brand & platform",
     rows: [
       row("Customer portal", false, true, true, true),
-      row("Brand kit (logo, colours, emails)", false, false, true, true),
-      row("Custom domains with SSL", false, false, true, true),
+      row("Brand kit (logo, colours, emails)", true, true, true, true),
+      row("Custom domains with SSL", "1 domain", "1 domain", "5 domains", true),
       row("PDF and invoice branding", false, false, true, true),
       row("Multi-tenant sub-workspaces", false, false, false, true),
       row("Reseller licence", false, false, false, true),
@@ -188,11 +138,11 @@ export const pricingFaqs: readonly (readonly [string, string])[] = [
   ],
   [
     "What is included in annual billing?",
-    "Annual billing saves 20% and is charged up front. You can request a full refund within 30 days of the charge.",
+    "Annual billing gives Solo two months free: $278 charged up front, which is about $23/month when averaged over the year.",
   ],
   [
     "Who handles traveller refunds?",
-    "You do. Traveller payments flow through your own Stripe account under your own cancellation terms. Tripistic records the refund against the booking.",
+    "You do. Traveller payments are designed to flow through your connected Stripe account under your own cancellation terms. Tripistic records the refund against the booking.",
   ],
   [
     "Do you offer a DPA and security review pack?",

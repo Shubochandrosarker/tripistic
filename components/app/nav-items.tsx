@@ -51,6 +51,7 @@ export const dashboardNav: NavSection[] = [
     title: "Operations",
     items: [
       { href: "/dashboard/bookings", label: "Bookings", icon: CalendarCheck },
+      { href: "/dashboard/payments", label: "Payments & Payouts", icon: CreditCard },
       { href: "/dashboard/tours", label: "Tours", icon: Map },
       { href: "/dashboard/operations", label: "Operations Center", icon: Radio },
       { href: "/dashboard/incidents", label: "Dispatch", icon: ShieldAlert },
@@ -77,6 +78,8 @@ export const dashboardNav: NavSection[] = [
   {
     title: "Growth",
     items: [
+      { href: "/dashboard/website", label: "Website", icon: Globe2 },
+      { href: "/dashboard/domains", label: "Domains", icon: Globe2 },
       { href: "/dashboard/itineraries", label: "Itineraries", icon: Sparkles },
       { href: "/dashboard/ai-growth", label: "AI Growth", icon: Sparkles },
     ],

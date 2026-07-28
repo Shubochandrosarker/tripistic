@@ -60,3 +60,10 @@ export function toStripeAmount(amountInStoredMinorUnits: number, currency: strin
   }
   return amountInStoredMinorUnits;
 }
+
+export function fromStripeAmount(amountFromStripe: number, currency: string): number {
+  if (ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase())) {
+    return amountFromStripe * 100;
+  }
+  return amountFromStripe;
+}

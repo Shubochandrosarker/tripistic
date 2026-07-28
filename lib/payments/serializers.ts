@@ -57,6 +57,12 @@ export type PaymentDetail = PaymentSummary & {
   provider: string;
   providerPaymentIntentId: string | null;
   providerCheckoutSessionId: string | null;
+  providerConnectedAccountId: string | null;
+  providerChargeId: string | null;
+  providerTransferId: string | null;
+  providerBalanceTxnId: string | null;
+  platformFeeAmount: number;
+  stripeFeeAmount: number | null;
   receiptUrl: string | null;
   failureCode: string | null;
   failureMessage: string | null;
@@ -76,6 +82,12 @@ export function serializePaymentDetail(
     provider: payment.provider,
     providerPaymentIntentId: payment.providerPaymentIntentId,
     providerCheckoutSessionId: payment.providerCheckoutSessionId,
+    providerConnectedAccountId: payment.providerConnectedAccountId,
+    providerChargeId: payment.providerChargeId,
+    providerTransferId: payment.providerTransferId,
+    providerBalanceTxnId: payment.providerBalanceTxnId,
+    platformFeeAmount: payment.platformFeeAmount,
+    stripeFeeAmount: payment.stripeFeeAmount,
     receiptUrl: payment.receiptUrl,
     failureCode: payment.failureCode,
     failureMessage: payment.failureMessage,

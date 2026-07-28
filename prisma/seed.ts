@@ -6,6 +6,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { canonicalPlans } from "../lib/plans/catalog";
 
 const prisma = new PrismaClient();
 
@@ -13,131 +14,30 @@ type PlanSeed = {
   slug: string;
   name: string;
   description: string;
-  priceMonthly: number; // cents
-  priceYearly: number; // cents
+  priceMonthly: number; // cents; 0 means contact sales/custom in the current schema.
+  priceYearly: number; // cents; 0 means contact sales/custom in the current schema.
   features: string[];
   limits: Record<string, number>;
   flags: Record<string, boolean>;
 };
 
-const PLANS: PlanSeed[] = [
-  {
-    slug: "solo",
-    name: "Solo",
-    description: "For solo guides launching direct bookings.",
-    priceMonthly: 1900,
-    priceYearly: 19000,
-    features: [
-      "1 user",
-      "3 tour products",
-      "Booking widget",
-      "Stripe payments",
-      "Email confirmations",
-      "Basic waiver",
-      "Basic CRM",
-      "Basic AI insights",
-      "0% direct-booking commission",
-    ],
-    limits: { users: 1, tour_products: 3, ai_credits_monthly: 50 },
-    flags: {
-      booking_engine: true,
-      stripe_payments: true,
-      digital_waivers: true,
-      guide_scheduling: false,
-      ai_growth_dashboard: false,
-      ota_sync: false,
-      white_label: false,
-      custom_domain: false,
-    },
-  },
-  {
-    slug: "operator",
-    name: "Operator",
-    description: "Full operations for small tour companies.",
-    priceMonthly: 6900,
-    priceYearly: 69000,
-    features: [
-      "Up to 5 users",
-      "Unlimited tour products",
-      "Advanced availability",
-      "Deposits & installments",
-      "Digital waivers",
-      "Guide scheduling",
-      "Guest CRM",
-      "AI Growth Dashboard",
-      "Basic OTA sync",
-      "0% direct-booking commission",
-    ],
-    limits: { users: 5, tour_products: -1, ai_credits_monthly: 250 },
-    flags: {
-      booking_engine: true,
-      stripe_payments: true,
-      digital_waivers: true,
-      guide_scheduling: true,
-      ai_growth_dashboard: true,
-      ota_sync: true,
-      white_label: false,
-      custom_domain: false,
-    },
-  },
-  {
-    slug: "growth",
-    name: "Growth",
-    description: "Serious automation and growth tools for growing teams.",
-    priceMonthly: 9900,
-    priceYearly: 99000,
-    features: [
-      "Up to 15 users",
-      "Advanced AI Growth Dashboard",
-      "Demand forecasting",
-      "AI booking agent",
-      "AI marketing assistant",
-      "No-show prediction",
-      "Advanced reports",
-      "Zapier/Make integration",
-      "Priority support",
-    ],
-    limits: { users: 15, tour_products: -1, ai_credits_monthly: 1000 },
-    flags: {
-      booking_engine: true,
-      stripe_payments: true,
-      digital_waivers: true,
-      guide_scheduling: true,
-      ai_growth_dashboard: true,
-      ota_sync: true,
-      white_label: false,
-      custom_domain: false,
-    },
-  },
-  {
-    slug: "agency",
-    name: "Agency",
-    description: "Multi-client management for agencies and consultants.",
-    priceMonthly: 19900,
-    priceYearly: 199000,
-    features: [
-      "Multi-client dashboard",
-      "White-label option",
-      "Branded reports",
-      "Agency onboarding tools",
-      "Template library",
-      "Advanced permissions",
-    ],
-    limits: { users: -1, tour_products: -1, ai_credits_monthly: 2500 },
-    flags: {
-      booking_engine: true,
-      stripe_payments: true,
-      digital_waivers: true,
-      guide_scheduling: true,
-      ai_growth_dashboard: true,
-      ota_sync: true,
-      white_label: true,
-      custom_domain: true,
-    },
-  },
-];
+const PLANS: PlanSeed[] = canonicalPlans.map((plan) => ({
+  slug: plan.slug,
+  name: plan.name,
+  description: plan.description,
+  priceMonthly: plan.monthlyPriceCents ?? 0,
+  priceYearly: plan.yearlyPriceCents ?? 0,
+  features: [...plan.features],
+  limits: plan.limits,
+  flags: plan.flags,
+}));
 
 async function seedPlans() {
+  await prisma.plan.updateMany({
+    where: { slug: { notIn: PLANS.map((plan) => plan.slug) } },
+    data: { isActive: false },
+  });
+
   for (const plan of PLANS) {
     const record = await prisma.plan.upsert({
       where: { slug: plan.slug },
@@ -162,6 +62,62 @@ async function seedPlans() {
         isActive: true,
       },
     });
+
+    for (const interval of ["monthly", "yearly"] as const) {
+      const amount = interval === "monthly" ? plan.priceMonthly : plan.priceYearly;
+      const existing = await prisma.planPrice.findFirst({
+        where: { planId: record.id, interval, currency: "USD" },
+      });
+      if (existing) {
+        await prisma.planPrice.update({
+          where: { id: existing.id },
+          data: {
+            amount,
+            billingProvider: amount > 0 ? "stripe" : null,
+            isActive: amount > 0,
+          },
+        });
+      } else {
+        await prisma.planPrice.create({
+          data: {
+            planId: record.id,
+            interval,
+            amount,
+            currency: "USD",
+            billingProvider: amount > 0 ? "stripe" : null,
+            isActive: amount > 0,
+          },
+        });
+      }
+    }
+
+    const entitlementEntries = [
+      ...Object.entries(plan.flags).map(([key, enabled]) => ({ key, enabled, limitValue: null })),
+      ...Object.entries(plan.limits).map(([key, limitValue]) => ({ key, enabled: true, limitValue })),
+    ];
+    for (const entitlement of entitlementEntries) {
+      const existing = await prisma.entitlement.findFirst({
+        where: { planId: record.id, key: entitlement.key },
+      });
+      if (existing) {
+        await prisma.entitlement.update({
+          where: { id: existing.id },
+          data: {
+            enabled: entitlement.enabled,
+            limitValue: entitlement.limitValue,
+          },
+        });
+      } else {
+        await prisma.entitlement.create({
+          data: {
+            planId: record.id,
+            key: entitlement.key,
+            enabled: entitlement.enabled,
+            limitValue: entitlement.limitValue,
+          },
+        });
+      }
+    }
 
     for (const [featureKey, enabled] of Object.entries(plan.flags)) {
       const existing = await prisma.featureFlag.findFirst({

@@ -6,7 +6,7 @@ import { Check, Minus, Sparkles } from "lucide-react";
 import { StaggerGroup, StaggerItem } from "@/components/marketing/motion";
 import { ButtonLink } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics/events";
-import { comparison, plans, YEARLY_DISCOUNT, type PlanId } from "@/lib/marketing/pricing";
+import { comparison, plans, YEARLY_SAVINGS_LABEL, type PlanId } from "@/lib/marketing/pricing";
 import { cn } from "@/lib/utils";
 
 type Interval = "monthly" | "yearly";
@@ -65,7 +65,7 @@ export function PricingTable() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {option === "monthly" ? "Monthly" : `Yearly · save ${YEARLY_DISCOUNT * 100}%`}
+                {option === "monthly" ? "Monthly" : `Yearly · ${YEARLY_SAVINGS_LABEL}`}
               </button>
             );
           })}

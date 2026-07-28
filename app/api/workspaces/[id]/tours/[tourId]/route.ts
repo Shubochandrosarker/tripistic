@@ -8,6 +8,7 @@ import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { updateTourSchema, type UpdateTourInput } from "@/lib/validation";
 import { requireTour } from "@/lib/tours/service";
 import { archiveTour } from "@/lib/tours/archive";
+import { assertCanActivateTour } from "@/lib/plans/entitlements";
 
 type Params = { params: Promise<{ id: string; tourId: string }> };
 
@@ -76,6 +77,10 @@ export async function PATCH(request: Request, { params }: Params) {
     const data = updateTourSchema.parse(body);
 
     const becameArchived = data.status === "archived" && existing.status !== "archived";
+    const becomesActive = data.status === "active" && existing.status !== "active";
+    if (becomesActive) {
+      await assertCanActivateTour(id);
+    }
 
     let tour;
     let cancelledSlots: number | undefined;

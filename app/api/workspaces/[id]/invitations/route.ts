@@ -7,6 +7,7 @@ import { canManageMembers, grantableRoles } from "@/lib/auth/permissions";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { inviteMemberSchema } from "@/lib/validation";
 import { sendMemberInvitationEmail } from "@/lib/messaging/service";
+import { assertCanReserveSeat } from "@/lib/plans/entitlements";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -69,6 +70,7 @@ export async function POST(request: Request, { params }: Params) {
     if (!grantableRoles(membership.role).includes(data.role)) {
       throw forbidden("You cannot grant that role.");
     }
+    await assertCanReserveSeat(id);
 
     const existingMember = await prisma.workspaceMember.findFirst({
       where: { workspaceId: id, user: { email: data.email } },

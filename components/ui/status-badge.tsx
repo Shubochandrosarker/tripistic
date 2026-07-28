@@ -16,12 +16,16 @@ const toneClasses: Record<Tone, string> = {
 
 const statusTones: Record<string, Tone> = {
   active: "green",
+  enabled: "green",
   accepted: "green",
   confirmed: "green",
   trialing: "blue",
   completed: "blue",
   pending: "amber",
+  onboarding: "amber",
+  not_started: "gray",
   past_due: "orange",
+  restricted: "orange",
   suspended: "orange",
   no_show: "orange",
   cancelled: "red",
@@ -42,6 +46,11 @@ const statusTones: Record<string, Tone> = {
   sent: "green",
   queued: "amber",
   skipped: "gray",
+  pending_dns: "amber",
+  verifying: "blue",
+  verified: "blue",
+  ssl_pending: "amber",
+  disabled: "gray",
 };
 
 export function StatusBadge({

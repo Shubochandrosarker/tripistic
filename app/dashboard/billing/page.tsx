@@ -11,6 +11,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
+import {
+  BillingCheckoutButton,
+  BillingPortalButton,
+  BillingScheduleChangeButton,
+} from "@/components/billing/billing-actions";
 
 export const metadata: Metadata = {
   title: "Billing",
@@ -21,9 +26,14 @@ export default async function BillingPage() {
   const active = await getActiveWorkspace(user.id);
   if (!active) redirect("/workspaces/new");
 
-  const [subscription, plans] = await Promise.all([
+  const [subscription, plans, pendingChange] = await Promise.all([
     getWorkspaceSubscription(active.workspace.id),
     prisma.plan.findMany({ where: { isActive: true }, orderBy: { priceMonthly: "asc" } }),
+    prisma.subscriptionChange.findFirst({
+      where: { workspaceId: active.workspace.id, status: "scheduled" },
+      include: { toPlan: true },
+      orderBy: { effectiveAt: "asc" },
+    }),
   ]);
 
   const trialDays = daysUntil(subscription?.trialEndsAt ?? null);
@@ -38,7 +48,12 @@ export default async function BillingPage() {
 
       <SectionCard
         title="Current plan"
-        actions={subscription ? <StatusBadge status={subscription.status} /> : null}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {subscription ? <StatusBadge status={subscription.status} /> : null}
+            {billingAllowed ? <BillingPortalButton disabled={!subscription?.providerCustomerId} /> : null}
+          </div>
+        }
       >
         {subscription ? (
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -54,6 +69,28 @@ export default async function BillingPage() {
                   {trialDays !== null ? (
                     <span className="text-muted-foreground"> — {trialDays} days left</span>
                   ) : null}
+                </p>
+              ) : null}
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <span className="rounded-full border border-border px-2 py-1">
+                  {subscription.billingInterval === "yearly" ? "Annual billing" : "Monthly billing"}
+                </span>
+                {subscription.currentPeriodEnd ? (
+                  <span className="rounded-full border border-border px-2 py-1">
+                    Renews {formatDate(subscription.currentPeriodEnd)}
+                  </span>
+                ) : null}
+                {subscription.graceEndsAt ? (
+                  <span className="rounded-full border border-red-200 bg-red-50 px-2 py-1 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+                    Payment grace ends {formatDate(subscription.graceEndsAt)}
+                  </span>
+                ) : null}
+              </div>
+              {pendingChange ? (
+                <p className="mt-3 text-sm text-foreground">
+                  Scheduled change:{" "}
+                  <span className="font-medium">{pendingChange.toPlan.name}</span> on{" "}
+                  <span className="font-medium">{formatDate(pendingChange.effectiveAt)}</span>
                 </p>
               ) : null}
             </div>
@@ -112,6 +149,21 @@ export default async function BillingPage() {
                     </li>
                   ))}
                 </ul>
+                {billingAllowed && plan.priceMonthly > 0 && !isCurrent ? (
+                  <div className="mt-4 grid gap-2">
+                    {subscription?.providerSubscriptionId ? (
+                      <>
+                        <BillingScheduleChangeButton planSlug={plan.slug} interval="monthly" />
+                        <BillingScheduleChangeButton planSlug={plan.slug} interval="yearly" />
+                      </>
+                    ) : (
+                      <>
+                        <BillingCheckoutButton planSlug={plan.slug} interval="monthly" />
+                        <BillingCheckoutButton planSlug={plan.slug} interval="yearly" />
+                      </>
+                    )}
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -125,8 +177,9 @@ export default async function BillingPage() {
             <p>
               <span className="font-medium text-foreground">Guest payments are live.</span> Guests
               pay securely through Stripe Checkout and bookings confirm automatically on success.
-              Direct payouts to your own connected Stripe account (instead of via Tripistic) and
-              self-serve plan upgrades with Stripe subscriptions arrive in a later phase.
+              Direct payouts to your own connected Stripe account (instead of via Tripistic) are
+              still being completed. SaaS plan checkout, billing portal access, previews, and
+              renewal-date plan changes are wired through Stripe Billing.
             </p>
             {!billingAllowed ? (
               <p className="mt-2 flex items-center gap-1.5 text-xs">

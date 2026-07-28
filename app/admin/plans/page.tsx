@@ -26,7 +26,7 @@ export default async function AdminPlansPage() {
         <SectionCard title="No plans found">
           <p className="text-sm text-muted-foreground">
             Run <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">npm run db:seed</code>{" "}
-            to create the default plan catalog (Solo, Operator, Growth, Agency).
+          to create the default plan catalog (Solo, Operator, Agency, Enterprise).
           </p>
         </SectionCard>
       ) : (

@@ -50,6 +50,29 @@ Current API:
 
 - `GET /api/admin/white-labels`
 
+## Operator Surface
+
+Current public-launch Phase 3 page:
+
+- `/dashboard/website`
+
+Current APIs:
+
+- `GET /api/workspaces/:id/storefront`
+- `PATCH /api/workspaces/:id/storefront`
+- `POST /api/workspaces/:id/storefront/publish`
+- `GET /api/workspaces/:id/media`
+- `POST /api/workspaces/:id/media/upload-intent`
+- `POST /api/workspaces/:id/media/:assetId/complete`
+
+Current models:
+
+- `workspace_storefronts`
+- `workspace_storefront_revisions`
+- `workspace_media_assets`
+
+Published storefront content is currently bound to `/book/:workspaceSlug`.
+
 ## Runtime Resolution
 
 Resolution order should be:
@@ -67,9 +90,9 @@ Resolution order should be:
 
 ## Remaining Work
 
-- Operator-facing white-label builder.
-- File upload/storage for logos and favicons.
+- Server-side uploaded-object byte inspection and responsive image variants.
+- Media deletion, orphan cleanup, and rollback UI.
 - Email/PDF template binding.
-- Public booking theme binding.
+- Full storefront route set beyond the booking index/detail pages.
 - API brand metadata in public responses.
 - Audit log events for brand changes.

@@ -43,6 +43,10 @@ export type AuditAction =
   | "payment_failed"
   | "payment_refunded"
   | "payment_expired"
+  | "payment_reconciled"
+  | "payment_account_onboarding_started"
+  | "payment_account_synced"
+  | "payment_dispute_updated"
   | "customer_updated"
   | "customer_unsubscribed"
   | "member_invitation_emailed"
@@ -90,7 +94,15 @@ export type AuditAction =
   | "itinerary_item_created"
   | "itinerary_item_updated"
   | "itinerary_item_deleted"
-  | "itinerary_version_saved";
+  | "itinerary_version_saved"
+  | "storefront_draft_updated"
+  | "storefront_published"
+  | "media_upload_started"
+  | "media_upload_completed"
+  | "custom_domain_created"
+  | "custom_domain_verified"
+  | "custom_domain_activated"
+  | "custom_domain_disabled";
 
 export interface AuditEventInput {
   action: AuditAction;
