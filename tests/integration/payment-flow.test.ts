@@ -27,7 +27,14 @@ import { POST as paymentLinkRoute } from "@/app/api/workspaces/[id]/bookings/[bo
 import { GET as bookingDetailRoute } from "@/app/api/workspaces/[id]/bookings/[bookingId]/route";
 import { GET as listBookingsRoute } from "@/app/api/workspaces/[id]/bookings/route";
 import { createBooking } from "@/lib/bookings/service";
-import { addMember, createBookableFixture, createTestUser, createTestWorkspace, prisma } from "./helpers";
+import {
+  addMember,
+  createBookableFixture,
+  createTestPaymentAccount,
+  createTestUser,
+  createTestWorkspace,
+  prisma,
+} from "./helpers";
 
 const mockGetStripeClient = getStripeClient as unknown as ReturnType<typeof vi.fn>;
 const mockRequireUserApi = requireUserApi as unknown as ReturnType<typeof vi.fn>;
@@ -71,7 +78,7 @@ function bookingPayload(availabilityId: string, overrides: Record<string, unknow
 
 describe("public booking creation — payment gating", () => {
   it("a paid booking lands pending with a requires_payment Payment row and a checkout URL", async () => {
-    const { workspace, availability } = await createBookableFixture({ tour: { basePrice: 5000, capacity: 5 } });
+    const { workspace, availability } = await createBookableFixture({ tour: { basePrice: 5000, capacity: 5 }, paymentAccount: true });
 
     const res = await publicCreateBookingRoute(
       req(`http://x/api/public/${workspace.slug}/bookings`, {
@@ -127,7 +134,7 @@ describe("public booking creation — payment gating", () => {
   });
 
   it("an idempotent replay reuses the same Checkout Session instead of creating a second Payment row", async () => {
-    const { workspace, availability } = await createBookableFixture({ tour: { basePrice: 3000, capacity: 5 } });
+    const { workspace, availability } = await createBookableFixture({ tour: { basePrice: 3000, capacity: 5 }, paymentAccount: true });
     const payload = bookingPayload(availability.id);
 
     const first = await publicCreateBookingRoute(
@@ -155,6 +162,8 @@ describe("manual booking payment links", () => {
     await addMember(workspace.id, owner.id, "workspace_owner");
     const actor = role === "workspace_owner" ? owner : await createTestUser();
     if (role !== "workspace_owner") await addMember(workspace.id, actor.id, role);
+    // The payment-link route goes through getChargeReadyPaymentAccount.
+    await createTestPaymentAccount(workspace.id);
 
     const tour = await prisma.tour.create({
       data: {
@@ -225,7 +234,7 @@ describe("manual booking payment links", () => {
 
 describe("dashboard payment visibility is role-gated", () => {
   it("viewer sees payment status/amount but not Stripe references; owner sees everything", async () => {
-    const { owner, workspace, availability } = await createBookableFixture({ tour: { basePrice: 6000, capacity: 5 } });
+    const { owner, workspace, availability } = await createBookableFixture({ tour: { basePrice: 6000, capacity: 5 }, paymentAccount: true });
     const viewer = await createTestUser();
     await addMember(workspace.id, viewer.id, "viewer");
 
@@ -272,7 +281,7 @@ describe("dashboard payment visibility is role-gated", () => {
 
 describe("cross-tenant payment isolation", () => {
   it("a payment cannot be reached through a different workspace's booking detail route", async () => {
-    const { workspace, availability } = await createBookableFixture({ tour: { basePrice: 4500, capacity: 5 } });
+    const { workspace, availability } = await createBookableFixture({ tour: { basePrice: 4500, capacity: 5 }, paymentAccount: true });
     const created = await publicCreateBookingRoute(
       req(`http://x/api/public/${workspace.slug}/bookings`, {
         method: "POST",
