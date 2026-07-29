@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { E2E_OWNER_EMAIL, E2E_OWNER_PASSWORD, E2E_TOUR_SLUG } from "../../prisma/e2e-fixture-constants";
+import { acceptNecessaryCookiesOnly } from "./consent";
 
 /**
  * Smoke-checks the operator-facing dashboard surfaces this phase adds —
@@ -9,6 +10,9 @@ import { E2E_OWNER_EMAIL, E2E_OWNER_PASSWORD, E2E_TOUR_SLUG } from "../../prisma
  * integration suite).
  */
 test.beforeEach(async ({ page }) => {
+  // Mounted in the root layout, so it overlays the bottom of dashboard pages
+  // too and can intercept clicks on rows near the fold.
+  await acceptNecessaryCookiesOnly(page);
   await page.goto("/login");
   await page.locator("#email").fill(E2E_OWNER_EMAIL);
   await page.locator("#password").fill(E2E_OWNER_PASSWORD);
