@@ -45,8 +45,8 @@ These are itemised in §15 and are treated here as launch blockers on honesty an
 grounds, independent of their engineering cost — several are pure copy fixes and are among the
 cheapest items on the list.
 
-**Verdict: not production ready.** Nine of the eighteen mandatory launch gates currently fail,
-and five more cannot be verified without production access.
+**Verdict: not production ready.** Ten of the nineteen mandatory launch gates currently fail,
+and four more cannot be verified without production access.
 
 ---
 
@@ -67,7 +67,7 @@ created for this audit.
 | Unit tests | `npm run test:unit` | **PASS** — 74 passing across 9 files | |
 | **Integration tests** | `npm run test:integration` | **FAIL — 6 failed / 155 passed (161), 2 failed files** | §3 |
 | Production build | `npx next build` | **PASS** — exit 0 | |
-| E2E (Playwright) | `npm run test:e2e` | **UNVERIFIED** — not executed in this environment | |
+| **E2E (Playwright)** | `npm run test:e2e` | **FAIL — 2 failed / 4 passed (6)** | §15.10 |
 | Dependency audit | `npm audit --omit=dev` | **PASS** — 0 vulnerabilities | |
 
 **Note on `prisma validate`:** the command fails with `P1012 Environment variable not found:
@@ -922,6 +922,37 @@ revealing secrets (`app/admin/ai-providers/page.tsx:21-23`) — though coverage 
 no Stripe/SMTP/S3/Cloudflare readiness view — and a minimal audit-log viewer (last 100, no
 filter/search/export).
 
+### 15.10 The consent banner overlays interactive content, including the waiver signature pad
+
+Found by running the Playwright suite, which turns out **not to have executed since
+2026-07-16**: the `e2e` job declares `needs: test` (`.github/workflows/ci.yml:90`), so every red
+run since has skipped it silently. Two failures had been accumulating unseen behind the red
+integration suite.
+
+**`CookieConsent` is mounted in the root layout** (`app/layout.tsx:63`) and is positioned
+`fixed inset-x-0 bottom-0 z-50` (`components/analytics/cookie-consent.tsx:95`). On a first
+visit it therefore covers the bottom of the viewport on **every route** — marketing, dashboard,
+public booking, and confirmation alike.
+
+That is not merely a test problem. On the booking confirmation page it sits over the **waiver
+signature pad**, and it intercepts the pointer events aimed at the canvas: the stroke is never
+recorded and the form reports *"Please draw a signature above before submitting."* Playwright's
+captured page snapshot shows exactly that state, with the consent dialog present. The same
+overlay intercepted a tour-row click on `/dashboard/tours`.
+
+**A guest on a short viewport can be unable to sign a waiver until they dismiss a cookie
+banner** — on the one interaction in the product that carries a legal signature. This warrants
+a product decision: raise the pad above the banner, reserve bottom padding while consent is
+undecided, or scroll-anchor the signing dialog clear of it.
+
+A second, smaller defect surfaced alongside it: `getByRole` matches the accessible name as a
+**substring** by default, so the storefront's new `<h2>About E2E Tours</h2>` made
+`{ name: "E2E Tours" }` ambiguous against the `<h1>E2E Tours</h1>` hero — a strict-mode
+violation. That one is purely a test-selector issue; the page's heading structure is correct.
+
+Both are addressed on the CI-repair branch (test-side only). **The banner overlap itself is
+deliberately left unchanged** pending the product decision above, and is traceability item 45.
+
 ---
 
 ## 16. Requirements traceability
@@ -974,6 +1005,8 @@ Status legend: ✅ done · ⚠️ partial · ❌ missing · 🔒 blocker
 | 42 | Video library exists | Advertised with runtimes; `public/` has 2 files | §15.4 | Produce or remove | — | ⚠️ |
 | 43 | SSO/SAML on Enterprise | Sold; not implemented | §15.4 | Implement or withdraw | — | ⚠️ |
 | 44 | Super-admin write operations | 11 of 12 pages read-only; no suspend/impersonate | §15.9 | Build suspend + audited impersonation | admin authz tests | ⚠️ |
+| 45 | Consent banner clear of interactive content | Fixed bottom overlay blocks the waiver signature pad | §15.10 | Raise pad above it, or reserve space while consent is undecided | e2e signing test | 🔒 |
+| 46 | E2E actually runs in CI | `needs: test` silently skipped it since 2026-07-16 | §15.10 | Fixed once `test` is green; consider decoupling | — | ⚠️ |
 
 ---
 
@@ -990,6 +1023,7 @@ Status legend: ✅ done · ⚠️ partial · ❌ missing · 🔒 blocker
 | Production build passes | ✅ PASS |
 | **No unresolved critical/high security finding** | ❌ **FAIL — §8** |
 | **Stripe test-mode E2E passes** | ❌ **FAIL — blocked by the same 409 gate** |
+| **Playwright E2E passes** | ❌ **FAIL — 2 of 6, and skipped in CI since 2026-07-16 (§15.10)** |
 | Stripe production configuration verified | ⬜ UNVERIFIED — no production access |
 | Webhook delivery succeeds in production | ⬜ UNVERIFIED |
 | Transactional production email smoke test | ⬜ UNVERIFIED |
@@ -1000,7 +1034,7 @@ Status legend: ✅ done · ⚠️ partial · ❌ missing · 🔒 blocker
 | **No visible fake/placeholder functionality** | ❌ **FAIL — §15 (extensive), §13.3, §12** |
 | **Rollback procedure documented and feasible** | ❌ **FAIL — does not exist** |
 
-**9 of 18 gates fail; 5 cannot be verified without production access. The term "production
+**10 of 19 gates fail; 4 cannot be verified without production access. The term "production
 ready" must not be used for this build.**
 
 ---
