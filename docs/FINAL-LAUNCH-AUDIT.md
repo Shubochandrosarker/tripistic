@@ -543,8 +543,17 @@ Net: **the audit log is the only durable observability signal.** A production 50
 only via `docker compose logs`.
 
 Additional CI note: `npm audit` is explicitly non-blocking —
-`run: npm audit --audit-level=critical || true` (`.github/workflows/ci.yml:88`) — and there is
-no deploy job; deployment is entirely manual.
+`run: npm audit --audit-level=critical || true` (`.github/workflows/ci.yml:88`) — and this is
+not hypothetical. The full tree currently reports **9 high-severity advisories** that CI prints
+and discards: a `brace-expansion` DoS (GHSA-mh99-v99m-4gvg) reached through
+`minimatch` → `@eslint/config-array` / `@eslint/eslintrc` → `eslint` → `eslint-config-next`.
+
+All nine are **devDependencies**, so the production posture in §2 stands — `npm audit
+--omit=dev` genuinely reports 0. But the gate as written could not catch a *production* high
+either: it fails only at `critical`, and the `|| true` discards even that. The step is
+currently decorative. Setting an explicit severity policy is Phase A item 3.
+
+There is also no deploy job — deployment is entirely manual.
 
 ---
 
