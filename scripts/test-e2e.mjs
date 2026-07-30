@@ -34,4 +34,9 @@ function run(label, command, args) {
 run("==> Migrating tripistic_test to the current schema", "npx", ["prisma", "migrate", "deploy"]);
 run("==> Seeding deterministic e2e fixture", "npx", ["tsx", "prisma/seed-e2e.ts"]);
 run("==> Building production bundle", "npm", ["run", "build"]);
+
+// Tells playwright.config.ts not to reuse a server that is already running:
+// we have just rebuilt, and an existing process on :3000 is by definition
+// serving the older bundle. See the comment on `reuseExistingServer`.
+process.env.E2E_FRESH_BUILD = "1";
 run("==> Running Playwright", "npx", ["playwright", "test"]);

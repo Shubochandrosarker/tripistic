@@ -26,7 +26,8 @@
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:integration": "node scripts/test-integration.mjs",
     "test:e2e": "node scripts/test-e2e.mjs",
-    "test:ci": "npm run db:generate && npx prisma validate && npm run lint && npm run typecheck && npm run test:unit && npm run test:integration && npm run build"
+    "test:ci": "npm run db:generate && npx prisma validate && npm run lint && npm run typecheck && npm run test:unit && npm run test:integration && npm run build",
+    "smoke": "tsx scripts/smoke-test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

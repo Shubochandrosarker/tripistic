@@ -56,7 +56,18 @@ export default defineConfig({
   webServer: {
     command: "npm run start",
     url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    // `npm run test:e2e` rebuilds before it gets here, so reusing whatever is
+    // already on :3000 would run the whole suite against the *previous* build
+    // and report the result as if it meant something. That has produced both
+    // false greens and false reds — the failure mode is silent either way,
+    // because a stale server answers exactly like a fresh one.
+    //
+    // So the script sets E2E_FRESH_BUILD and reuse is refused: if a server is
+    // already holding the port, `next start` fails loudly with EADDRINUSE,
+    // which is a far better outcome than a passing run that proves nothing.
+    // Bare `npx playwright test` (iterating against a dev server you started
+    // yourself) still reuses it.
+    reuseExistingServer: !process.env.CI && !process.env.E2E_FRESH_BUILD,
     timeout: 60_000,
   },
 });
