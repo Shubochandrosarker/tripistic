@@ -75,6 +75,42 @@ services:
       sleep 60 & wait $$!;
       done"
 
+  # Nightly verified backups.
+  #
+  # Runs in the postgres image rather than the tooling image because it needs
+  # `pg_dump`/`pg_restore` at the same major version as the server, and nothing
+  # else. Writes to a host bind mount so the archives survive `compose down -v`
+  # — a backup stored only in a Docker volume shares a fate with the database
+  # it is protecting.
+  #
+  # Local archives do NOT survive losing the VPS. Sync ${BACKUP_HOST_DIR}
+  # off-box; see docs/RUNBOOK-BACKUP-AND-ROLLBACK.md §1.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tripistic}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}@db:5432/${POSTGRES_DB:-tripistic}
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./scripts/backup-database.sh:/usr/local/bin/backup-database.sh:ro
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+    stop_grace_period: 30s
+    # A 24h loop rather than a cron daemon: one fewer moving part in the
+    # image, and the container's own restart policy is the supervisor. Takes a
+    # backup immediately on start so a fresh deployment is protected within
+    # seconds rather than at the next midnight. Same TERM-trap shape as the
+    # worker so `compose down` is not held up for a day.
+    command: >-
+      sh -c "trap 'exit 0' TERM INT;
+      while true; do
+      sh /usr/local/bin/backup-database.sh || echo '[backup] run failed';
+      sleep 86400 & wait $$!;
+      done"
+
   db:
     image: postgres:16-alpine
     container_name: tripistic-db

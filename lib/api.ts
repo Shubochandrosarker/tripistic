@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import { logger } from "@/lib/observability/logger";
+
 /**
  * Error type thrown by auth/tenancy guards and API handlers.
  * Carries an HTTP status; message must always be safe to show a client.
@@ -50,7 +52,9 @@ export function handleApiError(error: unknown): NextResponse {
       { status: 400 },
     );
   }
-  console.error("[api] unhandled error:", error);
+  // Structured, and stamped with the request id when the route opted into
+  // `withRequestContext` — so a 500 a user reports can be found by id.
+  logger.error("api.unhandled_error", undefined, error);
   return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
 }
 

@@ -230,7 +230,15 @@ describe("booking confirmation email — all trigger paths", () => {
     expect(messages[0].status).toBe("sent");
   });
 
-  it("a mocked SMTP failure is tracked as a failed Message row and does not throw into the caller", async () => {
+  /**
+   * This case previously asserted `status: "failed"`. That was the defect
+   * recorded in docs/FINAL-LAUNCH-AUDIT.md §5, not the contract: a connection
+   * refusal is transient, and treating it as terminal meant a brief SMTP
+   * outage permanently destroyed every confirmation queued during it. The
+   * outbox now schedules a retry, and the assertions below check that rather
+   * than merely inverting the old expectation.
+   */
+  it("schedules a retry for a transient SMTP failure and does not throw into the caller", async () => {
     mockGetMailer.mockReturnValue(fakeMailer({ fails: true }));
     const { workspace, tour, availability } = await createBookableFixture({ tour: { basePrice: 0, capacity: 5 } });
 
@@ -239,8 +247,12 @@ describe("booking confirmation email — all trigger paths", () => {
 
     const messages = await confirmationMessagesFor(booking.id);
     expect(messages).toHaveLength(1);
-    expect(messages[0].status).toBe("failed");
+    expect(messages[0].status).toBe("pending_retry");
     expect(messages[0].errorMessage).toContain("SMTP connection refused");
+    expect(messages[0].attempts).toBe(1);
+    expect(messages[0].nextRetryAt).not.toBeNull();
+    // The rendered body is kept so the retry has something to send.
+    expect(messages[0].payload).not.toBeNull();
   });
 });
 
@@ -371,6 +383,9 @@ describe("member invitation email — best effort", () => {
 
     const messages = await prisma.message.findMany({ where: { workspaceId: workspace.id, templateKey: "member_invitation" } });
     expect(messages).toHaveLength(1);
-    expect(messages[0].status).toBe("failed");
+    // Retryable, not terminal — an invitation lost to a transient outage
+    // leaves a colleague unable to join with nothing to resend it.
+    expect(messages[0].status).toBe("pending_retry");
+    expect(messages[0].nextRetryAt).not.toBeNull();
   });
 });

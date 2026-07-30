@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
+import { logger } from "@/lib/observability/logger";
 
 /** Phase 1 audit actions. Extend per phase — never reuse an action name for a different meaning. */
 export type AuditAction =
@@ -160,6 +161,6 @@ export async function recordAuditEvent(input: AuditEventInput): Promise<void> {
       },
     });
   } catch (error) {
-    console.error("[audit] failed to record event", input.action, error);
+    logger.error("audit.record_failed", { action: input.action }, error);
   }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import { logger } from "@/lib/observability/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function GET() {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
-    console.error("[health/ready] database check failed:", error);
+    logger.error("health.ready_check_failed", undefined, error);
     return NextResponse.json(
       { status: "unavailable", checks: { database: "failed" } },
       { status: 503, headers: { "Cache-Control": "no-store" } },

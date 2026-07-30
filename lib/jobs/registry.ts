@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { pollCustomDomainHealth } from "@/lib/domains/service";
 import { sendDueReminders } from "@/lib/messaging/reminders";
+import { retryDueMessages } from "@/lib/messaging/service";
 import { sweepExpiredPendingBookings } from "@/lib/payments/expiration";
 import type { JobDefinition } from "@/lib/jobs/runner";
 
@@ -34,6 +35,22 @@ const sendReminders: JobDefinition = {
   run: async () => {
     const { scanned, sent } = await sendDueReminders();
     return { scanned, sent };
+  },
+};
+
+/**
+ * Re-attempts transactional email that failed transiently.
+ *
+ * Without this, a failed send was terminal on the first try: a brief SMTP
+ * outage destroyed every booking confirmation queued during it, and the
+ * `Message` row recorded the loss with nothing able to act on it.
+ */
+const retryOutbox: JobDefinition = {
+  name: "messaging.retry-outbox",
+  description: "Re-attempt delivery for email whose retry backoff has elapsed",
+  run: async () => {
+    const { scanned, sent, failed } = await retryDueMessages();
+    return { scanned, sent, failed };
   },
 };
 
@@ -100,6 +117,7 @@ const cleanupExpiredTokens: JobDefinition = {
 export const JOBS: JobDefinition[] = [
   expirePendingPayments,
   sendReminders,
+  retryOutbox,
   pollDomains,
   expireGracePeriods,
   cleanupExpiredTokens,

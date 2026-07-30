@@ -51,6 +51,13 @@ const statusTones: Record<string, Tone> = {
   verified: "blue",
   ssl_pending: "amber",
   disabled: "gray",
+  // Scheduler health (admin → System Health).
+  healthy: "green",
+  degraded: "red",
+  stalled: "orange",
+  never_run: "gray",
+  running: "blue",
+  pending_retry: "amber",
 };
 
 export function StatusBadge({
