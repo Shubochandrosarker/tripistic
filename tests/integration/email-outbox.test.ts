@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { createBooking } from "@/lib/bookings/service";
 import { findDueRetries, recordDeliveryAttempt } from "@/lib/messaging/outbox";
-import { retryDueMessages, sendBookingConfirmationEmail } from "@/lib/messaging/service";
+import {
+  retryDueMessages,
+  retryMessageDelivery,
+  sendBookingConfirmationEmail,
+} from "@/lib/messaging/service";
 import { createBookableFixture, prisma } from "./helpers";
 
 /**
@@ -85,13 +89,15 @@ describe("a failed send is retried, not lost", () => {
     const [queued] = await messagesFor(booking.id);
 
     // Pull the retry into the past rather than waiting a minute.
-    await prisma.message.update({
+    const due = await prisma.message.update({
       where: { id: queued.id },
       data: { nextRetryAt: new Date(Date.now() - 1000) },
     });
 
-    const outcome = await retryDueMessages();
-    expect(outcome.scanned).toBeGreaterThan(0);
+    // Drive this one message rather than the global sweep. Test files run
+    // concurrently against one shared database, so a platform-wide sweep
+    // makes the assertion depend on what other files happen to have queued.
+    await retryMessageDelivery(due);
 
     const after = await prisma.message.findUniqueOrThrow({ where: { id: queued.id } });
     expect(after.attempts).toBe(2);
@@ -105,12 +111,12 @@ describe("a failed send is retried, not lost", () => {
     const [queued] = await messagesFor(booking.id);
 
     // One attempt short of the budget.
-    await prisma.message.update({
+    const due = await prisma.message.update({
       where: { id: queued.id },
       data: { attempts: queued.maxAttempts - 1, nextRetryAt: new Date(Date.now() - 1000) },
     });
 
-    await retryDueMessages();
+    await retryMessageDelivery(due);
 
     const after = await prisma.message.findUniqueOrThrow({ where: { id: queued.id } });
     expect(after.status).toBe("failed");
@@ -238,13 +244,13 @@ describe("the retry sweep", () => {
     await sendBookingConfirmationEmail(booking.id);
     const [queued] = await messagesFor(booking.id);
 
-    await prisma.message.update({
+    const due = await prisma.message.update({
       where: { id: queued.id },
       // Simulates a row written before the outbox existed.
       data: { payload: { nonsense: true }, nextRetryAt: new Date(Date.now() - 1000) },
     });
 
-    await retryDueMessages();
+    await retryMessageDelivery(due);
 
     const after = await prisma.message.findUniqueOrThrow({ where: { id: queued.id } });
     // Terminal rather than retried forever against a payload that can never
@@ -267,11 +273,19 @@ describe("the retry sweep", () => {
     });
     await prisma.message.update({ where: { id: badMessage.id }, data: { payload: { broken: true } } });
 
+    // The one case that genuinely exercises the platform-wide sweep, so it
+    // stays. Assertions are confined to this test's own two rows — `scanned`
+    // is a lower bound rather than an equality, because other test files
+    // share this database and may have their own due messages.
     const outcome = await retryDueMessages();
     expect(outcome.scanned).toBeGreaterThanOrEqual(2);
 
     const goodAfter = await prisma.message.findUniqueOrThrow({ where: { id: goodMessage.id } });
-    // The bad row is terminal; the good one simply got another attempt.
+    const badAfter = await prisma.message.findUniqueOrThrow({ where: { id: badMessage.id } });
+    // The bad row is terminal; the good one simply got another attempt, which
+    // is the point — one unusable message must not stall the queue behind it.
+    expect(badAfter.status).toBe("failed");
     expect(goodAfter.attempts).toBe(2);
+    expect(goodAfter.status).toBe("pending_retry");
   });
 });
