@@ -8,6 +8,16 @@ publishedAt: 2026-07-01
 updatedAt: 2026-07-01
 ---
 
+> **Status: not in force.** Tripistic does not currently operate the external
+> monitoring or public status page that an availability commitment has to be
+> measured against, so no uptime percentage or service credit on this page is
+> offered or enforceable today.
+>
+> This document is retained as the intended structure of a future SLA. It takes
+> effect only once monitoring, a status page, and an incident process are live
+> and this notice is removed. Nothing here creates a present contractual
+> commitment.
+>
 > **Template notice.** Align the targets below with what your infrastructure and support rota can actually sustain before publishing.
 
 This Service Level Agreement ("SLA") applies to paid Tripistic subscriptions and forms part of the [Terms of Service](/legal/terms-of-service). It does not apply to free trials, sandbox workspaces, or beta features.
@@ -21,11 +31,11 @@ This Service Level Agreement ("SLA") applies to paid Tripistic subscriptions and
 | Agency | 99.9% |
 | Enterprise | 99.95% (or as stated in the order form) |
 
-**Covered services:** the authenticated application, public booking pages, the customer portal, embeddable booking widgets, and the REST API.
+**Covered services (once in force):** the authenticated application, public booking pages, the customer portal, and embeddable booking widgets. The REST API is not yet available and is therefore not covered.
 
 ### How uptime is measured
 
-Monthly Uptime Percentage = `((Total Minutes − Unavailable Minutes) ÷ Total Minutes) × 100`, measured per calendar month from our external monitoring, which polls core endpoints at one-minute intervals from multiple regions.
+Monthly Uptime Percentage = `((Total Minutes − Unavailable Minutes) ÷ Total Minutes) × 100`, measured per calendar month from external monitoring. **This measurement is not currently performed** — see the status notice at the top of this page. The method is stated here so it is fixed in advance of the commitment taking effect.
 
 "Unavailable" means core booking, authentication, or API endpoints return server errors or fail to respond for two or more consecutive checks.
 

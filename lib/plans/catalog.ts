@@ -236,7 +236,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
   {
     slug: "enterprise",
     name: "Enterprise",
-    description: "For reseller controls, SSO, governance, SLA, and dedicated onboarding.",
+    description: "For reseller controls, governance, and dedicated onboarding.",
     monthlyPriceCents: null,
     yearlyPriceCents: null,
     currency: "USD",
@@ -245,20 +245,19 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
     summary: "For platform operators, resellers, and governed deployments.",
     highlights: [
       "Everything in Agency",
-      "SSO/SAML and audit/export controls",
+      "Advanced audit and export controls",
       "Reseller and platform administration",
       "Data residency options",
-      "Dedicated onboarding and SLA",
+      "Dedicated onboarding",
     ],
     features: [
       "Everything in Agency",
       "Unlimited seats",
       "Unlimited workspaces",
-      "SSO/SAML",
       "Advanced audit/export controls",
       "Data residency options",
       "Dedicated onboarding",
-      "Negotiated SLA and DPA",
+      "Negotiated DPA",
     ],
     limits: {
       users: -1,
@@ -283,7 +282,9 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       advanced_ai: true,
       api_access: true,
       audit_logs: true,
-      sso_saml: true,
+      // No SAML/SSO implementation exists yet — auth is credentials-only.
+      // The key is retained so seeded entitlement rows stay resolvable.
+      sso_saml: false,
     },
   },
 ] as const;

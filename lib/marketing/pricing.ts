@@ -88,10 +88,9 @@ export const comparison: ComparisonGroup[] = [
   {
     group: "AI",
     rows: [
-      row("AI search across your data", false, true, true, true),
-      row("AI itinerary builder", false, false, true, true),
-      row("AI business insights", false, false, true, true),
-      row("Bring your own AI provider key", false, true, true, true),
+      row("Search across your data", false, true, true, true),
+      row("Itinerary builder", false, false, true, true),
+      row("Automated business insights", false, false, true, true),
       row("Provider and model governance", false, false, false, true),
     ],
   },
@@ -109,10 +108,8 @@ export const comparison: ComparisonGroup[] = [
   {
     group: "Platform & support",
     rows: [
-      row("REST API and webhooks", true, true, true, true),
       row("Audit logs", false, true, true, true),
       row("Data export", true, true, true, true),
-      row("Uptime target", "99.5%", "99.9%", "99.9%", "99.95%"),
       row("First response (business hours)", "1 day", "8 hours", "4 hours", "1 hour (P1)"),
       row("Named contact and 24×7 P1", false, false, false, true),
     ],

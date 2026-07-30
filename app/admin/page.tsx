@@ -53,7 +53,7 @@ export default async function AdminOverviewPage() {
           icon={CreditCard}
           label="Active subscriptions"
           value={String(activeSubscriptions)}
-          hint="Paid billing arrives in Phase 10"
+          hint="Workspaces on a paid, non-trial subscription"
         />
         <MetricCard
           icon={ScrollText}

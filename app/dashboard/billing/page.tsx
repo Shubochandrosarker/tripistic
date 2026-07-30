@@ -177,9 +177,9 @@ export default async function BillingPage() {
             <p>
               <span className="font-medium text-foreground">Guest payments are live.</span> Guests
               pay securely through Stripe Checkout and bookings confirm automatically on success.
-              Direct payouts to your own connected Stripe account (instead of via Tripistic) are
-              still being completed. SaaS plan checkout, billing portal access, previews, and
-              renewal-date plan changes are wired through Stripe Billing.
+              Payouts go directly to your own connected Stripe account — set this up under
+              Payments. SaaS plan checkout, billing portal access, previews, and renewal-date
+              plan changes are wired through Stripe Billing.
             </p>
             {!billingAllowed ? (
               <p className="mt-2 flex items-center gap-1.5 text-xs">

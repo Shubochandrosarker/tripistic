@@ -1,7 +1,5 @@
-import Link from "next/link";
-import { CalendarClock, PlayCircle } from "lucide-react";
+import { CalendarClock } from "lucide-react";
 
-import { AnimatedReveal } from "@/components/marketing/animated-reveal";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
@@ -15,7 +13,7 @@ import { faqSchema, webPageSchema } from "@/lib/seo/schema";
 const PATH = "/demo";
 const TITLE = "Product Demo";
 const DESCRIPTION =
-  "Explore Tripistic hands-on — an interactive walkthrough of operations, bookings, CRM, and AI, plus guided videos and a live demo with our team.";
+  "Explore Tripistic hands-on — an interactive walkthrough of operations, bookings, and CRM, plus a live demo with our team.";
 
 export const metadata = buildMetadata({
   title: `${TITLE} · Interactive product walkthrough`,
@@ -29,45 +27,6 @@ export const metadata = buildMetadata({
     "travel operations demo",
   ],
 });
-
-const VIDEOS = [
-  {
-    title: "Platform overview",
-    length: "6:20",
-    description: "The full product in six minutes — catalog, bookings, operations, CRM, and AI.",
-    href: "/docs/videos",
-  },
-  {
-    title: "Taking a booking end to end",
-    length: "6:45",
-    description: "Public booking page to confirmed seat, including payment and waiver.",
-    href: "/docs/videos",
-  },
-  {
-    title: "Running a trip day",
-    length: "11:20",
-    description: "Manifests, check-in, delays, incidents, and traveller notifications.",
-    href: "/docs/videos",
-  },
-  {
-    title: "Building an AI itinerary",
-    length: "10:30",
-    description: "Brief to editable multi-day proposal, with vendors and costs attached.",
-    href: "/docs/videos",
-  },
-  {
-    title: "White label and custom domains",
-    length: "9:15",
-    description: "Brand kit across app, portal, emails, and PDFs, then DNS verification.",
-    href: "/docs/videos",
-  },
-  {
-    title: "First API call",
-    length: "6:20",
-    description: "Issuing a key, workspace scoping, pagination, and webhooks.",
-    href: "/developers",
-  },
-];
 
 const DEMO_FAQS = [
   [
@@ -123,40 +82,6 @@ export default function DemoPage() {
             <ProductTour />
           </section>
 
-          <section aria-labelledby="videos-heading" className="mt-16">
-            <h2 id="videos-heading" className="text-2xl font-semibold tracking-tight text-foreground">
-              Guided videos
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Short, task-focused walkthroughs. Every video has captions and a transcript.
-            </p>
-            <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {VIDEOS.map((video, index) => (
-                <AnimatedReveal key={video.title} delay={Math.min(index * 0.03, 0.15)}>
-                  <Link
-                    href={video.href}
-                    className="group flex h-full flex-col rounded-lg border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"
-                  >
-                    <div className="flex aspect-video items-center justify-center rounded-lg border border-border bg-[linear-gradient(135deg,var(--muted),var(--card))]">
-                      <PlayCircle
-                        className="size-10 text-accent transition group-hover:scale-110"
-                        aria-hidden
-                      />
-                    </div>
-                    <div className="mt-4 flex items-start justify-between gap-3">
-                      <h3 className="text-base font-semibold text-foreground">{video.title}</h3>
-                      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                        {video.length}
-                      </span>
-                    </div>
-                    <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
-                      {video.description}
-                    </p>
-                  </Link>
-                </AnimatedReveal>
-              ))}
-            </div>
-          </section>
 
           <section aria-labelledby="live-demo-heading" className="mt-16">
             <div className="rounded-lg border border-border bg-card p-6 shadow-sm sm:p-8">

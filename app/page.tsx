@@ -25,20 +25,20 @@ import { buildMetadata } from "@/lib/seo/metadata";
 import { faqSchema, webPageSchema } from "@/lib/seo/schema";
 
 const PATH = "/";
-const TITLE = "Tripistic v2.0.0 — AI Travel Operations Platform";
+const TITLE = "Tripistic v2.0.0 — Tour Operations Platform";
 const DESCRIPTION =
-  "Tripistic is the AI-native operating system for tour operators, agencies, DMCs, and travel brands: bookings, CRM, operations, guides, vehicles, AI itineraries, analytics, white label, and custom domains.";
+  "Tripistic is the operating system for tour operators, agencies, DMCs, and travel brands: bookings, CRM, operations, guides, vehicles, itineraries, analytics, white label, and custom domains.";
 
 export const metadata = buildMetadata({
   title: TITLE,
   description: DESCRIPTION,
   path: PATH,
-  eyebrow: "AI Travel Operating System",
+  eyebrow: "Tour Operations Platform",
   keywords: [
     "tour operator software",
     "travel operations platform",
     "booking software for tour operators",
-    "ai travel software",
+    "tour booking system",
     "white label booking software",
     "dmc software",
   ],
@@ -52,15 +52,15 @@ const HOME_FAQS = [
   ],
   [
     "Does Tripistic replace my booking tool?",
-    "Tripistic includes direct booking, availability, payments, waivers, operations, CRM, and AI workflows in one system.",
+    "Tripistic includes direct booking, availability, payments, waivers, operations, CRM, and automated insights in one system.",
   ],
   [
     "Can agencies white-label the platform?",
     "Yes. v2 includes the enterprise data model and admin surfaces for brand kits, custom domains, API branding, and reseller-ready operations.",
   ],
   [
-    "Does it support AI itineraries?",
-    "Yes. The itinerary builder creates editable multi-day proposals from tours, vendors, and trip context, then tracks versions.",
+    "Does it build itineraries?",
+    "Yes. The itinerary builder creates editable multi-day proposals from your own tours, vendors, and trip context, then tracks versions. It is deterministic — it composes what you have configured rather than generating text.",
   ],
 ] as const;
 
@@ -82,8 +82,8 @@ const pillars = [
   },
   {
     icon: Sparkles,
-    title: "AI-native workflows",
-    text: "AI itineraries, command search, growth insights, pricing suggestions, business health, and provider-ready intelligence.",
+    title: "Automated workflows",
+    text: "Itinerary drafting, command search, growth insights, pricing suggestions, and business health — each computed from your own data and shown with the figures behind it.",
   },
   {
     icon: Globe2,
@@ -97,24 +97,25 @@ const pillars = [
   },
 ];
 
-const testimonials = [
+// Verifiable engineering guarantees, not customer quotes. Tripistic is
+// pre-launch and has no customers to quote; inventing endorsements would be
+// both false and, under FTC endorsement guidance, unlawful. Every claim below
+// maps to code and to a test that would fail if it stopped being true.
+const trustPillars = [
   {
-    quote:
-      "Tripistic feels like the first system designed around how tour teams actually operate: sales, guests, guides, vehicles, and day-of changes all in one flow.",
-    name: "Maya",
-    role: "City experiences operator",
+    title: "Tenant isolation on every route",
+    detail:
+      "Each workspace-scoped API verifies membership server-side before it reads or writes, and returns 404 rather than 403 so that data outside your workspace cannot even be probed for existence.",
   },
   {
-    quote:
-      "The AI itinerary builder and CRM timeline changed how quickly we can respond to private trip requests.",
-    name: "Daniel",
-    role: "Private travel agency founder",
+    title: "Departures cannot be oversold",
+    detail:
+      "Seats are reserved in a single atomic database statement, backed by table constraints that hold regardless of application code. Proven by a test that races twelve concurrent bookings for three seats.",
   },
   {
-    quote:
-      "The white-label architecture gives us a path to run multiple brands without stitching together separate tools.",
-    name: "Ari",
-    role: "DMC operations lead",
+    title: "Payment is confirmed by Stripe, not by a redirect",
+    detail:
+      "A booking is only ever confirmed from a signature-verified Stripe webhook. Returning from checkout confirms nothing on its own, so an interrupted or forged return cannot create a paid-looking booking.",
   },
 ];
 
@@ -135,7 +136,7 @@ export default function HomePage() {
           <SectionIntro
             eyebrow="Platform"
             title="One operating system for the whole travel business."
-            description="Tripistic connects the work that usually lives in separate tools: bookings, guests, team scheduling, vehicles, waivers, vendors, payments, reporting, and AI."
+            description="Tripistic connects the work that usually lives in separate tools: bookings, guests, team scheduling, vehicles, waivers, vendors, payments, and reporting."
           />
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {pillars.map((item, index) => (
@@ -160,7 +161,7 @@ export default function HomePage() {
               align="left"
               eyebrow="Product preview"
               title="A command center, not another tab."
-              description="The v2 front-end is designed around real operating cadence: what is departing today, what needs attention, what AI recommends, and where revenue is moving."
+              description="The v2 front-end is designed around real operating cadence: what is departing today, what needs attention, what the numbers recommend, and where revenue is moving."
             />
             <div className="mt-6 flex flex-wrap gap-3">
               <ButtonLink href="/demo">Interactive demo</ButtonLink>
@@ -180,7 +181,7 @@ export default function HomePage() {
           <SectionIntro
             eyebrow="Capabilities"
             title="Everything modern operators expect, built into one platform."
-            description="Start with the workflows that matter most today, then expand into AI, white label, customer portals, and enterprise administration as you grow."
+            description="Start with the workflows that matter most today, then expand into white label, customer portals, and enterprise administration as you grow."
           />
           <div className="mt-10">
             <FeatureGrid limit={9} />
@@ -203,8 +204,8 @@ export default function HomePage() {
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {[
               ["Tour operators", "Run schedules, bookings, guides, waivers, and live operations."],
-              ["Travel agencies", "Create AI-assisted itineraries, manage clients, and deliver branded portals."],
-              ["Enterprise", "Administer tenants, plans, domains, white labels, AI providers, and platform health."],
+              ["Travel agencies", "Draft itineraries from your own tours and vendors, manage clients, and deliver branded portals."],
+              ["Enterprise", "Administer tenants, plans, domains, white labels, and platform health."],
             ].map(([title, text]) => (
               <Link key={title} href="/solutions" className="rounded-lg border border-border bg-card p-5 shadow-sm hover:border-accent/40">
                 <Building2 className="size-5 text-accent" aria-hidden />
@@ -224,12 +225,11 @@ export default function HomePage() {
             description="Tenant isolation, RBAC, audit logs, signed Stripe webhooks, immutable versions, and platform admin controls are already part of the v2 architecture."
           />
           <div className="mt-10 grid gap-4 lg:grid-cols-3">
-            {testimonials.map((item) => (
-              <div key={item.name} className="rounded-lg border border-border bg-card p-5 shadow-sm">
+            {trustPillars.map((item) => (
+              <div key={item.title} className="rounded-lg border border-border bg-card p-5 shadow-sm">
                 <ShieldCheck className="size-5 text-accent" aria-hidden />
-                <p className="mt-4 text-sm leading-6 text-muted-foreground">“{item.quote}”</p>
-                <p className="mt-5 text-sm font-semibold text-foreground">{item.name}</p>
-                <p className="text-xs text-muted-foreground">{item.role}</p>
+                <p className="mt-4 text-sm font-semibold text-foreground">{item.title}</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.detail}</p>
               </div>
             ))}
           </div>
@@ -246,7 +246,7 @@ export default function HomePage() {
               </h2>
               <p className="mt-4 text-sm leading-6 text-muted-foreground">
                 Solo, Operator, Agency, and Enterprise paths are designed around direct bookings,
-                team workflows, AI automation, and branded expansion.
+                team workflows, operational automation, and branded expansion.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">

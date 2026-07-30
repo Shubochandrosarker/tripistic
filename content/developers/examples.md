@@ -8,6 +8,17 @@ order: 6
 publishedAt: 2026-07-01
 ---
 
+> **Status: planned — not yet available.**
+>
+> Tripistic does not currently expose a public API. There is no API-key model,
+> no key-management screen, and no bearer-token authentication path in the
+> application: every route authenticates through a signed session cookie.
+>
+> This page describes the intended design and is published so the direction is
+> visible. It is **not** a description of shipped functionality, and nothing on
+> it can be called today. It will be replaced with real reference material when
+> the API ships.
+
 Copy-paste recipes for the integrations operators build most often.
 
 ## 1. Sync confirmed bookings to your warehouse

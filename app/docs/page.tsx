@@ -14,7 +14,7 @@ import { itemListSchema, webPageSchema } from "@/lib/seo/schema";
 const PATH = "/docs";
 const TITLE = "Documentation";
 const DESCRIPTION =
-  "Tripistic documentation — getting started, bookings, CRM, tours, payments, users, permissions, integrations, API, FAQ, videos, and release notes.";
+  "Tripistic documentation — getting started, bookings, CRM, tours, payments, users, permissions, integrations, FAQ, and release notes.";
 
 export const metadata = buildMetadata({
   title: `${TITLE} · Learn Tripistic from setup to scale`,

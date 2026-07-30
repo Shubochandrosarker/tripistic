@@ -299,7 +299,7 @@ export function TourForm({
           <Field
             label="Cover image URL"
             htmlFor="tour-cover"
-            hint="Media uploads arrive with file storage in a later phase — paste a URL for now."
+            hint="Paste an image URL, or upload media from the Website section of your dashboard."
           >
             <Input
               id="tour-cover"

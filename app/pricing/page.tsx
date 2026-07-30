@@ -53,7 +53,7 @@ export default function PricingPage() {
           <SectionIntro
             eyebrow="Pricing"
             title="Simple plans for operators. Enterprise power when you need it."
-            description="Start with the workflows you need today and grow into AI itineraries, white label, custom domains, and platform administration. Direct bookings always carry 0% commission."
+            description="Start with the workflows you need today and grow into itinerary drafting, white label, custom domains, and platform administration. Direct bookings always carry 0% commission."
           />
 
           <PricingTable />

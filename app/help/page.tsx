@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, LifeBuoy, MessageSquare, PlayCircle, Users } from "lucide-react";
+import { ArrowRight, LifeBuoy, MessageSquare, Users } from "lucide-react";
 
 import { AnimatedReveal } from "@/components/marketing/animated-reveal";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
@@ -154,14 +154,6 @@ export default function HelpPage() {
                     "Email or in-app support with response targets by plan. Enterprise gets a named contact and 24×7 P1 coverage.",
                   href: "/contact",
                   cta: "Get in touch",
-                },
-                {
-                  icon: PlayCircle,
-                  title: "Video guides",
-                  description:
-                    "Short walkthroughs for setup, bookings, operations, CRM, payments, AI, and white label.",
-                  href: "/docs/videos",
-                  cta: "Watch",
                 },
                 {
                   icon: Users,
