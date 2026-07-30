@@ -1,4 +1,4 @@
-import { Bot, Brain, FileText, Search, Sparkles, Wand2, Zap } from "lucide-react";
+import { Brain, Search, Sparkles, Wand2, Zap } from "lucide-react";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
@@ -7,31 +7,34 @@ import { buildMetadata } from "@/lib/seo/metadata";
 import { webPageSchema } from "@/lib/seo/schema";
 
 const PATH = "/ai-platform";
-const TITLE = "AI Platform";
+const TITLE = "Automation & Insights";
 const DESCRIPTION =
-  "Tripistic AI copilot, AI search, AI scheduling, AI reports, AI itinerary builder, business insights, knowledge base, and automation — reading your own operational data.";
+  "Automated business insights, workspace search, assignment matching, itinerary drafting, and operational automation — computed from your own data, with the method shown.";
 
 export const metadata = buildMetadata({
-  title: "AI Platform · Copilot, search, scheduling, itineraries, and insights",
+  title: "Automation & Insights · Search, scheduling, itineraries, and business analysis",
   description: DESCRIPTION,
   path: PATH,
-  eyebrow: "AI",
+  eyebrow: "Automation",
   keywords: [
-    "ai for tour operators",
-    "ai itinerary builder",
-    "travel ai platform",
-    "ai travel operations",
+    "tour operator automation",
+    "itinerary builder",
+    "tour operator analytics",
+    "travel operations software",
   ],
 });
 
 export default function AiPlatformPage() {
+  // Every entry below is backed by shipped code. Two former entries — "AI
+  // Copilot" and "AI Reports" — were removed rather than reworded, because no
+  // implementation of either exists. The remaining features are deterministic:
+  // they compute results from your data rather than calling a language model,
+  // which is why the numbers are reproducible and never invented.
   const items = [
-    [Bot, "AI Copilot", "Ask for next actions, operational summaries, and revenue ideas from the context of your own workspace."],
-    [Search, "AI Search", "Find bookings, customers, itineraries, and operational records through command palette search."],
-    [Wand2, "AI Scheduling", "Match guides, drivers, vehicles, skills, capacity, and time off for better assignments."],
-    [FileText, "AI Reports", "Summarize revenue, demand, risk, and operations into executive-ready reports."],
-    [Sparkles, "AI Itinerary Builder", "Generate editable multi-day proposals from tours, vendors, and trip constraints."],
-    [Brain, "Business Insights", "Turn historical bookings and CRM activity into pricing suggestions and growth ideas."],
+    [Search, "Workspace search", "Find bookings, customers, itineraries, and operational records from the command palette."],
+    [Wand2, "Assignment matching", "Score guides, drivers, and vehicles against skills, capacity, and time off to suggest the best fit for a departure."],
+    [Sparkles, "Itinerary builder", "Draft editable multi-day proposals from your own tours, vendors, and trip constraints."],
+    [Brain, "Business Brain", "Turn historical bookings and CRM activity into occupancy, pricing, and growth recommendations — each shown with the figures behind it."],
     [Zap, "Automation", "Trigger reminders, review requests, payment sweeps, and departure updates."],
   ];
   return (
@@ -45,7 +48,7 @@ export default function AiPlatformPage() {
           <div className="grid gap-10 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
             <SectionIntro
               align="left"
-              eyebrow="AI Platform"
+              eyebrow="Automation & Insights"
               title="AI that understands the travel operation behind the trip."
               description="Tripistic AI is designed around operational context: bookings, customers, availability, guides, vehicles, vendors, payments, itineraries, and growth signals."
             />

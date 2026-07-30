@@ -52,7 +52,7 @@ const FOOTER_GROUPS: { title: string; links: [string, string][] }[] = [
     title: "Platform",
     links: [
       ["Features", "/features"],
-      ["AI Platform", "/ai-platform"],
+      ["Automation & Insights", "/ai-platform"],
       ["White Label", "/white-label"],
       ["Customer Portal", "/customer-portal"],
       ["Integrations", "/integrations"],

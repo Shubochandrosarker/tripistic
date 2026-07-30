@@ -24,7 +24,7 @@ export function UpgradePrompt({
           </p>
           <p className="mt-0.5 max-w-md text-xs text-muted-foreground">
             {message ??
-              "Higher plans unlock more seats, guide scheduling, and the AI Growth Dashboard. Self-serve upgrades arrive with billing in Phase 10 — until then, compare plans below."}
+              "Higher plans unlock more seats, guide scheduling, operations dispatch, and supplier management. Compare plans below and upgrade whenever you're ready."}
           </p>
         </div>
       </div>

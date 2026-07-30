@@ -28,7 +28,7 @@ export const navLinks = [
 export const platformStats = [
   { value: "0%", label: "direct-booking commission" },
   { value: "15+", label: "operator workflows unified" },
-  { value: "24/7", label: "AI-ready operations context" },
+  { value: "0%", label: "Commission on direct bookings" },
   { value: "v2", label: "enterprise admin foundation" },
 ];
 
@@ -51,10 +51,10 @@ export const featureList: MarketingFeature[] = [
   },
   {
     slug: "ai",
-    title: "AI",
-    eyebrow: "Native intelligence",
-    summary: "AI itinerary generation, growth insights, command palette search, and provider configuration turn daily operations into a living knowledge base.",
-    benefits: ["AI itinerary builder", "Business health insights", "Command palette", "Provider-ready architecture"],
+    title: "Automation",
+    eyebrow: "Built-in intelligence",
+    summary: "Itinerary drafting, business insights, and command palette search turn daily operations into a living knowledge base.",
+    benefits: ["Itinerary builder", "Business health insights", "Command palette", "Automated recommendations"],
     related: ["Reports", "Automation", "Analytics"],
   },
   {
@@ -101,7 +101,7 @@ export const featureList: MarketingFeature[] = [
     slug: "marketing",
     title: "Marketing",
     eyebrow: "Growth engine",
-    summary: "AI growth recommendations, CRM data, review workflows, and partner tracking help operators convert demand into repeatable revenue.",
+    summary: "Automated growth recommendations, CRM data, review workflows, and partner tracking help operators convert demand into repeatable revenue.",
     benefits: ["Growth recommendations", "Review requests", "Lead sources", "Partner CRM"],
     related: ["CRM", "AI", "Analytics"],
   },
@@ -165,8 +165,8 @@ export const featureList: MarketingFeature[] = [
     slug: "integrations",
     title: "Integrations",
     eyebrow: "Connected ecosystem",
-    summary: "Stripe, maps, calendars, messaging, AI providers, automation tools, webhooks, and REST APIs connect Tripistic to the operator stack.",
-    benefits: ["Stripe", "OpenAI and OpenRouter", "Webhooks", "REST API"],
+    summary: "Stripe payments and Cloudflare custom hostnames are live today. Further integrations are on the roadmap and are labelled as such.",
+    benefits: ["Stripe payments", "Stripe Connect payouts", "Cloudflare custom hostnames", "CSV export"],
     related: ["API", "Automation", "White Label"],
   },
 ];
@@ -177,7 +177,7 @@ export const solutions: Solution[] = [
     title: "Tour Operators",
     audience: "Independent and growing tour teams",
     challenges: ["Fragmented bookings", "Manual guide scheduling", "No clean revenue visibility"],
-    solution: "Tripistic unifies the booking engine, operations center, CRM, and AI growth layer into one system.",
+    solution: "Tripistic unifies the booking engine, operations center, CRM, and business insights into one system.",
     benefits: ["Operate every departure from one dashboard", "Reduce repetitive admin", "Grow direct bookings without commission"],
   },
   {
@@ -185,7 +185,7 @@ export const solutions: Solution[] = [
     title: "Travel Agencies",
     audience: "Agencies selling packages and partner inventory",
     challenges: ["Complex client itineraries", "Supplier coordination", "Brand consistency"],
-    solution: "Build AI-assisted itineraries, manage vendors, and deliver branded portal experiences.",
+    solution: "Draft itineraries from your own tours and vendors, manage suppliers, and deliver branded portal experiences.",
     benefits: ["Faster proposals", "Cleaner supplier records", "White-label client experience"],
   },
   {
@@ -217,7 +217,7 @@ export const solutions: Solution[] = [
     title: "Private Tours",
     audience: "Bespoke and premium private operators",
     challenges: ["Custom requests", "High-touch communication", "Complex proposals"],
-    solution: "Combine CRM, AI itineraries, payment links, and branded guest portals.",
+    solution: "Combine CRM, drafted itineraries, payment links, and branded guest portals.",
     benefits: ["Personalized itineraries", "Clear guest history", "Premium portal experience"],
   },
   {
@@ -241,7 +241,7 @@ export const solutions: Solution[] = [
     title: "Luxury Travel",
     audience: "Premium agencies and operators",
     challenges: ["Brand expectations", "Customization", "High-value service recovery"],
-    solution: "Use white-label branding, private itineraries, AI assistance, and operations visibility.",
+    solution: "Use white-label branding, private itineraries, automated insights, and operations visibility.",
     benefits: ["Elegant client portal", "Fast bespoke planning", "Executive oversight"],
   },
   {
@@ -273,28 +273,57 @@ export const solutions: Solution[] = [
     title: "Enterprise",
     audience: "Large operators and reseller platforms",
     challenges: ["Governance", "Brand portfolios", "Operational scale"],
-    solution: "Tripistic v2 adds super admin, white label, custom domains, AI providers, health, and maintenance controls.",
+    solution: "Tripistic v2 adds super admin, white label, custom domains, health, and maintenance controls.",
     benefits: ["Platform administration", "Brand governance", "Tenant-ready architecture"],
   },
 ];
 
-export const integrations = [
-  "Stripe",
-  "Google Maps",
-  "Google Calendar",
-  "Twilio",
-  "WhatsApp",
-  "OpenAI",
-  "OpenRouter",
-  "Cloudflare",
-  "n8n",
-  "Zapier",
-  "Webhooks",
-  "REST API",
+/**
+ * Integration status is a factual claim, so it is declared per entry rather
+ * than implied by a uniform checkmark.
+ *
+ * "available" requires shipped, exercised code. Only Stripe (lib/payments/*,
+ * lib/billing/*) and Cloudflare (lib/domains/provider.ts) qualify today.
+ * Everything else is "planned" until an implementation exists — listing them
+ * is fine, badging them as ready is not.
+ */
+export type IntegrationStatus = "available" | "beta" | "planned";
+
+export type Integration = {
+  name: string;
+  status: IntegrationStatus;
+  detail: string;
+};
+
+export const integrations: Integration[] = [
+  {
+    name: "Stripe",
+    status: "available",
+    detail: "Guest payments, subscription billing, and Connect payouts to your own account.",
+  },
+  {
+    name: "Cloudflare",
+    status: "available",
+    detail: "Custom hostnames for your branded storefront, with managed certificates.",
+  },
+  { name: "Google Maps", status: "planned", detail: "Meeting points and route context on tours and manifests." },
+  { name: "Google Calendar", status: "planned", detail: "Two-way sync for departures and guide availability." },
+  { name: "Twilio", status: "planned", detail: "SMS confirmations and day-of departure updates." },
+  { name: "WhatsApp", status: "planned", detail: "Guest messaging on the channel most travellers already use." },
+  { name: "n8n", status: "planned", detail: "Self-hosted workflow automation across your operator stack." },
+  { name: "Zapier", status: "planned", detail: "No-code connections to the rest of your tooling." },
+  { name: "Outbound webhooks", status: "planned", detail: "Push booking and payment events into your own systems." },
+  { name: "REST API", status: "planned", detail: "Programmatic access with scoped API keys." },
 ];
 
+export const INTEGRATION_STATUS_LABEL: Record<IntegrationStatus, string> = {
+  available: "Available",
+  beta: "Beta",
+  planned: "Planned",
+};
+
 export const comparisonRows = [
-  ["AI itinerary builder", "Included", "Limited", "Limited", "Limited", "Limited", "Limited"],
+  ["Itinerary builder", "Included", "Limited", "Limited", "Limited", "Limited", "Limited"],
   ["Operations center", "Included", "Partial", "Partial", "Partial", "Partial", "No"],
   ["White label", "Platform-native", "Limited", "Limited", "Limited", "Limited", "No"],
   ["CRM timeline", "Included", "Basic", "Basic", "Basic", "Basic", "Basic"],
@@ -341,7 +370,7 @@ export const caseStudies: Record<string, CaseStudy> = {
     challenge:
       "Every proposal was rebuilt from scratch in a document, and supplier rates lived in email threads. Turnaround was 48 hours, which lost deals.",
     approach:
-      "Vendor records and costs first, then AI-drafted itineraries edited by consultants, delivered through a branded client portal.",
+      "Vendor records and costs first, then drafted itineraries edited by consultants, delivered through a branded client portal.",
     metrics: [
       { label: "Proposal turnaround", value: "48h → 4h" },
       { label: "Proposals per consultant", value: "2× increase" },
@@ -392,7 +421,7 @@ export const caseStudies: Record<string, CaseStudy> = {
     challenge:
       "Each brand ran its own tooling, so group-level reporting was a quarterly manual exercise and brand consistency was impossible to enforce.",
     approach:
-      "Provisioned sub-workspaces per brand under one platform layer, with brand kits, custom domains, and central AI provider governance.",
+      "Provisioned sub-workspaces per brand under one platform layer, with brand kits, custom domains, and central governance.",
     metrics: [
       { label: "Group reporting", value: "Quarterly → continuous" },
       { label: "Brand consistency", value: "Enforced by brand kits" },
@@ -442,7 +471,7 @@ export const featureScreenshots: Record<string, FeatureScreenshot> = {
     ],
   },
   ai: {
-    caption: "An AI-generated seven-day itinerary draft, ready to edit.",
+    caption: "An automatically drafted seven-day itinerary, ready to edit.",
     panels: [
       { title: "Itinerary", rows: ["7 days drafted", "v4 saved", "3 vendors costed"] },
       { title: "Insights", rows: ["Health score 78", "2 pricing ideas", "1 risk alert"] },
@@ -572,7 +601,7 @@ export const capabilityComparison: CompetitorComparison[] = [
   {
     dimension: "Analytics",
     detail: "Revenue, load factor, pipeline, workforce, and risk reporting",
-    tripistic: "Cross-functional, plus AI-generated business insights",
+    tripistic: "Cross-functional, plus automated business insights",
     others: {
       Tourflows: "Booking reporting",
       Rezdy: "Booking reporting",

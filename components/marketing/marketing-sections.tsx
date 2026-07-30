@@ -82,10 +82,10 @@ export function HeroSection() {
         <AnimatedReveal className="max-w-3xl">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur">
             <Sparkles className="size-3.5 text-emerald-300" aria-hidden />
-            Tripistic v2.0.0 · AI Travel Operating System
+            Tripistic v2.0.0 · Tour Operations Platform
           </span>
           <h1 className="mt-6 text-5xl font-semibold tracking-tight text-white sm:text-7xl">
-            The modern AI OS for tour operators.
+            The modern operating system for tour operators.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-white/78">
             Replace booking tabs, spreadsheets, guide chats, waiver folders, payment

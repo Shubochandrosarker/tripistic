@@ -97,24 +97,25 @@ const pillars = [
   },
 ];
 
-const testimonials = [
+// Verifiable engineering guarantees, not customer quotes. Tripistic is
+// pre-launch and has no customers to quote; inventing endorsements would be
+// both false and, under FTC endorsement guidance, unlawful. Every claim below
+// maps to code and to a test that would fail if it stopped being true.
+const trustPillars = [
   {
-    quote:
-      "Tripistic feels like the first system designed around how tour teams actually operate: sales, guests, guides, vehicles, and day-of changes all in one flow.",
-    name: "Maya",
-    role: "City experiences operator",
+    title: "Tenant isolation on every route",
+    detail:
+      "Each workspace-scoped API verifies membership server-side before it reads or writes, and returns 404 rather than 403 so that data outside your workspace cannot even be probed for existence.",
   },
   {
-    quote:
-      "The AI itinerary builder and CRM timeline changed how quickly we can respond to private trip requests.",
-    name: "Daniel",
-    role: "Private travel agency founder",
+    title: "Departures cannot be oversold",
+    detail:
+      "Seats are reserved in a single atomic database statement, backed by table constraints that hold regardless of application code. Proven by a test that races twelve concurrent bookings for three seats.",
   },
   {
-    quote:
-      "The white-label architecture gives us a path to run multiple brands without stitching together separate tools.",
-    name: "Ari",
-    role: "DMC operations lead",
+    title: "Payment is confirmed by Stripe, not by a redirect",
+    detail:
+      "A booking is only ever confirmed from a signature-verified Stripe webhook. Returning from checkout confirms nothing on its own, so an interrupted or forged return cannot create a paid-looking booking.",
   },
 ];
 
@@ -224,12 +225,11 @@ export default function HomePage() {
             description="Tenant isolation, RBAC, audit logs, signed Stripe webhooks, immutable versions, and platform admin controls are already part of the v2 architecture."
           />
           <div className="mt-10 grid gap-4 lg:grid-cols-3">
-            {testimonials.map((item) => (
-              <div key={item.name} className="rounded-lg border border-border bg-card p-5 shadow-sm">
+            {trustPillars.map((item) => (
+              <div key={item.title} className="rounded-lg border border-border bg-card p-5 shadow-sm">
                 <ShieldCheck className="size-5 text-accent" aria-hidden />
-                <p className="mt-4 text-sm leading-6 text-muted-foreground">“{item.quote}”</p>
-                <p className="mt-5 text-sm font-semibold text-foreground">{item.name}</p>
-                <p className="text-xs text-muted-foreground">{item.role}</p>
+                <p className="mt-4 text-sm font-semibold text-foreground">{item.title}</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.detail}</p>
               </div>
             ))}
           </div>

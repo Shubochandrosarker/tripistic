@@ -1,9 +1,9 @@
-import { Cable, Check } from "lucide-react";
+import { Cable, Check, Clock } from "lucide-react";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { CtaBand, SectionIntro } from "@/components/marketing/marketing-sections";
-import { integrations } from "@/lib/marketing/content";
+import { INTEGRATION_STATUS_LABEL, integrations } from "@/lib/marketing/content";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { webPageSchema } from "@/lib/seo/schema";
 
@@ -36,19 +36,25 @@ export default function IntegrationsPage() {
           <SectionIntro
             eyebrow="Integrations"
             title="Connect Tripistic to the tools travel teams already use."
-            description="Payments, maps, calendars, messaging, AI providers, automation platforms, webhooks, and APIs are part of the platform direction."
+            description="Stripe payments and Cloudflare custom hostnames are live today. Everything else on this page is planned and labelled as such — we would rather show you the roadmap than imply it already works."
           />
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {integrations.map((integration) => (
-              <div key={integration} className="rounded-lg border border-border bg-card p-5 shadow-sm">
+              <div key={integration.name} className="rounded-lg border border-border bg-card p-5 shadow-sm">
                 <Cable className="size-5 text-accent" aria-hidden />
-                <h2 className="mt-4 text-lg font-semibold text-foreground">{integration}</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Connect {integration} with bookings, operations, CRM, AI, and reporting workflows.
-                </p>
-                <p className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-accent">
-                  <Check className="size-3.5" aria-hidden /> Integration-ready
-                </p>
+                <h2 className="mt-4 text-lg font-semibold text-foreground">{integration.name}</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{integration.detail}</p>
+                {integration.status === "available" ? (
+                  <p className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-accent">
+                    <Check className="size-3.5" aria-hidden />
+                    {INTEGRATION_STATUS_LABEL[integration.status]}
+                  </p>
+                ) : (
+                  <p className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <Clock className="size-3.5" aria-hidden />
+                    {INTEGRATION_STATUS_LABEL[integration.status]}
+                  </p>
+                )}
               </div>
             ))}
           </div>

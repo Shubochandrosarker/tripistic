@@ -19,7 +19,7 @@ export default async function AdminPlansPage() {
     <>
       <PageHeader
         title="Plans"
-        description="SaaS plan catalog. Stripe billing and plan editing arrive in Phase 10 — plans are managed via seed data until then."
+        description="SaaS plan catalog, seeded from lib/plans/catalog.ts. Editing plans in the UI is not yet supported — change the catalog and re-run the seed."
       />
 
       {plans.length === 0 ? (
