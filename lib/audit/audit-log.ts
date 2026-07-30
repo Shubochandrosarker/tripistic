@@ -40,6 +40,10 @@ export type AuditAction =
   | "booking_marked_no_show"
   | "payment_created"
   | "payment_succeeded"
+  // Money captured for a booking that could no longer be confirmed (cancelled
+  // or expired while the guest was in checkout). Distinct from a success so it
+  // is searchable rather than buried among ordinary payments.
+  | "payment_requires_reconciliation"
   | "payment_failed"
   | "payment_refunded"
   | "payment_expired"

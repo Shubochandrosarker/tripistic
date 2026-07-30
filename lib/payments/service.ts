@@ -58,7 +58,15 @@ export async function createCheckoutSessionForBooking(
   const stripe = getStripeClient();
   const currency = booking.currency.toLowerCase();
   const paymentAccount = await getChargeReadyPaymentAccount(booking.workspaceId);
-  const platformFeeAmount = calculatePlatformFeeAmount(booking.totalAmount, paymentAccount.platformFeeBps);
+  // Computed on the Stripe-scale amount, matching connectedPaymentIntentData.
+  //
+  // These two sites disagreed before: this one used booking.totalAmount (our
+  // stored minor units) while the fee Stripe actually charges was derived from
+  // toStripeAmount(...). For zero-decimal currencies — JPY, KRW, VND — those
+  // scales differ by 100, so the persisted platformFeeAmount was 100x the fee
+  // genuinely taken, corrupting revenue reporting for every such booking.
+  const stripeScaleAmount = toStripeAmount(booking.totalAmount, booking.currency);
+  const platformFeeAmount = calculatePlatformFeeAmount(stripeScaleAmount, paymentAccount.platformFeeBps);
 
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
     {

@@ -71,6 +71,41 @@ export function formatDateTimeInTz(
   }
 }
 
+/**
+ * Long-form departure time in a specific IANA timezone, with the zone named.
+ *
+ * Used where a guest is told when to show up and any ambiguity is expensive —
+ * the booking confirmation page, primarily. The zone abbreviation is included
+ * on purpose: "Saturday, March 14, 2026 at 9:00 AM" is genuinely ambiguous to
+ * someone booking from another country.
+ *
+ * Guarded like `formatDateTimeInTz`: an unrecognised zone makes
+ * `Intl.DateTimeFormat` throw, and a stored timezone that Node's ICU build
+ * does not know must degrade to a readable time rather than crash the page a
+ * guest reaches straight after paying.
+ */
+export function formatDepartureInTz(
+  date: Date | string | null | undefined,
+  timeZone: string,
+) {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(d);
+  } catch {
+    return formatDateTime(d);
+  }
+}
+
 /** "1h 30m" style duration label from minutes. */
 export function formatDuration(minutes: number) {
   const h = Math.floor(minutes / 60);

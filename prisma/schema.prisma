@@ -2294,3 +2294,45 @@ model NewsletterSubscriber {
   @@index([createdAt])
   @@map("newsletter_subscribers")
 }
+
+enum JobRunStatus {
+  running
+  succeeded
+  failed
+  /// Another instance held the advisory lock; this tick did no work. Distinct
+  /// from `succeeded` so "the job is running fine" and "every tick is being
+  /// skipped because a lock leaked" cannot look identical in the history.
+  skipped
+
+  @@map("job_run_status")
+}
+
+/// Execution history for scheduled jobs.
+///
+/// Exists so a scheduler is observable rather than a black box: which jobs
+/// ran, when, how long they took, what they touched, and what failed. The
+/// admin health page reads real values from here instead of the hard-coded
+/// "ready" badges it displayed before.
+///
+/// Concurrency is handled by a PostgreSQL advisory lock rather than by a row
+/// in this table — see `lib/jobs/runner.ts`. A lock held for the duration of
+/// the transaction is released automatically if the worker dies, whereas a
+/// status row would strand the job as permanently "running".
+model JobRun {
+  id          String       @id @default(cuid())
+  jobName     String       @map("job_name")
+  status      JobRunStatus @default(running)
+  startedAt   DateTime     @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt  DateTime?    @map("finished_at") @db.Timestamptz(6)
+  durationMs  Int?         @map("duration_ms")
+  /// Job-specific counters (scanned/processed/skipped). Never PII.
+  result      Json         @default("{}")
+  error       String?
+  /// Set when a run was skipped because another instance held the lock.
+  lockSkipped Boolean      @default(false) @map("lock_skipped")
+  triggeredBy String       @default("schedule") @map("triggered_by")
+
+  @@index([jobName, startedAt])
+  @@index([status, startedAt])
+  @@map("job_runs")
+}

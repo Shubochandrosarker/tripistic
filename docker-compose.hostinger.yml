@@ -38,6 +38,43 @@ services:
     command: npm run db:release
     restart: "no"
 
+  # Runs the scheduled jobs. Without this, seven classes of recurring work
+  # never execute — most damagingly the sweep that releases seats held by
+  # abandoned checkouts, so departures silently sell out to unpaid bookings.
+  #
+  # Uses the worker CLI rather than the HTTP route, so job execution is not
+  # reachable from the internet at all and needs no shared secret.
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: tooling
+    restart: unless-stopped
+    depends_on:
+      release:
+        condition: service_completed_successfully
+    env_file:
+      - ${TRIPISTIC_ENV_FILE:-.env.docker}
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tripistic}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}@db:5432/${POSTGRES_DB:-tripistic}?schema=public
+    # A minute between ticks. Every job is an idempotent sweep guarded by a
+    # PostgreSQL advisory lock, so overlapping or repeated ticks are safe.
+    #
+    # `sleep & wait` rather than a bare `sleep`: a plain `sleep` is not
+    # interruptible by SIGTERM from this shell, so `docker compose down` would
+    # block for the full stop timeout on every deploy. Backgrounding it and
+    # waiting lets the trap fire immediately. A tick already in flight is not
+    # killed mid-transaction — the advisory lock is released with the
+    # connection either way, so the next container start is unaffected.
+    stop_grace_period: 30s
+    command: >-
+      sh -c "trap 'exit 0' TERM INT;
+      while true; do
+      npm run --silent jobs:run || echo '[worker] tick failed';
+      sleep 60 & wait $$!;
+      done"
+
   db:
     image: postgres:16-alpine
     container_name: tripistic-db

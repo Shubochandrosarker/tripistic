@@ -89,15 +89,56 @@ describe("expirePendingBooking", () => {
     expect(updatedAvailability.bookedCount).toBe(2); // seats were never released
   });
 
-  it("is a no-op for a payment that already failed/was cancelled by an earlier webhook", async () => {
+  it("is a no-op for a payment already settled by an earlier webhook", async () => {
     const { booking, availability, payment } = await pendingBookingWithPayment({ participantCount: 1 });
+    await prisma.payment.update({ where: { id: payment.id }, data: { status: "cancelled" } });
+
+    const outcome = await expirePendingBooking(payment.id);
+    expect(outcome).toBeNull();
+
+    const updatedBooking = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+    expect(updatedBooking.status).toBe("pending");
+    const updatedAvailability = await prisma.availability.findUniqueOrThrow({ where: { id: availability.id } });
+    expect(updatedAvailability.bookedCount).toBe(1);
+  });
+
+  /**
+   * This case previously asserted that a `failed` payment is never expired.
+   * docs/FINAL-LAUNCH-AUDIT.md §6.1 identifies that as the defect rather than
+   * the contract: `markPaymentFailed` leaves the booking `pending` so the
+   * guest can retry, so a decline whose window then closed held its seats with
+   * no code path able to release them. The expectation is inverted below, and
+   * the retry window it was protecting is covered by the case after it.
+   */
+  it("expires a declined payment once its window has closed", async () => {
+    const { booking, availability, payment } = await pendingBookingWithPayment({ participantCount: 1 });
+    await prisma.payment.update({ where: { id: payment.id }, data: { status: "failed" } });
+
+    const outcome = await expirePendingBooking(payment.id);
+    expect(outcome?.expired).toBe(true);
+
+    const updatedBooking = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+    expect(updatedBooking.status).toBe("cancelled");
+    const updatedAvailability = await prisma.availability.findUniqueOrThrow({ where: { id: availability.id } });
+    expect(updatedAvailability.bookedCount).toBe(0);
+  });
+
+  it("leaves a declined payment alone while its window is still open", async () => {
+    // The guest's card was declined but they can still retry — cancelling
+    // here would be worse than the bug the case above fixes. The window is
+    // enforced inside `expirePendingBooking` itself, so this holds even for a
+    // caller that did not go through `findExpiredPendingPaymentIds`.
+    const { booking, availability, payment } = await pendingBookingWithPayment({
+      participantCount: 1,
+      expired: false,
+    });
     await prisma.payment.update({ where: { id: payment.id }, data: { status: "failed" } });
 
     const outcome = await expirePendingBooking(payment.id);
     expect(outcome).toBeNull();
 
     const updatedBooking = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
-    expect(updatedBooking.status).toBe("pending"); // unchanged — expiration only acts on requires_payment/processing
+    expect(updatedBooking.status).toBe("pending");
     const updatedAvailability = await prisma.availability.findUniqueOrThrow({ where: { id: availability.id } });
     expect(updatedAvailability.bookedCount).toBe(1);
   });
