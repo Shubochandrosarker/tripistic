@@ -33,7 +33,7 @@ export default function FeaturesPage() {
           <Breadcrumbs items={[{ name: TITLE, href: PATH }]} />
           <SectionIntro
             eyebrow="Features"
-            title="A complete AI-native operating system for travel teams."
+            title="A complete operating system for travel teams."
             description="Every feature is designed to remove a disconnected tool, reduce manual work, or help operators make better decisions from their own data."
           />
           <div className="mt-12">

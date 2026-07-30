@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTourBookingPageData } from "@/lib/bookings/page-data";
+import { publicBrandingForSlug } from "@/lib/storefront/branding";
 import { formatDuration, formatMoney } from "@/lib/utils";
 import { TourBookingForm } from "@/components/booking/tour-booking-form";
 
@@ -18,6 +19,12 @@ export default async function EmbedTourBookingPage({ params }: Params) {
   const found = await getTourBookingPageData(workspaceSlug, tourSlug);
   if (!found) notFound();
   const { workspace, tour, addons, availabilities } = found;
+
+  // The widget is embedded on the operator's own website, so it is the last
+  // place a vendor credit belongs when they are paying not to have one.
+  // Resolved by slug rather than by host: the host here is whatever page the
+  // iframe sits on, which is not ours.
+  const branding = await publicBrandingForSlug(workspace.slug);
 
   return (
     <div className="space-y-4">
@@ -52,7 +59,9 @@ export default async function EmbedTourBookingPage({ params }: Params) {
         }))}
       />
 
-      <p className="text-center text-[11px] text-muted-foreground">Powered by Tripistic</p>
+      {branding?.showPlatformAttribution !== false ? (
+        <p className="text-center text-[11px] text-muted-foreground">Powered by Tripistic</p>
+      ) : null}
     </div>
   );
 }

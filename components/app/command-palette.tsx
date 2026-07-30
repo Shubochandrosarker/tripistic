@@ -35,22 +35,29 @@ type CommandItem = {
   keywords: string;
 };
 
-const aiCommands: CommandItem[] = [
+/**
+ * Phase 10: these were labelled "Generate AI itinerary" and "Review AI growth
+ * insights". Neither calls a model — the itinerary builder assembles days from
+ * the operator's own tours and the growth page runs a documented rule engine.
+ * The `ai` keywords are kept so an operator who searches for "ai" still finds
+ * the right pages rather than nothing.
+ */
+const insightCommands: CommandItem[] = [
   {
-    id: "ai-itinerary",
-    label: "Generate AI itinerary",
+    id: "itinerary-builder",
+    label: "Build an itinerary",
     description: "Open the itinerary builder",
     href: "/dashboard/itineraries",
     icon: Sparkles,
     keywords: "ai itinerary generator proposal trip builder",
   },
   {
-    id: "ai-growth",
-    label: "Review AI growth insights",
+    id: "growth-insights",
+    label: "Review growth insights",
     description: "Open pricing, demand, and marketing recommendations",
-    href: "/dashboard/ai-growth",
+    href: "/dashboard/growth",
     icon: Bot,
-    keywords: "ai business brain growth analytics recommendations",
+    keywords: "ai business brain growth analytics recommendations insights",
   },
   {
     id: "new-booking",
@@ -113,7 +120,7 @@ export function CommandPalette({
         keywords: `${item.label} ${section.title ?? ""}`,
       })),
     );
-    return [...aiCommands, ...navCommands];
+    return [...insightCommands, ...navCommands];
   }, [sections]);
 
   const filteredCommands = useMemo(() => {

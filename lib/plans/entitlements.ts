@@ -169,7 +169,7 @@ const FEATURE_LABELS: Partial<Record<PlanFeatureKey, string>> = {
   white_label: "White-label branding",
   custom_domain: "Custom domains",
   storefront_builder: "The storefront builder",
-  advanced_ai: "Advanced AI",
+  advanced_ai: "Advanced insights",
   api_access: "API access",
   audit_logs: "Audit logs",
   digital_waivers: "Digital waivers",

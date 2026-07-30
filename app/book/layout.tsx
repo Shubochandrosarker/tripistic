@@ -1,23 +1,21 @@
-import Link from "next/link";
-import { Compass } from "lucide-react";
+import { BrandedShell } from "@/components/storefront/branded-shell";
+import { resolvePublicBranding } from "@/lib/storefront/branding";
 
-export default function BookLayout({ children }: { children: React.ReactNode }) {
+/**
+ * Layout for the platform-subdomain storefront and the whole booking journey
+ * beneath it — tour pages, checkout, and the confirmation a guest lands on
+ * after paying.
+ *
+ * `resolvePublicBranding` returns null when the host maps to no workspace
+ * (someone browsing `/book/...` on the apex domain), and the shell falls back
+ * to Tripistic's own identity — so an operator's brand can never leak onto a
+ * page that is not theirs.
+ */
+export default async function BookLayout({ children }: { children: React.ReactNode }) {
+  const branding = await resolvePublicBranding();
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-              <Compass className="size-4" aria-hidden />
-            </span>
-            <span className="text-sm font-semibold tracking-tight text-foreground">Tripistic</span>
-          </Link>
-        </div>
-      </header>
-      <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">{children}</main>
-      <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
-        Powered by Tripistic — 0% commission on direct bookings.
-      </footer>
-    </div>
+    <BrandedShell branding={branding} width="narrow">
+      {children}
+    </BrandedShell>
   );
 }

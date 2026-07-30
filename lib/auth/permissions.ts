@@ -205,7 +205,7 @@ export function canViewItineraries(role: WorkspaceRole): boolean {
 }
 
 /* ------------------------------------------------------------------------ */
-/* Phase 12 — AI Business Brain                                             */
+/* Phase 12 — Growth Insights                                             */
 /* ------------------------------------------------------------------------ */
 
 /** Revenue/forecast/health-score dashboard — owner/admin only, same tier as billing and audit logs (financial visibility). */

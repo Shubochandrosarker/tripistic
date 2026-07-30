@@ -12,6 +12,7 @@ import {
   E2E_TOUR_SLUG,
   E2E_WAIVER_TOUR_SLUG,
   E2E_WORKSPACE_SLUG,
+  E2E_BRAND_NAME,
 } from "./e2e-fixture-constants";
 
 const prisma = new PrismaClient();
@@ -77,6 +78,65 @@ async function main() {
       data: { workspaceId: workspace.id, planId: plan.id, status: "active" },
     });
   }
+
+  // A published storefront, so the white-label chrome has a brand to render.
+  // Without one the layout falls back to the workspace name, which would make
+  // a branding assertion pass for the wrong reason.
+  const storefrontDraft = {
+    brand: {
+      brandName: E2E_BRAND_NAME,
+      logoUrl: null,
+      faviconUrl: null,
+      primaryColor: "#123456",
+      secondaryColor: "#0f172a",
+      accentColor: "#f59e0b",
+      surfaceColor: "#ffffff",
+      textColor: "#111827",
+      typography: "system",
+    },
+    hero: {
+      eyebrow: "",
+      // Matches the workspace name so the existing booking-flow assertion on
+      // the storefront's h1 keeps working. The *brand* name below is
+      // deliberately different — that is the value the chrome renders, and a
+      // white-label assertion that matched the workspace name would pass even
+      // if branding resolution were broken.
+      title: "E2E Tours",
+      subtitle: "",
+      imageUrl: null,
+      primaryCta: "View tours",
+    },
+    pages: {
+      home: { enabled: true, title: "", body: "" },
+      about: { enabled: true, title: "About E2E Tours", body: "We run small-group trips." },
+      faq: { enabled: false, title: "", body: "" },
+      policies: { enabled: false, title: "", body: "" },
+      contact: { enabled: true, email: null, phone: "", address: "" },
+    },
+    seo: {
+      title: `${E2E_BRAND_NAME} — guided expeditions`,
+      description: "Book small-group guided expeditions directly with the operator.",
+      socialImageUrl: null,
+    },
+  };
+
+  await prisma.workspaceStorefront.upsert({
+    where: { workspaceId: workspace.id },
+    create: {
+      workspaceId: workspace.id,
+      status: "published",
+      draft: storefrontDraft,
+      published: storefrontDraft,
+      publishedVersion: 1,
+      publishedAt: new Date(),
+    },
+    update: {
+      status: "published",
+      draft: storefrontDraft,
+      published: storefrontDraft,
+      publishedAt: new Date(),
+    },
+  });
 
   await prisma.customDomain.upsert({
     where: { hostname: E2E_CUSTOM_DOMAIN },

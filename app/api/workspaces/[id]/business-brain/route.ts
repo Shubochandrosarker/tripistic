@@ -6,7 +6,7 @@ import { computeBusinessBrainReport } from "@/lib/analytics/business-brain";
 
 type Params = { params: Promise<{ id: string }> };
 
-/** Revenue forecast, occupancy, cancellation/repeat rates, and rule-based suggestions — the "AI Business Brain". */
+/** Revenue forecast, occupancy, cancellation/repeat rates, and rule-based suggestions — Growth Insights. */
 export async function GET(_request: Request, { params }: Params) {
   try {
     const { id } = await params;

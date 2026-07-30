@@ -65,9 +65,9 @@ export function buildOnboardingChecklist(input: {
     },
     {
       key: "enable_ai_growth",
-      title: "Enable the AI Growth Dashboard",
+      title: "Open the Growth Insights dashboard",
       description: "Get plain-English recommendations to grow direct bookings.",
-      href: "/dashboard/ai-growth",
+      href: "/dashboard/growth",
       done: false,
       phase: "Phase 7",
     },

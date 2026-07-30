@@ -1,25 +1,19 @@
-import Link from "next/link";
-import { Compass } from "lucide-react";
+import { BrandedShell } from "@/components/storefront/branded-shell";
+import { resolvePublicBranding } from "@/lib/storefront/branding";
 
-export default function HostedStorefrontLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-              <Compass className="size-4" aria-hidden />
-            </span>
-            <span className="text-sm font-semibold tracking-tight text-foreground">Tripistic</span>
-          </Link>
-        </div>
-      </header>
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-        {children}
-      </main>
-      <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
-        Powered by Tripistic
-      </footer>
-    </div>
-  );
+/**
+ * Layout for a customer's own custom domain.
+ *
+ * Previously rendered a Tripistic logo, the word "Tripistic", and "Powered by
+ * Tripistic" — on the operator's own domain, above and below their own
+ * storefront. That is the single most visible place the white-label promise
+ * could fail, and it was failing.
+ */
+export default async function HostedStorefrontLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const branding = await resolvePublicBranding();
+  return <BrandedShell branding={branding}>{children}</BrandedShell>;
 }

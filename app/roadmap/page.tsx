@@ -25,7 +25,7 @@ export const metadata = buildMetadata({
 
 export default function RoadmapPage() {
   const columns = [
-    ["Released", CheckCircle2, ["Booking engine", "Stripe payments", "CRM timeline", "Operations center", "AI itinerary builder", "Super admin foundation"]],
+    ["Released", CheckCircle2, ["Booking engine", "Stripe payments", "CRM timeline", "Operations center", "Itinerary builder", "Super admin foundation"]],
     ["In Progress", Clock, ["White-label renderer", "Custom-domain resolver", "Maintenance middleware", "Accessibility test suite"]],
     ["Voting", Vote, ["Native mobile app", "Marketplace channel sync", "Advanced yield management", "Partner portal"]],
   ] as const;

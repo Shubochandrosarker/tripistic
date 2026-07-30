@@ -101,7 +101,7 @@ export default async function OnboardingPage() {
             digital waiver from guests right on their confirmation page.
           </li>
           <li>
-            <span className="font-medium text-foreground">Phase 7:</span> the AI Growth Dashboard.
+            <span className="font-medium text-foreground">Phase 7:</span> Growth Insights.
           </li>
         </ol>
       </SectionCard>

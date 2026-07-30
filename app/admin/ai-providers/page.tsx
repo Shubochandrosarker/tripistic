@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { TableShell, Td } from "@/components/ui/table-shell";
 
 export const metadata: Metadata = {
-  title: "AI Providers · Admin",
+  title: "Model Providers · Admin",
 };
 
 export default async function AdminAiProvidersPage() {
@@ -26,13 +26,29 @@ export default async function AdminAiProvidersPage() {
   return (
     <>
       <PageHeader
-        title="AI Providers"
-        description="Provider registry for command palette intelligence, itinerary generation, and analytics copilots."
+        title="Model Providers"
+        description="Registry for future model-backed features. Nothing in the product consumes these providers today."
       />
+
+      {/*
+        Stated plainly rather than implied by an empty table. Configuring a key
+        here wires nothing up: no code path in this repository calls a model
+        (Phase 10 repositioning). Leaving the page looking operational would
+        invite an operator to add a production API key for a capability that
+        does not exist.
+      */}
+      <SectionCard title="Not yet connected">
+        <p className="text-sm text-muted-foreground">
+          No feature in Tripistic calls a language model. Growth Insights, itinerary drafting and
+          assignment matching are deterministic and computed from workspace data. This registry
+          exists so provider credentials have a home when model-backed features are built —
+          adding one today has no effect.
+        </p>
+      </SectionCard>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <MetricCard icon={Cpu} label="Configured providers" value={String(providers.length)} hint="Database provider registry" />
-        <MetricCard icon={Bot} label="Active providers" value={String(providers.filter((item) => item.status === "active").length)} hint="Available to AI workflows" />
+        <MetricCard icon={Bot} label="Active providers" value={String(providers.filter((item) => item.status === "active").length)} hint="Registered as active" />
         <MetricCard icon={KeyRound} label="Env readiness" value={`${envProviders.filter((item) => item.ready).length}/3`} hint="Configured provider env vars" />
       </div>
 
