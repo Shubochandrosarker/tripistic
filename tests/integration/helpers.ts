@@ -4,7 +4,7 @@ config({ path: ".env.test" });
 
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { PrismaClient, type Tour, type WorkspaceRole } from "@prisma/client";
+import { Prisma, PrismaClient, type Tour, type WorkspaceRole } from "@prisma/client";
 import type Stripe from "stripe";
 
 if (!process.env.DATABASE_URL?.includes("tripistic_test")) {
@@ -79,6 +79,45 @@ export async function addMember(
  * Limits default to values high enough not to be the thing under test —
  * pass `limits` explicitly when the limit itself is the assertion.
  */
+/**
+ * Fetch-or-create a shared catalog plan, safe against concurrent test files.
+ *
+ * `prisma.plan.upsert` is NOT atomic here: it issues a SELECT and then an
+ * INSERT, so two test files racing to create the same slug can both find
+ * nothing and both insert, and the loser gets P2002. Local runs happened not
+ * to interleave; CI's parallelism hit it on the first try.
+ *
+ * Losing the race is a success, not an error — the row someone else just
+ * created is exactly the row we wanted — so P2002 is caught and the winner's
+ * row is read back.
+ */
+async function getOrCreateCatalogPlan(slug: string, limits: Record<string, number>) {
+  const existing = await prisma.plan.findUnique({ where: { slug } });
+  if (existing) return existing;
+
+  try {
+    return await prisma.plan.create({
+      data: {
+        name: `Catalog Plan ${slug}`,
+        slug,
+        priceMonthly: 0,
+        priceYearly: 0,
+        currency: "USD",
+        limits,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      // Another test file created it between our read and our write.
+      return prisma.plan.findUniqueOrThrow({ where: { slug } });
+    }
+    throw error;
+  }
+}
+
 export async function createTestSubscription(
   workspaceId: string,
   overrides: Partial<{
@@ -106,18 +145,7 @@ export async function createTestSubscription(
   //  - `features` given: this test owns the plan's flag rows, so it needs a
   //    private plan nobody else will read.
   const plan = overrides.slug
-    ? await prisma.plan.upsert({
-        where: { slug: overrides.slug },
-        update: {},
-        create: {
-          name: `Catalog Plan ${overrides.slug}`,
-          slug: overrides.slug,
-          priceMonthly: 0,
-          priceYearly: 0,
-          currency: "USD",
-          limits,
-        },
-      })
+    ? await getOrCreateCatalogPlan(overrides.slug, limits)
     : await prisma.plan.create({
         data: {
           name: `Test Plan ${suffix}`,
