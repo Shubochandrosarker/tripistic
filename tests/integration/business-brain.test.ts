@@ -10,7 +10,7 @@ vi.mock("@/lib/auth/session", () => ({
 import { requireUserApi } from "@/lib/auth/session";
 import { GET as businessBrainRoute } from "@/app/api/workspaces/[id]/business-brain/route";
 import { createBooking } from "@/lib/bookings/service";
-import { addMember, createTestTour, createTestUser, createTestWorkspace, prisma } from "./helpers";
+import { addMember, createTestTour, createTestUser, createTestWorkspace, prisma, entitleWorkspace } from "./helpers";
 
 const mockRequireUserApi = requireUserApi as unknown as ReturnType<typeof vi.fn>;
 
@@ -29,6 +29,7 @@ beforeEach(() => {
 async function setup() {
   const owner = await createTestUser();
   const workspace = await createTestWorkspace(owner.id);
+  await entitleWorkspace(workspace.id);
   await addMember(workspace.id, owner.id, "workspace_owner");
   const staffUser = await createTestUser();
   await addMember(workspace.id, staffUser.id, "staff");

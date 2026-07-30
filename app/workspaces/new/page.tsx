@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Compass } from "lucide-react";
+import { redirect } from "next/navigation";
 import { requireUserPage } from "@/lib/auth/session";
 import { getMemberships } from "@/lib/tenancy/workspace";
 import { CreateWorkspaceForm } from "@/components/workspace/create-workspace-form";
@@ -11,6 +12,12 @@ export const metadata: Metadata = {
 
 export default async function NewWorkspacePage() {
   const user = await requireUserPage();
+
+  // Same gate as the dashboard layout. Without it, an unverified user bounced
+  // off /dashboard could still land here and create a workspace.
+  if (!user.emailVerifiedAt) {
+    redirect("/verify-email");
+  }
   const memberships = await getMemberships(user.id);
   const isFirstWorkspace = memberships.length === 0;
 

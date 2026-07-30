@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const { id, leadId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "crm_pipeline" });
     if (!canManageCrm(membership.role)) {
       throw forbidden("Only workspace owners, admins, and staff can convert leads.");
     }

@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "digital_waivers" });
     if (!canManageWaiverTemplate(membership.role)) {
       throw forbidden("Only workspace owners and admins can manage the waiver.");
     }
@@ -37,7 +37,7 @@ export async function PUT(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "digital_waivers" });
     if (!canManageWaiverTemplate(membership.role)) {
       throw forbidden("Only workspace owners and admins can manage the waiver.");
     }

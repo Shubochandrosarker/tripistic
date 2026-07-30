@@ -16,7 +16,7 @@ import { POST as convertLeadRoute } from "@/app/api/workspaces/[id]/leads/[leadI
 import { POST as createTaskRoute } from "@/app/api/workspaces/[id]/crm-tasks/route";
 import { PATCH as updateTaskRoute } from "@/app/api/workspaces/[id]/crm-tasks/[taskId]/route";
 import { DELETE as removeMemberRoute } from "@/app/api/workspaces/[id]/members/[memberId]/route";
-import { addMember, createTestUser, createTestWorkspace, prisma } from "./helpers";
+import { addMember, createTestUser, createTestWorkspace, prisma, entitleWorkspace } from "./helpers";
 
 const mockRequireUserApi = requireUserApi as unknown as ReturnType<typeof vi.fn>;
 
@@ -35,6 +35,7 @@ beforeEach(() => {
 async function setup() {
   const owner = await createTestUser();
   const workspace = await createTestWorkspace(owner.id);
+  await entitleWorkspace(workspace.id);
   await addMember(workspace.id, owner.id, "workspace_owner");
   const viewerUser = await createTestUser();
   await addMember(workspace.id, viewerUser.id, "viewer");
@@ -231,6 +232,7 @@ describe("tenant isolation", () => {
     const { owner: ownerA, workspace: workspaceA } = await setup();
     const ownerB = await createTestUser();
     const workspaceB = await createTestWorkspace(ownerB.id);
+    await entitleWorkspace(workspaceB.id);
     await addMember(workspaceB.id, ownerB.id, "workspace_owner");
 
     asUser(ownerB);

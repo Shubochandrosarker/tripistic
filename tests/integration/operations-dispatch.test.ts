@@ -18,7 +18,7 @@ import { POST as checkInRoute } from "@/app/api/workspaces/[id]/bookings/[bookin
 import { POST as createIncidentRoute, GET as listIncidentsRoute } from "@/app/api/workspaces/[id]/incidents/route";
 import { PATCH as updateIncidentRoute } from "@/app/api/workspaces/[id]/incidents/[incidentId]/route";
 import { createBooking } from "@/lib/bookings/service";
-import { addMember, createTestTour, createTestUser, createTestWorkspace, prisma } from "./helpers";
+import { addMember, createTestTour, createTestUser, createTestWorkspace, prisma, entitleWorkspace } from "./helpers";
 
 const mockRequireUserApi = requireUserApi as unknown as ReturnType<typeof vi.fn>;
 
@@ -47,6 +47,7 @@ function dateKeyInTz(date: Date, timezone: string): string {
 async function setup() {
   const owner = await createTestUser();
   const workspace = await createTestWorkspace(owner.id);
+  await entitleWorkspace(workspace.id);
   await addMember(workspace.id, owner.id, "workspace_owner");
   const viewerUser = await createTestUser();
   await addMember(workspace.id, viewerUser.id, "viewer");

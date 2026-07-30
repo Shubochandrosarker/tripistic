@@ -11,7 +11,7 @@ vi.mock("@/lib/messaging/mailer", async () => {
 import { getMailer } from "@/lib/messaging/mailer";
 import { POST as contactRoute } from "@/app/api/marketing/contact/route";
 import { POST as subscribeRoute } from "@/app/api/marketing/subscribe/route";
-import { resetRateLimits } from "@/lib/marketing/rate-limit";
+import { RATE_LIMITS } from "@/lib/security/rate-limit";
 import { prisma } from "./helpers";
 
 const mockGetMailer = getMailer as unknown as ReturnType<typeof vi.fn>;
@@ -34,9 +34,19 @@ function contactPayload(overrides: Record<string, unknown> = {}) {
   };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
-  resetRateLimits();
+  // Phase 7 moved rate limiting into PostgreSQL, so clearing it is a delete
+  // rather than resetting a module-level Map. Scoped to the two marketing
+  // buckets so a concurrently running test file's budget is untouched.
+  await prisma.rateLimitCounter.deleteMany({
+    where: {
+      OR: [
+        { key: { startsWith: RATE_LIMITS.contactForm.bucket } },
+        { key: { startsWith: RATE_LIMITS.newsletter.bucket } },
+      ],
+    },
+  });
   delete process.env.SMTP_HOST;
 });
 

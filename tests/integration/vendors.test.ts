@@ -12,7 +12,7 @@ import { GET as listVendorsRoute, POST as createVendorRoute } from "@/app/api/wo
 import { PATCH as updateVendorRoute } from "@/app/api/workspaces/[id]/vendors/[vendorId]/route";
 import { GET as listInvoicesRoute, POST as createInvoiceRoute } from "@/app/api/workspaces/[id]/vendors/[vendorId]/invoices/route";
 import { PATCH as updateInvoiceRoute } from "@/app/api/workspaces/[id]/vendors/[vendorId]/invoices/[invoiceId]/route";
-import { addMember, createTestUser, createTestWorkspace, prisma } from "./helpers";
+import { addMember, createTestUser, createTestWorkspace, prisma, entitleWorkspace } from "./helpers";
 
 const mockRequireUserApi = requireUserApi as unknown as ReturnType<typeof vi.fn>;
 
@@ -31,6 +31,7 @@ beforeEach(() => {
 async function setup() {
   const owner = await createTestUser();
   const workspace = await createTestWorkspace(owner.id);
+  await entitleWorkspace(workspace.id);
   await addMember(workspace.id, owner.id, "workspace_owner");
   const staffUser = await createTestUser();
   await addMember(workspace.id, staffUser.id, "staff");

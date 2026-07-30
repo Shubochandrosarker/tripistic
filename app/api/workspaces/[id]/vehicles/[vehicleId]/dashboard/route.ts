@@ -11,7 +11,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const { id, vehicleId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "vehicles" });
     if (!canViewVehicles(membership.role)) {
       throw forbidden("You do not have permission to view this vehicle.");
     }

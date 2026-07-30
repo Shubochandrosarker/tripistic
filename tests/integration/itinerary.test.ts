@@ -15,7 +15,7 @@ import { PATCH as updateItemRoute, DELETE as deleteItemRoute } from "@/app/api/w
 import { POST as reorderItemRoute } from "@/app/api/workspaces/[id]/itineraries/[itineraryId]/items/[itemId]/reorder/route";
 import { POST as saveVersionRoute } from "@/app/api/workspaces/[id]/itineraries/[itineraryId]/versions/route";
 import { GET as publicItineraryRoute } from "@/app/api/public/itineraries/[publicToken]/route";
-import { addMember, createTestTour, createTestUser, createTestWorkspace } from "./helpers";
+import { addMember, createTestTour, createTestUser, createTestWorkspace, entitleWorkspace } from "./helpers";
 
 const mockRequireUserApi = requireUserApi as unknown as ReturnType<typeof vi.fn>;
 
@@ -34,6 +34,7 @@ beforeEach(() => {
 async function setup() {
   const owner = await createTestUser();
   const workspace = await createTestWorkspace(owner.id);
+  await entitleWorkspace(workspace.id);
   await addMember(workspace.id, owner.id, "workspace_owner");
   const viewerUser = await createTestUser();
   await addMember(workspace.id, viewerUser.id, "viewer");
@@ -199,6 +200,7 @@ describe("itinerary list and tenant isolation", () => {
     const { owner: ownerA, workspace: workspaceA } = await setup();
     const ownerB = await createTestUser();
     const workspaceB = await createTestWorkspace(ownerB.id);
+    await entitleWorkspace(workspaceB.id);
     await addMember(workspaceB.id, ownerB.id, "workspace_owner");
 
     asUser(ownerB);

@@ -19,7 +19,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const { id, memberId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "guide_scheduling" });
     if (!canManageWorkforce(membership.role)) {
       throw forbidden("Only workspace owners and admins can manage guide profiles.");
     }

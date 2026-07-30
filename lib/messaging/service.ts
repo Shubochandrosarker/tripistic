@@ -20,6 +20,9 @@ import {
   reviewRequestEmail,
   memberInvitationEmail,
   departureDelayedEmail,
+  emailVerificationEmail,
+  passwordResetEmail,
+  passwordChangedEmail,
   type BookingEmailContext,
   type RenderedEmail,
 } from "./templates";
@@ -519,4 +522,110 @@ export async function applyUnsubscribeToken(token: string): Promise<ApplyUnsubsc
   });
 
   return { status: "unsubscribed", customer: updated };
+}
+
+/**
+ * Phase 7 — account-security emails.
+ *
+ * Routed through the same tracked/retried outbox as everything else, so a
+ * verification link lost to a transient SMTP outage is retried rather than
+ * silently dropped. These are the emails where that matters most: a user who
+ * never receives a reset link has no other way in.
+ *
+ * `workspaceId` is required by the Message model, so these resolve the user's
+ * first workspace and fall back to a platform-scoped record when they have
+ * none — which is the normal case for a just-registered account.
+ */
+async function workspaceIdForUser(userId: string): Promise<string | null> {
+  const membership = await prisma.workspaceMember.findFirst({
+    where: { userId, status: "active" },
+    select: { workspaceId: true },
+    orderBy: { joinedAt: "asc" },
+  });
+  return membership?.workspaceId ?? null;
+}
+
+async function sendAccountEmail(input: {
+  userId: string;
+  to: string;
+  templateKey: MessageTemplateKey;
+  rendered: RenderedEmail;
+}): Promise<void> {
+  const workspaceId = await workspaceIdForUser(input.userId);
+  if (!workspaceId) {
+    // No workspace yet (a brand-new registration). The Message table is
+    // workspace-scoped, so there is nowhere to record it — send directly and
+    // log the outcome rather than dropping the email. Losing a verification
+    // link because the recipient has not created a workspace yet would break
+    // the one flow every new account has to pass through.
+    const result = await deliver(input.to, getFromAddress(null), input.rendered);
+    logger.info("messaging.account_email", {
+      templateKey: input.templateKey,
+      status: result.status,
+      tracked: false,
+    });
+    return;
+  }
+
+  await sendTrackedEmail({
+    workspaceId,
+    templateKey: input.templateKey,
+    to: input.to,
+    rendered: input.rendered,
+    // Each issued token is a genuinely new email; the token itself is not in
+    // the key (it must never be logged), so a per-issue discriminator keeps
+    // successive requests distinct while a retry of one still dedupes.
+    dedupeDiscriminator: `${Date.now()}`,
+  });
+}
+
+export async function sendEmailVerificationEmail(input: {
+  userId: string;
+  to: string;
+  name: string;
+  verifyUrl: string;
+  expiresAt: Date;
+}): Promise<void> {
+  await sendAccountEmail({
+    userId: input.userId,
+    to: input.to,
+    templateKey: "email_verification",
+    rendered: emailVerificationEmail({
+      name: input.name,
+      actionUrl: input.verifyUrl,
+      expiresAt: input.expiresAt,
+    }),
+  });
+}
+
+export async function sendPasswordResetEmail(input: {
+  userId: string;
+  to: string;
+  name: string;
+  resetUrl: string;
+  expiresAt: Date;
+}): Promise<void> {
+  await sendAccountEmail({
+    userId: input.userId,
+    to: input.to,
+    templateKey: "password_reset",
+    rendered: passwordResetEmail({
+      name: input.name,
+      actionUrl: input.resetUrl,
+      expiresAt: input.expiresAt,
+    }),
+  });
+}
+
+export async function sendPasswordChangedEmail(input: {
+  userId: string;
+  to: string;
+  name: string;
+}): Promise<void> {
+  await sendAccountEmail({
+    userId: input.userId,
+    to: input.to,
+    templateKey: "password_changed",
+    rendered: passwordChangedEmail({ name: input.name }),
+  });
 }

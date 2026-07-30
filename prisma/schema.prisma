@@ -205,6 +205,12 @@ enum MessageTemplateKey {
   member_invitation
   /// Phase 8/9: sent to confirmed guests when their departure is marked delayed.
   departure_delayed
+  /// Phase 7 — account security. These go to a user rather than a guest, and
+  /// carry no workspace context, so they are recorded against the workspace
+  /// the user belongs to only when one exists.
+  email_verification
+  password_reset
+  password_changed
 
   @@map("message_template_key")
 }
@@ -220,10 +226,18 @@ model User {
   isPlatformAdmin Boolean    @default(false) @map("is_platform_admin")
   status          UserStatus @default(active)
   lastLoginAt     DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  /// Bumped whenever every existing session for this user must stop working —
+  /// today, a completed password reset. Sessions are stateless JWTs, so there
+  /// is nothing server-side to delete; the version is stamped into the token
+  /// at sign-in and re-checked against this column on every request. Without
+  /// it, someone who reset their password because an attacker had it would
+  /// leave that attacker logged in.
+  sessionVersion  Int        @default(0) @map("session_version")
   createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
+  authTokens                   AuthToken[]
   memberships                  WorkspaceMember[]             @relation("MemberUser")
   invitedMembers               WorkspaceMember[]             @relation("MemberInviter")
   ownedWorkspaces              Workspace[]                   @relation("WorkspaceOwner")
@@ -2371,4 +2385,77 @@ model JobRun {
   @@index([jobName, startedAt])
   @@index([status, startedAt])
   @@map("job_runs")
+}
+
+/**
+ * ------------------------------------------------------------------------
+ */
+/**
+ * Phase 7 — account verification, password reset, rate limiting
+ */
+/**
+ * ------------------------------------------------------------------------
+ */
+
+enum AuthTokenPurpose {
+  email_verification
+  password_reset
+
+  @@map("auth_token_purpose")
+}
+
+/// Single-use, short-lived token for email verification and password reset.
+///
+/// The token is stored as a SHA-256 digest, never in plaintext — unlike
+/// `Invitation.token`, which audit §7 flags precisely because a leaked
+/// backup hands an attacker working invitation links. A digest means a
+/// database dump is useless for authentication: the secret only ever exists
+/// in the email that was sent and in the URL the user clicks.
+///
+/// Rows are kept after consumption rather than deleted, so "this reset link
+/// was already used" is answerable and the audit trail survives.
+model AuthToken {
+  id         String           @id @default(cuid())
+  userId     String           @map("user_id")
+  purpose    AuthTokenPurpose
+  /// SHA-256 of the token. Unique, so presenting a token is a single indexed
+  /// lookup and a collision cannot silently authenticate the wrong account.
+  tokenHash  String           @unique @map("token_hash")
+  expiresAt  DateTime         @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime?        @map("consumed_at") @db.Timestamptz(6)
+  /// Recorded for the audit trail. Never used to authorise anything.
+  requestIp  String?          @map("request_ip")
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// "Newest live token for this user and purpose" — the issue path checks
+  /// this to avoid emailing a fresh link on every button press.
+  @@index([userId, purpose, createdAt])
+  @@index([expiresAt])
+  @@map("auth_tokens")
+}
+
+/// Fixed-window rate limit counter, shared across application instances.
+///
+/// Deliberately in PostgreSQL rather than in process memory. The in-process
+/// limiter this replaces (lib/marketing/rate-limit.ts) gave every container
+/// its own budget and reset on restart, so the real limit was
+/// `limit x instances` and an attacker could reset it by causing a deploy.
+/// For login, registration and password reset that is not a limit at all.
+///
+/// A row per (key, window) with an upsert-and-increment is one round trip on
+/// endpoints that are low-volume by nature. Redis would be faster and is the
+/// right answer at a different scale; correctness across instances matters
+/// more here than the microseconds.
+model RateLimitCounter {
+  /// `<bucket>:<subject>:<windowStartEpochMs>` — the window is part of the
+  /// key so expiry is a delete of old rows rather than a read-modify-write.
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @map("window_start") @db.Timestamptz(6)
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@index([expiresAt])
+  @@map("rate_limit_counters")
 }

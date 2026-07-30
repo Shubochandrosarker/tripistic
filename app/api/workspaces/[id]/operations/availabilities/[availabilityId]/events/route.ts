@@ -11,7 +11,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const { id, availabilityId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "operations_dispatch" });
     if (!canViewOperations(membership.role)) {
       throw forbidden("You do not have permission to view this departure's timeline.");
     }

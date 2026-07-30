@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const user = await requireUserApi();
     const { id } = await params;
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "white_label" });
     if (!canManageWorkspace(membership.role)) {
       throw forbidden("Only workspace owners and admins can publish the storefront.");
     }

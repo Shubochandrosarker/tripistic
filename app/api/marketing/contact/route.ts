@@ -7,12 +7,10 @@ import {
   markContactDelivery,
   recordContactSubmission,
 } from "@/lib/marketing/leads";
-import { checkRateLimit } from "@/lib/marketing/rate-limit";
+import { RATE_LIMITS, consumeRateLimit, rateLimitHeaders } from "@/lib/security/rate-limit";
 import { getFromAddress, getMailer } from "@/lib/messaging/mailer";
 import { SITE } from "@/lib/seo/site";
 
-const RATE_LIMIT = 5;
-const RATE_WINDOW_MS = 10 * 60 * 1000;
 
 const REASONS = [
   "Sales",
@@ -66,11 +64,13 @@ export async function POST(request: Request) {
     if (data.website) return json({ received: true, notified: false }, 202);
 
     const ip = clientIpFrom(request.headers) ?? "unknown";
-    const limit = checkRateLimit(`contact:${ip}`, RATE_LIMIT, RATE_WINDOW_MS);
+    // Phase 7 replaced the in-process limiter this used to call: that one gave
+    // every container its own budget and reset on restart.
+    const limit = await consumeRateLimit(RATE_LIMITS.contactForm, ip);
     if (!limit.allowed) {
       return json(
         { error: "Too many requests. Please try again shortly." },
-        { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+        { status: 429, headers: rateLimitHeaders(limit) },
       );
     }
 

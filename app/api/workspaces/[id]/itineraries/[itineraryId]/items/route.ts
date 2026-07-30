@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const { id, itineraryId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "itinerary_builder" });
     if (!canManageItineraries(membership.role)) {
       throw forbidden("Only workspace owners, admins, and staff can edit itineraries.");
     }

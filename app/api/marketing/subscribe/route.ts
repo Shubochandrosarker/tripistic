@@ -7,7 +7,7 @@ import {
   markSubscriberDelivery,
   recordNewsletterSubscriber,
 } from "@/lib/marketing/leads";
-import { checkRateLimit } from "@/lib/marketing/rate-limit";
+import { RATE_LIMITS, consumeRateLimit, rateLimitHeaders } from "@/lib/security/rate-limit";
 import { getFromAddress, getMailer } from "@/lib/messaging/mailer";
 import { SITE } from "@/lib/seo/site";
 
@@ -19,8 +19,6 @@ const subscribeSchema = z.object({
   website: z.string().max(200).optional(),
 });
 
-const RATE_LIMIT = 5;
-const RATE_WINDOW_MS = 10 * 60 * 1000;
 
 /**
  * Public newsletter subscription.
@@ -42,11 +40,13 @@ export async function POST(request: Request) {
     if (website) return json({ subscribed: true, confirmationSent: false }, 202);
 
     const ip = clientIpFrom(request.headers) ?? "unknown";
-    const limit = checkRateLimit(`newsletter:${ip}`, RATE_LIMIT, RATE_WINDOW_MS);
+    // Phase 7 replaced the in-process limiter this used to call: that one gave
+    // every container its own budget and reset on restart.
+    const limit = await consumeRateLimit(RATE_LIMITS.newsletter, ip);
     if (!limit.allowed) {
       return json(
         { error: "Too many requests. Please try again shortly." },
-        { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+        { status: 429, headers: rateLimitHeaders(limit) },
       );
     }
 

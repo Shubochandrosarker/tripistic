@@ -40,6 +40,7 @@ export const authConfig = {
       if (user) {
         token.userId = user.id;
         token.isPlatformAdmin = user.isPlatformAdmin ?? false;
+        token.sessionVersion = user.sessionVersion ?? 0;
       }
       return token;
     },
@@ -47,6 +48,7 @@ export const authConfig = {
       if (session.user) {
         session.user.id = token.userId ?? token.sub ?? "";
         session.user.isPlatformAdmin = Boolean(token.isPlatformAdmin);
+        session.user.sessionVersion = typeof token.sessionVersion === "number" ? token.sessionVersion : 0;
       }
       return session;
     },
