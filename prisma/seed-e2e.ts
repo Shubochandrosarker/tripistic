@@ -1,7 +1,11 @@
 /**
  * Deterministic fixture for the Playwright critical-flow test only.
  * Never invoked by `db:seed` / production — only by `scripts/test-e2e.sh`
- * against `tripistic_test`. Idempotent (upserts), so re-running is safe.
+ * against `tripistic_test`.
+ *
+ * Idempotent in both directions: upserts for the entities it owns, and an
+ * explicit reset of the state the tests *consume*. Upserts alone were not
+ * enough — see `resetConsumedFixtureState`.
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -17,7 +21,45 @@ import {
 
 const prisma = new PrismaClient();
 
+/**
+ * Clears the state previous runs consumed.
+ *
+ * Upserting the fixture kept its entities stable but not its *capacity*. The
+ * waiver test books a seat and never cancels, so bookings accumulated: after
+ * four runs the seeded departure was 4/4, its option vanished from the booking
+ * form, and the test failed at "no departure available" — which reads like a UI
+ * regression and is not one. The booking-flow test hid this by cancelling its
+ * own booking at the end, releasing the seats it took.
+ *
+ * CI never saw it because CI starts from an empty database, so the failure only
+ * appears from the fifth local run onward — the kind of rot that costs an hour
+ * of misdirected debugging when it finally surfaces.
+ *
+ * Waiver signatures restrict booking deletion, so they go first.
+ */
+async function resetConsumedFixtureState(workspaceId: string) {
+  await prisma.waiverSignature.deleteMany({ where: { workspaceId } });
+  await prisma.payment.deleteMany({ where: { workspaceId } });
+  await prisma.message.deleteMany({ where: { workspaceId } });
+  await prisma.booking.deleteMany({ where: { workspaceId } });
+  await prisma.availability.updateMany({ where: { workspaceId }, data: { bookedCount: 0 } });
+}
+
 async function main() {
+  // Clear rate-limit counters left by previous runs.
+  //
+  // Phase 7 added login rate limiting — 10 attempts per caller per 15 minutes
+  // and 20 per account per hour — and every test in the Playwright suite signs
+  // in through `beforeEach`. A single run stays well inside both budgets, but a
+  // second run within the hour does not: the whole suite starts failing at the
+  // login step, which looks like a UI flake and is not one. (It cost me a wrong
+  // diagnosis before the counters made it obvious.)
+  //
+  // Counters are ephemeral abuse-control state, so removing them is exactly
+  // what a deterministic fixture should do — the same reason this file resets
+  // everything else it owns.
+  await prisma.rateLimitCounter.deleteMany({ where: { key: { startsWith: "auth:" } } });
+
   const passwordHash = await bcrypt.hash(E2E_OWNER_PASSWORD, 10);
 
   const owner = await prisma.user.upsert({
@@ -49,6 +91,8 @@ async function main() {
     create: { workspaceId: workspace.id, userId: owner.id, role: "workspace_owner" },
     update: { role: "workspace_owner", status: "active" },
   });
+
+  await resetConsumedFixtureState(workspace.id);
 
   // Phase 8 made feature access depend on an entitled subscription, and this
   // fixture writes rows directly instead of going through

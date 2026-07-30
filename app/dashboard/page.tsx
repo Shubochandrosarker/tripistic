@@ -43,6 +43,7 @@ export default async function DashboardPage() {
     upcomingBookingCount,
     publicBookableTourCount,
     revenue,
+    paymentAccount,
   ] = await Promise.all([
     getWorkspaceSubscription(active.workspace.id),
     prisma.workspaceMember.count({
@@ -80,6 +81,10 @@ export default async function DashboardPage() {
       where: { workspaceId: active.workspace.id, status: "succeeded" },
       _sum: { amount: true },
     }),
+    prisma.workspacePaymentAccount.findUnique({
+      where: { workspaceId: active.workspace.id },
+      select: { payoutsEnabled: true },
+    }),
   ]);
 
   const checklist = buildOnboardingChecklist({
@@ -88,6 +93,8 @@ export default async function DashboardPage() {
     tourCount,
     upcomingSlotCount,
     hasPublicBookableTour: publicBookableTourCount > 0,
+    payoutsEnabled: paymentAccount?.payoutsEnabled ?? false,
+    hasFirstBooking: bookingCount > 0,
   });
   const progress = onboardingProgress(checklist);
   const trialDays = daysUntil(subscription?.trialEndsAt ?? null);
