@@ -160,7 +160,7 @@ export function ProductPreview() {
           </div>
         </div>
         <div className="grid gap-3">
-          {["AI itinerary generated", "Guide assigned", "Payment webhook verified", "Waiver completed"].map((item, index) => (
+          {["Itinerary drafted", "Guide assigned", "Payment webhook verified", "Waiver completed"].map((item, index) => (
             <div key={item} className="flex items-start gap-3 rounded-lg border border-border bg-background p-4">
               <span className="mt-0.5 flex size-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
                 <Check className="size-4" aria-hidden />
@@ -211,8 +211,8 @@ export function FeatureGrid({ limit }: { limit?: number }) {
 }
 
 export function CtaBand({
-  title = "Turn your travel business into an AI-native operation.",
-  description = "Launch direct bookings, operations, CRM, AI itineraries, and enterprise controls from one modern platform.",
+  title = "Turn your travel business into one connected operation.",
+  description = "Launch direct bookings, operations, CRM, itinerary drafting, and enterprise controls from one modern platform.",
 }: {
   title?: string;
   description?: string;
@@ -244,7 +244,7 @@ export function FaqSection() {
     ["Is Tripistic only for tour operators?", "No. It supports operators, travel agencies, DMCs, private-tour teams, education travel, and enterprise travel brands."],
     ["Does Tripistic replace my booking tool?", "Tripistic includes direct booking, availability, payments, waivers, operations, CRM, and AI workflows in one system."],
     ["Can agencies white-label the platform?", "Yes. v2 includes the enterprise data model and admin surfaces for brand kits, custom domains, API branding, and reseller-ready operations."],
-    ["Does it support AI itineraries?", "Yes. The itinerary builder creates editable multi-day proposals from tours, vendors, and trip context, then tracks versions."],
+    ["Does it build itineraries?", "Yes. The itinerary builder creates editable multi-day proposals from your own tours, vendors, and trip context, then tracks versions."],
   ];
   return (
     <section className="px-4 py-16 sm:px-6">

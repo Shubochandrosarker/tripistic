@@ -88,10 +88,9 @@ export const comparison: ComparisonGroup[] = [
   {
     group: "AI",
     rows: [
-      row("AI search across your data", false, true, true, true),
-      row("AI itinerary builder", false, false, true, true),
-      row("AI business insights", false, false, true, true),
-      row("Bring your own AI provider key", false, true, true, true),
+      row("Search across your data", false, true, true, true),
+      row("Itinerary builder", false, false, true, true),
+      row("Automated business insights", false, false, true, true),
       row("Provider and model governance", false, false, false, true),
     ],
   },

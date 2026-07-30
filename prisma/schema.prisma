@@ -2217,3 +2217,80 @@ model MaintenanceSetting {
 
   @@map("maintenance_settings")
 }
+
+/// Delivery outcome for a marketing lead. Persistence is never conditional on
+/// delivery: the row is written first and this records what happened to the
+/// notification afterwards, so a missing SMTP configuration loses a
+/// notification rather than a lead.
+enum LeadDeliveryStatus {
+  pending
+  sent
+  failed
+  skipped
+
+  @@map("lead_delivery_status")
+}
+
+enum NewsletterSubscriberStatus {
+  pending_confirmation
+  subscribed
+  unsubscribed
+
+  @@map("newsletter_subscriber_status")
+}
+
+/// A public contact-form enquiry. Not tenant-scoped: these arrive before a
+/// workspace exists, so they belong to the platform rather than to a customer.
+///
+/// Client metadata is stored as a salted digest rather than raw values. The
+/// operational need is "are these fifty submissions the same origin", which a
+/// digest answers, without retaining an identifier subject to erasure requests.
+model MarketingContactSubmission {
+  id              String             @id @default(cuid())
+  name            String
+  email           String
+  emailNormalized String             @map("email_normalized")
+  company         String?
+  reason          String
+  message         String
+  source          String?
+  consentAt       DateTime           @map("consent_at") @db.Timestamptz(6)
+  clientHash      String?            @map("client_hash")
+  userAgentHash   String?            @map("user_agent_hash")
+  deliveryStatus  LeadDeliveryStatus @default(pending) @map("delivery_status")
+  deliveryError   String?            @map("delivery_error")
+  deliveredAt     DateTime?          @map("delivered_at") @db.Timestamptz(6)
+  handledAt       DateTime?          @map("handled_at") @db.Timestamptz(6)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([createdAt])
+  @@index([deliveryStatus, createdAt])
+  @@index([emailNormalized])
+  @@map("marketing_contact_submissions")
+}
+
+/// A newsletter subscriber. `emailNormalized` is unique so a repeat signup is
+/// an idempotent no-op rather than a duplicate or an error — re-subscribing
+/// must not reveal whether an address was already on the list.
+model NewsletterSubscriber {
+  id              String                     @id @default(cuid())
+  email           String
+  emailNormalized String                     @unique @map("email_normalized")
+  status          NewsletterSubscriberStatus @default(pending_confirmation)
+  source          String?
+  consentAt       DateTime                   @map("consent_at") @db.Timestamptz(6)
+  confirmedAt     DateTime?                  @map("confirmed_at") @db.Timestamptz(6)
+  unsubscribedAt  DateTime?                  @map("unsubscribed_at") @db.Timestamptz(6)
+  clientHash      String?                    @map("client_hash")
+  userAgentHash   String?                    @map("user_agent_hash")
+  deliveryStatus  LeadDeliveryStatus         @default(pending) @map("delivery_status")
+  deliveryError   String?                    @map("delivery_error")
+  deliveredAt     DateTime?                  @map("delivered_at") @db.Timestamptz(6)
+  createdAt       DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("newsletter_subscribers")
+}

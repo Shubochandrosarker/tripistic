@@ -20,6 +20,7 @@ export function NewsletterSignup({
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,12 +34,19 @@ export function NewsletterSignup({
         body: JSON.stringify({ email, source: "newsletter" }),
       });
 
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        confirmationSent?: boolean;
+      };
+
       if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
         throw new Error(typeof body?.error === "string" ? body.error : "Subscription failed");
       }
 
       trackEvent("newsletter_subscribe", { source: "newsletter" });
+      // The server reports whether a confirmation actually went out. Telling
+      // someone to check an inbox we never mailed is the failure this fixes.
+      setConfirmationSent(Boolean(body.confirmationSent));
       setState("done");
     } catch (error) {
       setState("error");
@@ -51,7 +59,9 @@ export function NewsletterSignup({
       <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
         <p className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Check className="size-4 text-accent" aria-hidden />
-          You are subscribed. Check your inbox to confirm.
+          {confirmationSent
+            ? "You're subscribed. Check your inbox to confirm."
+            : "You're on the list. We'll be in touch."}
         </p>
       </div>
     );

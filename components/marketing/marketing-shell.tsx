@@ -120,7 +120,7 @@ export function MarketingFooter() {
               </span>
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
-              The AI-native travel operating system for modern tour operators, agencies, DMCs, and
+              The travel operating system for modern tour operators, agencies, DMCs, and
               enterprise travel brands.
             </p>
             <ul className="mt-5 flex flex-wrap gap-3">
@@ -164,7 +164,7 @@ export function MarketingFooter() {
       <div className="border-t border-border px-4 py-5 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-xs text-muted-foreground sm:flex-row">
           <p>
-            © {new Date().getFullYear()} {SITE.legalName}. AI-native operations for tour businesses.
+            © {new Date().getFullYear()} {SITE.legalName}. Operations software for tour businesses.
           </p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <CookiePreferencesButton />
