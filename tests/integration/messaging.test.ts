@@ -24,7 +24,15 @@ import { transitionBookingStatus } from "@/lib/bookings/status-service";
 import { processStripeWebhookEvent } from "@/lib/payments/webhook-service";
 import { sendReviewRequestEmail, sendMemberInvitationEmail } from "@/lib/messaging/service";
 import { POST as invitationsRoute } from "@/app/api/workspaces/[id]/invitations/route";
-import { addMember, createBookableFixture, createTestUser, createTestWorkspace, fakeStripeEvent, prisma } from "./helpers";
+import {
+  addMember,
+  createBookableFixture,
+  createTestSubscription,
+  createTestUser,
+  createTestWorkspace,
+  fakeStripeEvent,
+  prisma,
+} from "./helpers";
 
 const mockGetMailer = getMailer as unknown as ReturnType<typeof vi.fn>;
 const mockRequireUserApi = requireUserApi as unknown as ReturnType<typeof vi.fn>;
@@ -346,6 +354,8 @@ describe("member invitation email — best effort", () => {
     const owner = await createTestUser();
     const workspace = await createTestWorkspace(owner.id);
     await addMember(workspace.id, owner.id, "workspace_owner");
+    // The invitations route enforces the plan seat limit, which needs a subscription.
+    await createTestSubscription(workspace.id);
     asUser(owner);
 
     const res = await invitationsRoute(

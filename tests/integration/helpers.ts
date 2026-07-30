@@ -64,6 +64,78 @@ export async function addMember(
   });
 }
 
+/**
+ * An active plan + subscription for a workspace.
+ *
+ * `global-setup.ts` truncates every table — including `plans` — so the seed
+ * that CI runs before the suite is gone by the time any test executes. A
+ * workspace built by `createTestWorkspace` therefore has no subscription,
+ * and every entitlement gate that calls `requireSubscription`
+ * (`lib/plans/entitlements.ts`) rejects with 409. Production does not have
+ * this shape: `POST /api/workspaces` attaches the default plan at creation
+ * (`app/api/workspaces/route.ts`), so any route behind a seat, tour, or
+ * domain limit needs this fixture to reach the behaviour under test.
+ *
+ * Limits default to values high enough not to be the thing under test —
+ * pass `limits` explicitly when the limit itself is the assertion.
+ */
+export async function createTestSubscription(
+  workspaceId: string,
+  overrides: Partial<{
+    limits: Record<string, number>;
+    status: "trialing" | "active" | "past_due" | "cancelled" | "expired";
+  }> = {},
+) {
+  const suffix = uniqueSuffix();
+  const plan = await prisma.plan.create({
+    data: {
+      name: `Test Plan ${suffix}`,
+      slug: `test-plan-${suffix}`,
+      priceMonthly: 0,
+      priceYearly: 0,
+      currency: "USD",
+      limits: overrides.limits ?? { users: 25, active_tours: -1, custom_domains: 5 },
+    },
+  });
+  return prisma.subscription.create({
+    data: { workspaceId, planId: plan.id, status: overrides.status ?? "active" },
+  });
+}
+
+/**
+ * A Stripe Connect account in the charge-ready state.
+ *
+ * `createCheckoutSessionForBooking` calls `getChargeReadyPaymentAccount`
+ * before it creates a session (`lib/payments/service.ts`), which rejects
+ * with 409 unless the workspace has an `enabled` account with both charges
+ * and payouts on (`lib/payments/connect.ts`). Any test that expects a paid
+ * booking to reach Stripe needs this; omit it to exercise the blocked path.
+ */
+export async function createTestPaymentAccount(
+  workspaceId: string,
+  overrides: Partial<{
+    chargesEnabled: boolean;
+    payoutsEnabled: boolean;
+    status: "onboarding" | "restricted" | "enabled" | "disabled";
+    platformFeeBps: number;
+    defaultCurrency: string;
+  }> = {},
+) {
+  return prisma.workspacePaymentAccount.create({
+    data: {
+      workspaceId,
+      providerAccountId: `acct_test_${uniqueSuffix()}`,
+      status: overrides.status ?? "enabled",
+      chargesEnabled: overrides.chargesEnabled ?? true,
+      payoutsEnabled: overrides.payoutsEnabled ?? true,
+      detailsSubmitted: true,
+      platformFeeBps: overrides.platformFeeBps ?? 0,
+      defaultCurrency: overrides.defaultCurrency ?? "usd",
+      country: "US",
+    },
+  });
+}
+
 export async function createTestTour(
   workspaceId: string,
   overrides: Partial<{
@@ -141,12 +213,21 @@ export function fakeStripeEvent(type: string, object: Record<string, unknown>, i
   } as unknown as Stripe.Event;
 }
 
-/** One owner + one active public tour + one future scheduled departure — the common baseline most booking tests need. */
+/**
+ * One owner + one active public tour + one future scheduled departure — the
+ * common baseline most booking tests need.
+ *
+ * Set `paymentAccount: true` when the test drives a *paid* booking all the
+ * way to a Checkout Session; without it `getChargeReadyPaymentAccount`
+ * rejects with 409 before Stripe is reached. Left off by default so the
+ * not-yet-onboarded path stays assertable.
+ */
 export async function createBookableFixture(
   overrides: {
     tour?: Parameters<typeof createTestTour>[1];
     availability?: Parameters<typeof createTestAvailability>[1];
     workspace?: Parameters<typeof createTestWorkspace>[1];
+    paymentAccount?: boolean | Parameters<typeof createTestPaymentAccount>[1];
   } = {},
 ) {
   const owner = await createTestUser();
@@ -154,5 +235,11 @@ export async function createBookableFixture(
   await addMember(workspace.id, owner.id, "workspace_owner");
   const tour = await createTestTour(workspace.id, overrides.tour);
   const availability = await createTestAvailability(tour, overrides.availability);
+  if (overrides.paymentAccount) {
+    await createTestPaymentAccount(
+      workspace.id,
+      typeof overrides.paymentAccount === "boolean" ? undefined : overrides.paymentAccount,
+    );
+  }
   return { owner, workspace, tour, availability };
 }

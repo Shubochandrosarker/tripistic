@@ -5,6 +5,7 @@ import {
   E2E_TOUR_SLUG,
   E2E_WORKSPACE_SLUG,
 } from "../../prisma/e2e-fixture-constants";
+import { acceptNecessaryCookiesOnly } from "./consent";
 
 /**
  * The critical public-booking flow (master prompt §29): open the public
@@ -14,9 +15,13 @@ import {
  * fixture from `prisma/seed-e2e.ts` and a production build.
  */
 test("guest books a public tour, operator sees and cancels it, seats are restored", async ({ page }) => {
+  await acceptNecessaryCookiesOnly(page);
+
   // 1-2. Open the public workspace page and select the seeded tour.
   await page.goto(`/book/${E2E_WORKSPACE_SLUG}`);
-  await expect(page.getByRole("heading", { name: "E2E Tours" })).toBeVisible();
+  // Pin the hero h1 by level: the storefront also renders an "About E2E Tours"
+  // h2, and getByRole matches the accessible name as a substring by default.
+  await expect(page.getByRole("heading", { name: "E2E Tours", level: 1 })).toBeVisible();
   await page.getByRole("link", { name: /Desert Jeep Tour/ }).click();
   await expect(page).toHaveURL(new RegExp(`/book/${E2E_WORKSPACE_SLUG}/${E2E_TOUR_SLUG}$`));
 
