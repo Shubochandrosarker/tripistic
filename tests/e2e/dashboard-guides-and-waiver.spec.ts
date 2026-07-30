@@ -59,8 +59,28 @@ test("Settings page's Waiver panel shows the published waiver and can publish a 
   await page.getByRole("button", { name: "Publish a new version" }).click();
   await page.getByLabel("Title").fill(uniqueTitle);
   await page.getByLabel("Waiver text").fill("Updated waiver text with additional disclosures for this e2e smoke check.");
-  await page.getByRole("button", { name: "Publish", exact: true }).click();
 
+  // `onPublish` in components/settings/waiver-panel.tsx PUTs, then calls
+  // router.refresh() without awaiting it — the panel keeps rendering the
+  // stale `currentVersion` prop until that RSC refetch lands. Asserting the
+  // new version straight after the click therefore races a server round-trip
+  // that re-renders the whole settings page, and on a loaded CI runner it can
+  // lose: this test failed twice on main at 1fb087b waiting for
+  // `current — v2`, while the retry read v2, proving the publish itself had
+  // succeeded and only the UI had not caught up.
+  //
+  // Wait for the write to be acknowledged, then reload so the assertions run
+  // against server-rendered state instead of the refresh timing.
+  const published = page.waitForResponse(
+    (response) =>
+      response.url().includes("/waiver-template") &&
+      response.request().method() === "PUT" &&
+      response.ok(),
+  );
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  await published;
+
+  await page.reload();
   await expect(page.getByText(`current — v${currentVersion + 1}`, { exact: false })).toBeVisible();
   await expect(page.getByText(uniqueTitle, { exact: false }).first()).toBeVisible();
 });
