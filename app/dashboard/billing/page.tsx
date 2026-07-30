@@ -118,6 +118,23 @@ export default async function BillingPage() {
         title="Available plans"
         description="Flat monthly pricing. 0% Tripistic commission on direct bookings, always."
       >
+        {plans.length === 0 ? (
+          // An empty catalog previously rendered an empty grid — a blank panel
+          // with no explanation, which is the exact signature of a deployment
+          // that migrated but never seeded. The release job now prevents that,
+          // but the page must still say something useful if it ever recurs.
+          <div className="flex gap-3 rounded-lg border border-border bg-muted/40 p-4">
+            <Info className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
+            <div className="text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">No plans are available right now.</p>
+              <p className="mt-1">
+                The plan catalog has not been provisioned for this environment. This is a
+                configuration problem rather than something wrong with your workspace — please
+                contact support and we will sort it out.
+              </p>
+            </div>
+          </div>
+        ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {plans.map((plan) => {
             const isCurrent = plan.id === subscription?.planId;
@@ -168,6 +185,7 @@ export default async function BillingPage() {
             );
           })}
         </div>
+        )}
       </SectionCard>
 
       <SectionCard title="Payments & subscriptions">
