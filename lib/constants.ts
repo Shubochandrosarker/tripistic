@@ -674,7 +674,7 @@ export const ITINERARIES_PAGE_SIZE_DEFAULT = 20;
 export const ITINERARIES_PAGE_SIZE_MAX = 100;
 
 /* ------------------------------------------------------------------------ */
-/* Phase 12 — AI Business Brain                                             */
+/* Phase 12 — Growth Insights                                             */
 /* ------------------------------------------------------------------------ */
 
 /** Months of payment history the revenue forecast/seasonality views look back over. */

@@ -13,11 +13,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    default: "Tripistic — AI-native tour operations platform",
+    default: "Tripistic — tour operations platform",
     template: "%s · Tripistic",
   },
   description:
-    "Tripistic helps independent tour operators manage bookings, payments, guides, waivers, guest communication, and growth insights from one AI-powered dashboard — with 0% commission on direct bookings.",
+    "Tripistic helps independent tour operators manage bookings, payments, guides, waivers, guest communication, and growth insights from one dashboard — with 0% commission on direct bookings.",
   applicationName: SITE.name,
   authors: [{ name: SITE.name, url: SITE.url }],
   creator: SITE.name,

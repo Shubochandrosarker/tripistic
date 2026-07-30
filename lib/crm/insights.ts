@@ -18,7 +18,7 @@ export type CustomerInsights = {
  * spec: CLV, repeat rate, favorite tours, revenue, cancellation %, AI
  * summary). "AI Customer Summary" is deterministic plain-English narration
  * generated from these real numbers — no LLM call is made anywhere in this
- * codebase yet (see app/dashboard/ai-growth's "rules first, AI narration
+ * codebase yet (see app/dashboard/growth's "rules first, AI narration
  * second" precedent); the summary is honest about what it's based on.
  */
 export async function computeCustomerInsights(workspaceId: string, customerId: string): Promise<CustomerInsights> {

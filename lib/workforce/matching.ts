@@ -29,7 +29,7 @@ const EXPERIENCE_CAP = 20;
  * is no staff geolocation/home-address data anywhere in this schema, and
  * inventing a number would violate the "never invented numbers" principle
  * the rest of the AI-flavored features in this codebase follow (see
- * app/dashboard/ai-growth).
+ * app/dashboard/growth).
  */
 export async function matchStaffForAvailability(
   workspaceId: string,

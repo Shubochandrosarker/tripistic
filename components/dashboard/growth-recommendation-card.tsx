@@ -1,13 +1,13 @@
 import { Sparkles } from "lucide-react";
 
 /**
- * AI Growth Recommendations card. Phase 12's Business Brain (lib/analytics/
+ * Growth Recommendations card. Phase 12's Business Brain (lib/analytics/
  * business-brain.ts) can now supply real, computed suggestions — pass
  * `suggestion` + `healthScore` for that. Callers that don't yet fetch a
  * report (or haven't set up any bookings) get the original honest
  * "sample content, not your data" placeholder, unchanged.
  */
-export function AIRecommendationCard({
+export function GrowthRecommendationCard({
   suggestion,
   healthScore,
 }: {
@@ -21,7 +21,7 @@ export function AIRecommendationCard({
           <span className="flex size-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
             <Sparkles className="size-4" aria-hidden />
           </span>
-          <p className="text-sm font-semibold text-foreground">AI Growth Recommendation</p>
+          <p className="text-sm font-semibold text-foreground">Growth Recommendation</p>
           {healthScore !== undefined ? (
             <span className="ml-auto rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent">
               Health {healthScore}/100
@@ -32,7 +32,7 @@ export function AIRecommendationCard({
           <p className="text-sm text-foreground">{suggestion}</p>
         </div>
         <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-          Computed from your real booking and occupancy data — see the full AI Growth Dashboard for more.
+          Computed from your real booking and occupancy data — see Growth Insights for more.
         </p>
       </div>
     );
@@ -44,7 +44,7 @@ export function AIRecommendationCard({
         <span className="flex size-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
           <Sparkles className="size-4" aria-hidden />
         </span>
-        <p className="text-sm font-semibold text-foreground">AI Growth Recommendations</p>
+        <p className="text-sm font-semibold text-foreground">Growth Recommendations</p>
       </div>
 
       <div className="mt-3 rounded-lg border border-dashed border-border bg-muted/40 p-3">

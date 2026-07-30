@@ -21,17 +21,38 @@ function readIfExists(path: string): string {
   return existsSync(full) ? readFileSync(full, "utf8") : "";
 }
 
-/** Marketing surfaces a visitor actually reads. */
+/**
+ * Marketing surfaces a visitor actually reads.
+ *
+ * Phase 10 widened this list, and the reason is worth recording: the original
+ * nine files were the pages someone browses, which meant the guard never saw
+ * the *highest-reach* claims in the product. `app/layout.tsx` sets the default
+ * `<title>` on every page. `lib/seo/site.ts` supplies the meta description
+ * behind every search result and social card. `app/llms.txt` is what AI
+ * crawlers read. All three still said "AI-native" and "AI itineraries" months
+ * after Phase 1 "removed" those claims, because nothing checked them.
+ *
+ * The lesson generalises: a copy guard has to cover the surfaces with the
+ * widest reach, not the ones that are easiest to think of.
+ */
 const MARKETING_SOURCES = [
   "app/page.tsx",
   "app/ai-platform/page.tsx",
   "app/integrations/page.tsx",
   "app/demo/page.tsx",
   "app/pricing/page.tsx",
+  "app/features/page.tsx",
   "lib/marketing/content.ts",
   "lib/marketing/pricing.ts",
   "components/marketing/marketing-sections.tsx",
   "components/marketing/marketing-shell.tsx",
+  // Added in Phase 10 — every one of these carried a live AI claim.
+  "app/layout.tsx",
+  "lib/seo/site.ts",
+  "app/llms.txt/route.ts",
+  "app/roadmap/page.tsx",
+  // Carried three invented case studies with quantified results.
+  "app/customers/page.tsx",
 ].map((p) => ({ path: p, text: readIfExists(p) }));
 
 describe("no fabricated endorsements", () => {
@@ -49,6 +70,26 @@ describe("no fabricated endorsements", () => {
   it("has no testimonials array on the homepage", () => {
     const home = readIfExists("app/page.tsx");
     expect(home).not.toMatch(/const\s+testimonials\s*=/);
+  });
+
+  it("quotes no measured customer outcome anywhere, because none has been measured", () => {
+    // /customers presented three invented case studies with specific figures —
+    // "18% more direct booking share", "3x faster proposal turnaround",
+    // "40 hours saved monthly" — for a product with no customers. Numbers make
+    // a fabricated claim worse, not better: they read as measurement.
+    const RESULT_CLAIM = [
+      /\b\d+%\s+(more|higher|faster|fewer|less|increase)/i,
+      /\b\d+x\s+(faster|more|higher)/i,
+      /\b\d+\s+hours?\s+saved/i,
+    ];
+    for (const { path, text } of MARKETING_SOURCES) {
+      const withoutComments = text.replace(/^\s*\/\/.*$/gm, "");
+      for (const pattern of RESULT_CLAIM) {
+        expect(withoutComments, `${path} quotes an unmeasured result (${pattern})`).not.toMatch(
+          pattern,
+        );
+      }
+    }
   });
 });
 
@@ -69,13 +110,22 @@ describe("no unbacked AI capability claims", () => {
     /\bAI itinerar/i,
     /\bAI provider/i,
     /\bAI search\b/i,
+    // A space is required rather than `[- ]`, so the legitimate `/ai-platform`
+    // route in an href is not mistaken for a capability claim.
+    /\bAI copilot\b/i,
+    /\bAI platform\b/i,
   ];
 
   it.each(FORBIDDEN)("does not claim %s", (claim) => {
     for (const { path, text } of MARKETING_SOURCES) {
       // Allow the explanatory comment that records why the claim was removed.
       const withoutComments = text.replace(/^\s*\/\/.*$/gm, "");
-      expect(withoutComments, `${path} claims "${claim}"`).not.toContain(claim);
+      // Case-insensitive, and that is not pedantry: the original check used
+      // `toContain`, so "AI copilot" in lowercase sat in app/llms.txt for
+      // months while the guard passed on "AI Copilot".
+      expect(withoutComments.toLowerCase(), `${path} claims "${claim}"`).not.toContain(
+        claim.toLowerCase(),
+      );
     }
   });
 
@@ -107,6 +157,18 @@ describe("the plan catalog does not advertise unimplemented features", () => {
       const claims = [...plan.features, ...(plan.highlights ?? [])].join(" ");
       expect(claims, `${plan.slug} advertises SSO/SAML`).not.toMatch(/SSO|SAML/i);
       expect(plan.flags.sso_saml, `${plan.slug} enables sso_saml`).toBe(false);
+    }
+  });
+
+  it("makes no AI capability claim while no model is ever called", () => {
+    // This is the claim that mattered most and was guarded least: Solo
+    // advertised "Basic AI copilot" in its feature list, so a capability that
+    // does not exist was being sold at $29/month on the pricing page. Nothing
+    // checked the catalog for AI wording — only for SSO — so it survived
+    // Phase 1's cleanup untouched.
+    for (const plan of canonicalPlans) {
+      const claims = [...plan.features, ...(plan.highlights ?? []), plan.summary, plan.description].join(" ");
+      expect(claims, `${plan.slug} advertises an AI capability`).not.toMatch(/\bAI\b/i);
     }
   });
 

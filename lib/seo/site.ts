@@ -1,9 +1,16 @@
 export const SITE = {
   name: "Tripistic",
   legalName: "Tripistic",
-  tagline: "The AI Operating System for Tour Operators",
+  tagline: "The Operating System for Tour Operators",
+  // Phase 10 repositioning. This string is the meta description on every page
+  // and the copy in every social card, so it was the single highest-reach
+  // claim in the product — and it advertised "AI-native" and "AI itineraries",
+  // neither of which exists: there is no LLM integration anywhere in this
+  // codebase. Insights are computed by a documented rule engine
+  // (lib/analytics/business-brain.ts), which is worth describing accurately
+  // rather than dressing up.
   description:
-    "Tripistic is the AI-native travel operations platform for tour operators, agencies, and DMCs — bookings, CRM, operations, payments, AI itineraries, and white label in one system.",
+    "Tripistic is the travel operations platform for tour operators, agencies, and DMCs — bookings, CRM, operations, payments, itineraries, and white label in one system.",
   url: (process.env.NEXT_PUBLIC_APP_URL ?? "https://tripistic.com").replace(/\/$/, ""),
   locale: "en_US",
   twitter: "@tripistic",

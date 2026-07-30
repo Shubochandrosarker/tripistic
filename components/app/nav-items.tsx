@@ -81,7 +81,7 @@ export const dashboardNav: NavSection[] = [
       { href: "/dashboard/website", label: "Website", icon: Globe2 },
       { href: "/dashboard/domains", label: "Domains", icon: Globe2 },
       { href: "/dashboard/itineraries", label: "Itineraries", icon: Sparkles },
-      { href: "/dashboard/ai-growth", label: "AI Growth", icon: Sparkles },
+      { href: "/dashboard/growth", label: "Growth Insights", icon: Sparkles },
     ],
   },
   {

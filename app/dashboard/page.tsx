@@ -23,7 +23,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ButtonLink } from "@/components/ui/button";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { SetupChecklist } from "@/components/dashboard/setup-checklist";
-import { AIRecommendationCard } from "@/components/dashboard/ai-recommendation-card";
+import { GrowthRecommendationCard } from "@/components/dashboard/growth-recommendation-card";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
         </SectionCard>
 
         <div className="space-y-4 lg:col-span-2">
-          <AIRecommendationCard suggestion={topSuggestion} healthScore={brainReport?.hasEnoughData ? brainReport.healthScore : undefined} />
+          <GrowthRecommendationCard suggestion={topSuggestion} healthScore={brainReport?.hasEnoughData ? brainReport.healthScore : undefined} />
           <SectionCard title="Quick links">
             <div className="grid grid-cols-2 gap-2">
               <ButtonLink href="/dashboard/tours" variant="secondary" size="sm">

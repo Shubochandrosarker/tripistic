@@ -27,8 +27,8 @@ export function GET() {
     "",
     `${SITE.name} v${SITE.version} unifies bookings, CRM, tours, guides, drivers, vehicles,`,
     "live operations, payments, automation, analytics, white label, custom domains, and a",
-    "customer portal into one platform. AI is native: itinerary generation, business insights,",
-    "search, scheduling, and reporting.",
+    "customer portal into one platform. Business insights are computed from the operator's own",
+    "booking data by a documented rule engine — there is no LLM integration and no generated text.",
     "",
     section("Core pages", [
       { label: "Home", href: "/", note: "Platform overview" },
@@ -37,10 +37,10 @@ export function GET() {
       { label: "Pricing", href: "/pricing", note: "Plans, comparison, ROI calculator" },
       { label: "Demo", href: "/demo", note: "Interactive product walkthrough" },
       { label: "Why Tripistic", href: "/why-tripistic", note: "Competitor comparisons" },
-      { label: "AI Platform", href: "/ai-platform", note: "AI copilot, search, scheduling, reports" },
+      { label: "Automation & Insights", href: "/ai-platform", note: "Rule-based forecasting, occupancy, and suggestions" },
       { label: "White Label", href: "/white-label", note: "Agency branding and reseller model" },
       { label: "Customer Portal", href: "/customer-portal", note: "Guest self-service experience" },
-      { label: "Integrations", href: "/integrations", note: "Stripe, Maps, Twilio, OpenAI, Zapier, n8n" },
+      { label: "Integrations", href: "/integrations", note: "Stripe and Cloudflare available; others planned" },
     ]),
     section(
       "Features",

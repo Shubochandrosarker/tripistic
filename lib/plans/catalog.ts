@@ -95,7 +95,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       "Tripistic subdomain plus 1 custom domain",
       "Up to 20 active tours",
       "Stripe Connect onboarding and payouts",
-      "Booking confirmations, reminders, waivers, and basic AI",
+      "Booking confirmations, reminders, waivers, and growth insights",
     ],
     features: [
       "1 workspace",
@@ -112,7 +112,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       "Customer records",
       "Digital waivers",
       "Basic analytics",
-      "Basic AI copilot",
+      "Growth insights dashboard",
       "CSV export",
       "Email support",
       "14-day trial",
@@ -196,7 +196,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       "Multiple brands/workspaces",
       "Suppliers, costs, and margins",
       "Itinerary proposals",
-      "Advanced AI and integrations",
+      "Advanced insights and integrations",
     ],
     features: [
       "Everything in Operator",
@@ -205,7 +205,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       "Multiple custom domains",
       "Supplier directory and invoices",
       "Itinerary proposal builder",
-      "Advanced AI",
+      "Advanced insights",
       "API access",
     ],
     limits: {

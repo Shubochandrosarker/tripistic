@@ -8,7 +8,7 @@ import type { ItineraryItemTypeValue } from "@/lib/constants";
  * plus a documented baseline-cost table, not an LLM call — no AI provider
  * is configured anywhere in this codebase yet (.env.example: "AI providers
  * — placeholders only for now"), and the rest of the app's AI-flavored
- * features (app/dashboard/ai-growth) follow the same "rules first, never
+ * features (app/dashboard/growth) follow the same "rules first, never
  * invented numbers" principle. Every generated line item's cost is either
  * a real Tour.basePrice from the catalog or a clearly-scaled baseline
  * estimate — nothing is fabricated as if it were real vendor pricing.

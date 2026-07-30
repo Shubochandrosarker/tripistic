@@ -26,7 +26,7 @@ export const metadata = buildMetadata({
 export default function ChangelogPage() {
   const releases = [
     ["v2.0.0", "Enterprise foundation", "Theme engine, command palette, super admin, white label, custom domains, AI providers, docs."],
-    ["Phase 12", "AI Business Brain", "Health score, pricing suggestions, risk alerts, and marketing recommendations."],
+    ["Phase 12", "Growth Insights", "Health score, pricing suggestions, risk alerts, and marketing recommendations — computed from your own data."],
     ["Phase 11", "AI Itinerary Builder", "Multi-day itineraries, vendors, source items, versions, and public share links."],
     ["Phase 8-10", "Operations, Fleet, Vendors", "Live operations center, incidents, vehicles, maintenance, vendors, and invoices."],
   ];

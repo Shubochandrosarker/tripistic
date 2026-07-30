@@ -11,11 +11,11 @@ import { listUnpaidInvoicesAcrossWorkspace } from "@/lib/vendors/service";
 import { formatMoney } from "@/lib/utils";
 
 /**
- * "AI Business Brain" (docs Phase 12 spec) — every number here is computed
+ * Growth Insights (docs Phase 12 spec) — every number here is computed
  * directly from the workspace's own data with a documented formula, never
  * an LLM call (no AI provider is configured anywhere in this codebase —
  * see .env.example). This is the same "rules first, honest narration
- * second" principle app/dashboard/ai-growth has stated since Phase 1,
+ * second" principle app/dashboard/growth has stated since Phase 1,
  * finally implemented for real.
  */
 

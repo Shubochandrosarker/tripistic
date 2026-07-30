@@ -10,8 +10,30 @@ import {
 } from "@/lib/domains/host";
 import { resolveHostMappingFromEdgeCache } from "@/lib/domains/edge-cache";
 import { REQUEST_ID_HEADER, sanitizeRequestId } from "@/lib/observability/request-id";
+import { STOREFRONT_SLUG_HEADER, storefrontSlugFromPath } from "@/lib/storefront/tenant-header";
 
 const { auth } = NextAuth(authConfig);
+
+/**
+ * Stamps the storefront tenant onto the request so public layouts can brand
+ * themselves.
+ *
+ * Layouts do not receive route params, and the host alone is not enough: a
+ * storefront is reachable at `tripistic.com/book/<slug>` as well as through a
+ * subdomain or custom-domain rewrite, and on the apex there is no host to
+ * resolve from. Middleware is the one place that knows the tenant in every
+ * case, so it resolves it once and passes it down.
+ *
+ * Always overwritten, never merged: an inbound `x-tripistic-storefront` from a
+ * client would otherwise let anyone render another operator's brand — and, via
+ * the white-label entitlement, remove our attribution from a page.
+ */
+function withStorefrontSlug(request: NextRequest, slug: string | null): Headers {
+  const headers = new Headers(request.headers);
+  headers.delete(STOREFRONT_SLUG_HEADER);
+  if (slug) headers.set(STOREFRONT_SLUG_HEADER, slug);
+  return headers;
+}
 
 function rewritePlatformSubdomain(request: NextRequest, slug: string) {
   const url = request.nextUrl.clone();
@@ -21,14 +43,17 @@ function rewritePlatformSubdomain(request: NextRequest, slug: string) {
   } else {
     url.pathname = `/book/${slug}${path}`;
   }
-  return NextResponse.rewrite(url);
+  return NextResponse.rewrite(url, { request: { headers: withStorefrontSlug(request, slug) } });
 }
 
 function rewriteCustomHostname(request: NextRequest, hostname: string) {
   const url = request.nextUrl.clone();
   const path = url.pathname === "/" ? "" : url.pathname;
   url.pathname = `/_host/${encodeURIComponent(hostname)}${path}`;
-  return NextResponse.rewrite(url);
+  // The hostname maps to a workspace, but resolving which one needs the
+  // database, which Edge middleware should not reach for. The page under
+  // /_host resolves it and the layout falls back to the host lookup.
+  return NextResponse.rewrite(url, { request: { headers: withStorefrontSlug(request, null) } });
 }
 
 /**
@@ -64,7 +89,14 @@ export default auth((request) => {
       return withRequestId(request, rewritePlatformSubdomain(request, mapping.workspaceSlug));
     });
   }
-  return withRequestId(request, NextResponse.next());
+  // Direct `/book/<slug>/...` on the apex domain — no rewrite happened, so
+  // the slug comes from the path. Also the shape every localhost run takes.
+  return withRequestId(
+    request,
+    NextResponse.next({
+      request: { headers: withStorefrontSlug(request, storefrontSlugFromPath(request.nextUrl.pathname)) },
+    }),
+  );
 });
 
 export const config = {
