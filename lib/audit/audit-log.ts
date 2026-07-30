@@ -14,6 +14,15 @@ export type AuditAction =
   | "user_email_verified"
   | "user_password_reset_requested"
   | "user_password_reset_completed"
+  // Phase 11 — platform-admin operational controls. Named individually so
+  // "who suspended this workspace, and when" is answerable without parsing
+  // metadata, which is the question that actually gets asked afterwards.
+  | "workspace_suspended"
+  | "workspace_reactivated"
+  | "user_suspended"
+  | "user_reactivated"
+  | "platform_admin_granted"
+  | "platform_admin_revoked"
   | "workspace_created"
   | "workspace_updated"
   | "member_invited"
