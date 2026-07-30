@@ -245,3 +245,31 @@ describe("feature flag rows do not leak across tenants", () => {
     expect(rows).toBe(0);
   });
 });
+
+describe("test fixtures under concurrency", () => {
+  it("lets many callers share one catalog plan without colliding", async () => {
+    // Regression for the CI failure on PR #16. `prisma.plan.upsert` is not
+    // atomic — it reads then inserts — so concurrent test files racing to
+    // create the same catalog slug both found nothing and both inserted, and
+    // the loser threw P2002. Local runs never interleaved; CI's parallelism
+    // hit it immediately.
+    const workspaces = await Promise.all(Array.from({ length: 12 }, () => ownedWorkspace()));
+
+    const subscriptions = await Promise.all(
+      workspaces.map(({ workspace }) =>
+        createTestSubscription(workspace.id, { slug: "operator" }),
+      ),
+    );
+
+    expect(subscriptions).toHaveLength(12);
+    // All of them resolve to the one shared plan row, which is the point of
+    // sharing it: plans are a global catalog, not tenant data.
+    expect(new Set(subscriptions.map((sub) => sub.planId)).size).toBe(1);
+
+    // And the entitlement each one resolves is still correct.
+    for (const { workspace } of workspaces.slice(0, 3)) {
+      expect(await hasFeature(workspace.id, "crm_pipeline")).toBe(true);
+      expect(await hasFeature(workspace.id, "itinerary_builder")).toBe(false);
+    }
+  });
+});
