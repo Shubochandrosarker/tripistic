@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { E2E_WAIVER_TOUR_SLUG, E2E_WORKSPACE_SLUG } from "../../prisma/e2e-fixture-constants";
+import { acceptNecessaryCookiesOnly } from "./consent";
 
 /**
  * The one piece of Phase 6 that unit/integration tests fundamentally can't
@@ -9,8 +10,12 @@ import { E2E_WAIVER_TOUR_SLUG, E2E_WORKSPACE_SLUG } from "../../prisma/e2e-fixtu
  * by `prisma/seed-e2e.ts` and a production build.
  */
 test("guest books a waiver-required tour and signs the waiver from the confirmation page", async ({ page }) => {
+  // The consent banner is fixed to the bottom of the viewport and would sit
+  // over the signature pad, swallowing the strokes drawn below.
+  await acceptNecessaryCookiesOnly(page);
+
   await page.goto(`/book/${E2E_WORKSPACE_SLUG}/${E2E_WAIVER_TOUR_SLUG}`);
-  await expect(page.getByRole("heading", { name: "Canyon Rappel Tour" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Canyon Rappel Tour", level: 1 })).toBeVisible();
 
   const departureOptions = page.getByTestId("departure-option");
   await expect(departureOptions.first()).toBeVisible();
