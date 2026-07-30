@@ -65,9 +65,9 @@ created for this audit.
 | Lint | `npm run lint` | **PASS** — 0 errors, 0 warnings | |
 | Typecheck | `npx tsc --noEmit` | **PASS** — 0 errors | |
 | Unit tests | `npm run test:unit` | **PASS** — 74 passing across 9 files | |
-| **Integration tests** | `npm run test:integration` | **FAIL — 6 failed / 155 passed (161), 2 failed files** | §3 |
+| **Integration tests** | `npm run test:integration` | **FAIL — 6 failed / 155 passed (161), 2 failed files** — resolved by #10 | §3 |
 | Production build | `npx next build` | **PASS** — exit 0 | |
-| **E2E (Playwright)** | `npm run test:e2e` | **FAIL — 2 failed / 4 passed (6)** | §15.10 |
+| **E2E (Playwright)** | `npm run test:e2e` | **FAIL — 2 failed / 4 passed (6)** — resolved by #10 | §15.10 |
 | Dependency audit | `npm audit --omit=dev` | **PASS** — 0 vulnerabilities | |
 
 **Note on `prisma validate`:** the command fails with `P1012 Environment variable not found:
@@ -79,6 +79,12 @@ first will hit a confusing error.
 ---
 
 ## 3. LAUNCH BLOCKER P0-1 — CI is red on `main` and has been for two weeks
+
+> **✅ RESOLVED after this audit was written.** Fixed by PR #10, merged as `1fb087b`. The
+> finding below is preserved as the record of the state at `e3a30d3`, because *how long the
+> build stayed red* is the part worth remembering — not just that it was. The remediation was
+> test-side only; no production behaviour changed. `main` is green as of the merge, including
+> the `e2e` job, which had not executed since 2026-07-16.
 
 ### Evidence
 
@@ -970,7 +976,7 @@ Status legend: ✅ done · ⚠️ partial · ❌ missing · 🔒 blocker
 
 | # | Requirement | Current state | Evidence | Required change | Tests needed | Status |
 |---|---|---|---|---|---|---|
-| 1 | Green CI baseline | 6 integration tests fail; red since 2026-07-25 | §3 | Seed charge-ready `WorkspacePaymentAccount` in fixtures | existing suite green | 🔒 |
+| 1 | Green CI baseline | 6 integration tests fail; red since 2026-07-25 | §3 | Seed charge-ready `WorkspacePaymentAccount` in fixtures | existing suite green | ✅ #10 |
 | 2 | Plans seeded on deploy | Entrypoint is `exec "$@"`; seed profile-gated | §4 | Idempotent seed in release step | fresh-deploy integration test | 🔒 |
 | 3 | Subscription backfill | No backfill exists | §4 | Additive backfill migration/script | backfill idempotency test | 🔒 |
 | 4 | Stripe price IDs configured | All six env vars blank; `providerPriceId` never seeded | §4 | Set env or seed provider IDs | checkout E2E in test mode | 🔒 |
@@ -1015,7 +1021,7 @@ Status legend: ✅ done · ⚠️ partial · ❌ missing · 🔒 blocker
 | 43 | SSO/SAML on Enterprise | Sold; not implemented | §15.4 | Implement or withdraw | — | ⚠️ |
 | 44 | Super-admin write operations | 11 of 12 pages read-only; no suspend/impersonate | §15.9 | Build suspend + audited impersonation | admin authz tests | ⚠️ |
 | 45 | Consent banner clear of interactive content | Fixed bottom overlay blocks the waiver signature pad | §15.10 | Raise pad above it, or reserve space while consent is undecided | e2e signing test | 🔒 |
-| 46 | E2E actually runs in CI | `needs: test` silently skipped it since 2026-07-16 | §15.10 | Fixed once `test` is green; consider decoupling | — | ⚠️ |
+| 46 | E2E actually runs in CI | `needs: test` silently skipped it since 2026-07-16 | §15.10 | Fixed once `test` is green; consider decoupling | — | ✅ #10 |
 
 ---
 
