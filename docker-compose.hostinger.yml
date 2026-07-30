@@ -6,7 +6,7 @@ services:
     container_name: tripistic-app
     restart: unless-stopped
     depends_on:
-      migrate:
+      release:
         condition: service_completed_successfully
     env_file:
       - ${TRIPISTIC_ENV_FILE:-.env.docker}
@@ -18,7 +18,11 @@ services:
     ports:
       - "${HTTP_PORT:-8080}:3000"
 
-  migrate:
+  # Single gate every deploy passes through: migrate -> seed -> backfill.
+  # The app waits on this completing successfully, so it can never serve
+  # traffic against an unseeded catalog. Runs in the `tooling` image, which
+  # carries Prisma and tsx; the application image stays minimal and non-root.
+  release:
     build:
       context: .
       dockerfile: Dockerfile
@@ -31,7 +35,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-tripistic}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}@db:5432/${POSTGRES_DB:-tripistic}?schema=public
-    command: npm run db:migrate
+    command: npm run db:release
     restart: "no"
 
   db:
@@ -65,6 +69,9 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-tripistic}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}@db:5432/${POSTGRES_DB:-tripistic}?schema=public
+    # Plans and subscriptions are handled by the `release` service above.
+    # This profile remains only for the optional platform-admin bootstrap,
+    # which requires SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD to be set.
     command: npm run db:seed
 
 volumes:
