@@ -1,6 +1,7 @@
 import { badRequest, handleApiError, json } from "@/lib/api";
 import { findJob, jobNames } from "@/lib/jobs/registry";
 import { runJob, verifyCronSecret } from "@/lib/jobs/runner";
+import { withRequestContext } from "@/lib/observability/request";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export const dynamic = "force-dynamic";
  *     -H "content-type: application/json" \
  *     -d '{"job":"payments.expire-pending"}'
  */
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   try {
     const secret = process.env.CRON_SECRET;
     const provided =
@@ -55,3 +56,5 @@ export async function POST(request: Request) {
     return handleApiError(error);
   }
 }
+
+export const POST = withRequestContext("/api/jobs/run", handlePost);

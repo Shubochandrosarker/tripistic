@@ -1,6 +1,18 @@
-import type { Customer, MessageTemplateKey } from "@prisma/client";
+import { createHash } from "node:crypto";
+
+import { Prisma } from "@prisma/client";
+import type { Customer, Message, MessageTemplateKey } from "@prisma/client";
 import { prisma, type Db } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
+import { logger } from "@/lib/observability/logger";
+import {
+  DEFAULT_MAX_ATTEMPTS,
+  buildDedupeKey,
+  findDueRetries,
+  isOutboxPayload,
+  nextRetryTime,
+  recordDeliveryAttempt,
+} from "./outbox";
 import { getMailer, getFromAddress } from "./mailer";
 import {
   bookingConfirmationEmail,
@@ -69,12 +81,20 @@ async function deliver(to: string, from: string, rendered: RenderedEmail): Promi
 
 /**
  * Records a `Message` row first (status: queued), attempts delivery, then
- * updates the row with the outcome — a failed or unconfigured mailer is
- * always tracked, never silent. Never throws: callers (booking creation,
- * status transitions, the payment webhook) call this only after their own
- * transaction has already committed, and a messaging failure must not be
- * allowed to look like a failure of the operation that triggered it — the
- * same principle already applied to audit logging in every prior phase.
+ * hands the outcome to the outbox, which decides between `sent`, a scheduled
+ * retry, and terminal failure. A failed or unconfigured mailer is always
+ * tracked, never silent.
+ *
+ * Never throws: callers (booking creation, status transitions, the payment
+ * webhook) call this only after their own transaction has already committed,
+ * and a messaging failure must not be allowed to look like a failure of the
+ * operation that triggered it — the same principle already applied to audit
+ * logging in every prior phase.
+ *
+ * The dedupe key is what makes retries safe. Creating the row is the claim on
+ * "this message is being handled"; the unique constraint means a concurrent
+ * caller (a reminder sweep overlapping a manual resend, say) loses that race
+ * in the database rather than by luck, and sends nothing.
  */
 async function sendTrackedEmail(input: {
   workspaceId: string;
@@ -84,7 +104,23 @@ async function sendTrackedEmail(input: {
   to: string;
   fromName?: string | null;
   rendered: RenderedEmail;
+  /**
+   * Distinguishes otherwise-identical messages that are legitimately
+   * repeatable — a delay notice can be sent more than once for one booking
+   * if a departure slips twice, so its caller passes a discriminator.
+   */
+  dedupeDiscriminator?: string | null;
 }): Promise<void> {
+  const from = getFromAddress(input.fromName);
+  const dedupeKey = buildDedupeKey({
+    workspaceId: input.workspaceId,
+    templateKey: input.templateKey,
+    bookingId: input.bookingId,
+    to: input.to,
+    discriminator: input.dedupeDiscriminator,
+  });
+
+  let messageId: string;
   try {
     const message = await prisma.message.create({
       data: {
@@ -95,23 +131,124 @@ async function sendTrackedEmail(input: {
         status: "queued",
         toEmail: input.to,
         subject: input.rendered.subject,
+        dedupeKey,
+        maxAttempts: DEFAULT_MAX_ATTEMPTS,
+        // Retained only while a retry is still possible — see outbox.ts.
+        payload: {
+          to: input.to,
+          from,
+          subject: input.rendered.subject,
+          text: input.rendered.text,
+          html: input.rendered.html,
+        },
       },
     });
+    messageId = message.id;
+  } catch (error) {
+    if (isDedupeCollision(error)) {
+      // Someone else already owns this message. Not an error: the guest gets
+      // exactly one email, which is the point.
+      logger.debug("messaging.duplicate_suppressed", { templateKey: input.templateKey });
+      return;
+    }
+    logger.error("messaging.queue_failed", { templateKey: input.templateKey }, error);
+    return;
+  }
 
-    const result = await deliver(input.to, getFromAddress(input.fromName), input.rendered);
+  try {
+    const result = await deliver(input.to, from, input.rendered);
+    const updated = await recordDeliveryAttempt(messageId, result);
+    if (updated.status === "failed") {
+      logger.warn("messaging.delivery_failed", {
+        messageId,
+        templateKey: input.templateKey,
+        attempts: updated.attempts,
+        terminal: true,
+      });
+    }
+  } catch (error) {
+    // Delivery threw somewhere `deliver` does not cover, or the status write
+    // failed. Leave the row claimable by the retry sweep rather than losing it.
+    logger.error("messaging.attempt_failed", { messageId, templateKey: input.templateKey }, error);
+    await prisma.message
+      .update({
+        where: { id: messageId },
+        data: {
+          status: "pending_retry",
+          attempts: { increment: 1 },
+          lastAttemptAt: new Date(),
+          nextRetryAt: nextRetryTime(1),
+          errorMessage: error instanceof Error ? error.message : "Unknown delivery error",
+        },
+      })
+      .catch(() => undefined);
+  }
+}
 
+/** A unique-constraint violation on `dedupe_key` — someone else owns this message. */
+function isDedupeCollision(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002" &&
+    JSON.stringify(error.meta?.target ?? "").includes("dedupe_key")
+  );
+}
+
+/**
+ * Re-attempts delivery for one message the retry sweep has selected.
+ *
+ * Works from the stored payload rather than re-rendering: the booking may
+ * have been edited since, and a reminder that arrives late should say what it
+ * said when it was queued, not describe a departure the guest was never told
+ * about. Returns whether the message ended up delivered.
+ */
+export async function retryMessageDelivery(message: Message): Promise<boolean> {
+  if (!isOutboxPayload(message.payload)) {
+    // Nothing to send from. Terminal rather than retried forever.
     await prisma.message.update({
       where: { id: message.id },
       data: {
-        status: result.status,
-        providerMessageId: result.providerMessageId,
-        errorMessage: result.errorMessage,
-        sentAt: result.status === "sent" ? new Date() : null,
+        status: "failed",
+        nextRetryAt: null,
+        errorMessage: "Stored payload is missing or unreadable; cannot retry",
       },
     });
-  } catch (error) {
-    console.error("[messaging] failed to send/track email", input.templateKey, error);
+    logger.warn("messaging.retry_payload_missing", { messageId: message.id });
+    return false;
   }
+
+  const payload = message.payload;
+  const result = await deliver(payload.to, payload.from, {
+    subject: payload.subject,
+    text: payload.text,
+    html: payload.html,
+  });
+  const updated = await recordDeliveryAttempt(message.id, result);
+  return updated.status === "sent";
+}
+
+/**
+ * The `messaging.retry-outbox` job body.
+ *
+ * Every message whose backoff has elapsed gets one more attempt. Failures are
+ * per-message: one bad address cannot stop the rest of the backlog draining.
+ */
+export async function retryDueMessages(): Promise<{ scanned: number; sent: number; failed: number }> {
+  const due = await findDueRetries();
+  let sent = 0;
+  let failed = 0;
+
+  for (const message of due) {
+    try {
+      if (await retryMessageDelivery(message)) sent += 1;
+      else failed += 1;
+    } catch (error) {
+      failed += 1;
+      logger.error("messaging.retry_failed", { messageId: message.id }, error);
+    }
+  }
+
+  return { scanned: due.length, sent, failed };
 }
 
 /** A marketing-flavored send skipped for an unsubscribed customer is still recorded — never silently dropped. */
@@ -135,7 +272,7 @@ async function recordSkippedMessage(input: {
       },
     });
   } catch (error) {
-    console.error("[messaging] failed to record a skipped message", input.templateKey, error);
+    logger.error("messaging.skip_record_failed", { templateKey: input.templateKey }, error);
   }
 }
 
@@ -289,6 +426,15 @@ export async function sendDepartureDelayedNotices(
     select: { id: true },
   });
 
+  // A departure can slip more than once, and each slip is a genuinely new
+  // notice. Keying on the delay itself means a repeated *identical* notice
+  // (an operator saving the same form twice) is suppressed, while a second,
+  // different delay still reaches the guest.
+  const discriminator = createHash("sha256")
+    .update(`${delayMinutes ?? ""}|${opsMessage ?? ""}`)
+    .digest("hex")
+    .slice(0, 16);
+
   let sent = 0;
   for (const { id: bookingId } of bookings) {
     const loaded = await loadBookingForEmail(bookingId);
@@ -302,6 +448,7 @@ export async function sendDepartureDelayedNotices(
       templateKey: "departure_delayed",
       to: booking.guestEmail,
       fromName,
+      dedupeDiscriminator: discriminator,
       rendered: departureDelayedEmail({
         ...bookingEmailContext(booking, workspaceName, timezone),
         delayMinutes,

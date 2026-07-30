@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import dns from "node:dns/promises";
 import { badRequest, conflict, notFound } from "@/lib/api";
 import { prisma } from "@/lib/db";
+import { logger } from "@/lib/observability/logger";
 import {
   isIpv4,
   isLocalHostname,
@@ -247,7 +248,7 @@ export async function disableCustomDomain({ workspaceId, domainId }: { workspace
   const provider = getCustomHostnameProvider();
   if (domain.providerHostnameId && domain.provider === provider.name) {
     await provider.remove(domain.providerHostnameId).catch((error) => {
-      console.warn("[domains] provider remove failed", domain.hostname, error);
+      logger.warn("domains.provider_remove_failed", { hostname: domain.hostname }, error);
     });
   }
   return prisma.customDomain.update({

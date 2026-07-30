@@ -118,7 +118,12 @@ describe("sendDueReminders", () => {
     expect(after).toBe(before + result.sent);
   });
 
-  it("tracks a mocked SMTP failure as a failed reminder Message row without throwing", async () => {
+  /**
+   * Previously asserted `failed`. A timeout is transient, and marking it
+   * terminal is the §5 defect — the guest simply never got their T-24h
+   * reminder and nothing could resend it.
+   */
+  it("schedules a retry for a mocked SMTP timeout without throwing", async () => {
     mockGetMailer.mockReturnValue({ sendMail: vi.fn().mockRejectedValue(new Error("SMTP timeout")) });
     const { booking } = await confirmedBookingDeparting(15);
 
@@ -126,6 +131,22 @@ describe("sendDueReminders", () => {
 
     const messages = await prisma.message.findMany({ where: { bookingId: booking.id, templateKey: "booking_reminder" } });
     expect(messages).toHaveLength(1);
-    expect(messages[0].status).toBe("failed");
+    expect(messages[0].status).toBe("pending_retry");
+    expect(messages[0].nextRetryAt).not.toBeNull();
+  });
+
+  it("does not re-queue a reminder that is already awaiting retry", async () => {
+    // The sweep runs every minute; a reminder held for retry must not spawn a
+    // second Message row on every tick — the guest would then get a burst of
+    // duplicates the moment SMTP recovered.
+    mockGetMailer.mockReturnValue({ sendMail: vi.fn().mockRejectedValue(new Error("SMTP timeout")) });
+    const { booking } = await confirmedBookingDeparting(15);
+
+    await sendDueReminders();
+    await sendDueReminders();
+    await sendDueReminders();
+
+    const messages = await prisma.message.findMany({ where: { bookingId: booking.id, templateKey: "booking_reminder" } });
+    expect(messages).toHaveLength(1);
   });
 });

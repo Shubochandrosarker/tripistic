@@ -3,6 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { logger, runWithRequestContext } from "@/lib/observability/logger";
 
 /**
  * Scheduled-job runner.
@@ -163,12 +164,18 @@ export async function runJob(
   });
 
   try {
-    const result = await job.run();
+    // The JobRun id doubles as the correlation id, so every log line a job
+    // body emits ties back to the row an operator is looking at in the
+    // admin health page — the background-work equivalent of a request id.
+    const result = await runWithRequestContext({ requestId: run.id, route: `job:${job.name}` }, () =>
+      job.run(),
+    );
     const durationMs = Date.now() - startedAt;
     await prisma.jobRun.update({
       where: { id: run.id },
       data: { status: "succeeded", finishedAt: new Date(), durationMs, result },
     });
+    logger.info("jobs.completed", { jobName: job.name, jobRunId: run.id, durationMs, ...result });
     return { jobName: job.name, status: "succeeded", durationMs, result };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
@@ -177,6 +184,7 @@ export async function runJob(
       where: { id: run.id },
       data: { status: "failed", finishedAt: new Date(), durationMs, error: message },
     });
+    logger.error("jobs.failed", { jobName: job.name, jobRunId: run.id, durationMs }, error);
     return { jobName: job.name, status: "failed", durationMs, error: message };
   } finally {
     // Must go through the same client that took the lock. A `false` result
@@ -186,7 +194,7 @@ export async function runJob(
       SELECT pg_advisory_unlock(${lockKey}::bigint) AS released
     `;
     if (!released) {
-      console.error(`[jobs] failed to release advisory lock for ${job.name}`);
+      logger.error("jobs.lock_release_failed", { jobName: job.name });
     }
   }
 }

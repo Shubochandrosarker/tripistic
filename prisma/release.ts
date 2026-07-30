@@ -24,6 +24,7 @@ import { spawnSync } from "node:child_process";
 
 import { backfillMissingSubscriptions } from "../lib/plans/backfill";
 import { checkStripePriceConfig, describePriceConfig } from "../lib/billing/config-check";
+import { assertEnvironment } from "../lib/config/env-check";
 
 const prisma = new PrismaClient();
 
@@ -68,6 +69,19 @@ async function waitForDatabase(attempts = 30, delayMs = 2000) {
 
 async function main() {
   log("starting");
+
+  // First, before anything touches the database. A deployment with a
+  // placeholder AUTH_SECRET or a test Stripe key in production should stop
+  // here — Compose gates the app on this job completing, so failing now means
+  // the misconfigured release never serves a request. The alternative is
+  // discovering it as an unexplained 500 in front of a paying customer.
+  log("validating configuration");
+  const configIssues = assertEnvironment(process.env);
+  log(
+    configIssues.length === 0
+      ? "configuration OK"
+      : `configuration OK with ${configIssues.length} warning(s)`,
+  );
 
   await waitForDatabase();
 

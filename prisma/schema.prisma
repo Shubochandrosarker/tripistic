@@ -185,8 +185,15 @@ enum MessageChannel {
 enum MessageStatus {
   queued
   sent
+  /// Terminal. Delivery was attempted `maxAttempts` times, or the provider
+  /// rejected the address in a way retrying cannot fix. Needs a human.
   failed
   skipped
+  /// A delivery attempt failed but the failure looks transient, so another
+  /// attempt is scheduled at `nextRetryAt`. Distinct from `failed` because
+  /// an operator must be able to tell "we are still trying" from "this
+  /// guest never got their confirmation and nothing further will happen".
+  pending_retry
 
   @@map("message_status")
 }
@@ -1152,6 +1159,33 @@ model Message {
   createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  /// How many delivery attempts have been made. Incremented on every attempt,
+  /// success or failure, so the history is honest about how much work a
+  /// message took rather than only recording the final outcome.
+  attempts     Int       @default(0)
+  /// Attempts allowed before the message becomes terminally `failed`. Stored
+  /// per row rather than read from config at retry time so raising the global
+  /// limit cannot silently resurrect messages an operator already triaged.
+  maxAttempts  Int       @default(5) @map("max_attempts")
+  /// When the retry sweep may next attempt this message. Null for anything
+  /// not awaiting a retry.
+  nextRetryAt  DateTime? @map("next_retry_at") @db.Timestamptz(6)
+  lastAttemptAt DateTime? @map("last_attempt_at") @db.Timestamptz(6)
+  /// Stable identity for "this exact message to this exact recipient".
+  /// Unique, so a retry sweep racing a send site — or a job that runs twice
+  /// because a tick overlapped — cannot produce two confirmation emails for
+  /// one booking. Nullable and unique: Postgres treats NULLs as distinct in a
+  /// unique index, so rows predating the outbox (and the deliberately
+  /// unkeyed ones, like a per-recipient delay notice) coexist freely while
+  /// every keyed message is still enforced exactly once.
+  dedupeKey    String?   @unique @map("dedupe_key")
+  /// The rendered body, kept only while a retry is still possible so the
+  /// sweep can resend without re-deriving it from data that may since have
+  /// changed. Cleared on success or terminal failure — see
+  /// `lib/messaging/outbox.ts` for why holding guest PII here indefinitely
+  /// would be wrong.
+  payload      Json?
+
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   booking   Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   customer  Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -1160,6 +1194,8 @@ model Message {
   /// "Has this booking already received a sent reminder/confirmation?" —
   /// the dedupe guard the reminder sweep and each send-site check first.
   @@index([workspaceId, templateKey, bookingId])
+  /// Drives the retry sweep's candidate query.
+  @@index([status, nextRetryAt])
   @@map("messages")
 }
 
