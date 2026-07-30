@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const { id, companyId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "crm_pipeline" });
     if (!canViewCrm(membership.role)) {
       throw forbidden("You do not have permission to view companies.");
     }
@@ -28,7 +28,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const { id, companyId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "crm_pipeline" });
     if (!canManageCrm(membership.role)) {
       throw forbidden("Only workspace owners, admins, and staff can manage companies.");
     }
@@ -57,7 +57,7 @@ export async function DELETE(request: Request, { params }: Params) {
   try {
     const { id, companyId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "crm_pipeline" });
     if (!canManageCrm(membership.role)) {
       throw forbidden("Only workspace owners, admins, and staff can manage companies.");
     }

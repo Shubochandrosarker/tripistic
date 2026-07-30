@@ -84,22 +84,95 @@ export async function createTestSubscription(
   overrides: Partial<{
     limits: Record<string, number>;
     status: "trialing" | "active" | "past_due" | "cancelled" | "expired";
+    /**
+     * Plan-level feature flags, written as `FeatureFlag` rows exactly as the
+     * seed does. Omit to leave the plan with no rows at all, which exercises
+     * the catalog fallback in `hasFeature`.
+     */
+    features: Record<string, boolean>;
+    /** Catalog slug to impersonate, so the catalog fallback resolves. */
+    slug: string;
   }> = {},
 ) {
   const suffix = uniqueSuffix();
-  const plan = await prisma.plan.create({
-    data: {
-      name: `Test Plan ${suffix}`,
-      slug: `test-plan-${suffix}`,
-      priceMonthly: 0,
-      priceYearly: 0,
-      currency: "USD",
-      limits: overrides.limits ?? { users: 25, active_tours: -1, custom_domains: 5 },
-    },
-  });
+  const limits = overrides.limits ?? { users: 25, active_tours: -1, custom_domains: 5 };
+
+  // Two distinct shapes, because `Plan.slug` is globally unique:
+  //
+  //  - `slug` given: impersonate a catalog plan so `hasFeature`'s catalog
+  //    fallback resolves. Plans are a global catalog rather than tenant data,
+  //    so the row is shared across tests exactly as it is in production —
+  //    upserted, so concurrent test files cannot race to create it.
+  //  - `features` given: this test owns the plan's flag rows, so it needs a
+  //    private plan nobody else will read.
+  const plan = overrides.slug
+    ? await prisma.plan.upsert({
+        where: { slug: overrides.slug },
+        update: {},
+        create: {
+          name: `Catalog Plan ${overrides.slug}`,
+          slug: overrides.slug,
+          priceMonthly: 0,
+          priceYearly: 0,
+          currency: "USD",
+          limits,
+        },
+      })
+    : await prisma.plan.create({
+        data: {
+          name: `Test Plan ${suffix}`,
+          slug: `test-plan-${suffix}`,
+          priceMonthly: 0,
+          priceYearly: 0,
+          currency: "USD",
+          limits,
+        },
+      });
+
+  if (overrides.features) {
+    if (overrides.slug) {
+      throw new Error(
+        "createTestSubscription: pass `features` or `slug`, not both — a shared catalog plan's flag rows would leak between tests.",
+      );
+    }
+    await prisma.featureFlag.createMany({
+      data: Object.entries(overrides.features).map(([featureKey, enabled]) => ({
+        planId: plan.id,
+        featureKey,
+        enabled,
+      })),
+    });
+  }
+
   return prisma.subscription.create({
     data: { workspaceId, planId: plan.id, status: overrides.status ?? "active" },
   });
+}
+
+/**
+ * Puts a workspace on the top catalog plan, so every gated feature resolves.
+ *
+ * Phase 8 made feature entitlement a server-side check, which means a test
+ * exercising CRM, vehicles, itineraries, operations, guides, vendors, waivers
+ * or advanced AI now needs its workspace to actually be entitled to it —
+ * otherwise the route correctly answers 402 and the test is measuring the gate
+ * instead of the feature.
+ *
+ * `enterprise` rather than a bespoke plan so the entitlement comes from the
+ * same catalog production reads, and a future flag added to the catalog is
+ * picked up here automatically.
+ */
+export async function entitleWorkspace(workspaceId: string) {
+  return createTestSubscription(workspaceId, { slug: "enterprise" });
+}
+
+/** Turns a feature on or off for one workspace, overriding its plan. */
+export async function setWorkspaceFeature(
+  workspaceId: string,
+  featureKey: string,
+  enabled: boolean,
+) {
+  return prisma.featureFlag.create({ data: { workspaceId, featureKey, enabled } });
 }
 
 /**
@@ -228,11 +301,21 @@ export async function createBookableFixture(
     availability?: Parameters<typeof createTestAvailability>[1];
     workspace?: Parameters<typeof createTestWorkspace>[1];
     paymentAccount?: boolean | Parameters<typeof createTestPaymentAccount>[1];
+    /** Set false to exercise a workspace with no entitled subscription. */
+    subscription?: false;
   } = {},
 ) {
   const owner = await createTestUser();
   const workspace = await createTestWorkspace(owner.id, overrides.workspace);
   await addMember(workspace.id, owner.id, "workspace_owner");
+  // Every workspace created through the product gets a trial subscription
+  // (app/api/workspaces/route.ts), and Phase 8 made feature access depend on
+  // having one. Entitling here keeps this fixture matching production rather
+  // than leaving tests to discover a 402 from an unrelated gate.
+  // Opt out with `subscription: false` where the absence is the point.
+  if (overrides.subscription !== false) {
+    await entitleWorkspace(workspace.id);
+  }
   const tour = await createTestTour(workspace.id, overrides.tour);
   const availability = await createTestAvailability(tour, overrides.availability);
   if (overrides.paymentAccount) {

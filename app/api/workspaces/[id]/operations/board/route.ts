@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "operations_dispatch" });
     if (!canViewOperations(membership.role)) {
       throw forbidden("You do not have permission to view operations.");
     }

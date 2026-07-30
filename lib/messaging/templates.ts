@@ -198,3 +198,96 @@ export function memberInvitationEmail(ctx: InvitationEmailContext): RenderedEmai
 
   return { subject, text, html };
 }
+
+/**
+ * Phase 7 — account security emails.
+ *
+ * These go to a user about their own account, not to a guest about a booking,
+ * so they carry no workspace branding: an email that claims to be from an
+ * operator but is really about platform credentials is a phishing shape, and
+ * the reader needs to know who is actually asking.
+ */
+
+export type AccountEmailContext = {
+  name: string;
+  actionUrl: string;
+  expiresAt: Date;
+};
+
+function expiryPhrase(expiresAt: Date): string {
+  const minutes = Math.max(1, Math.round((expiresAt.getTime() - Date.now()) / 60_000));
+  if (minutes < 90) return `${minutes} minutes`;
+  return `${Math.round(minutes / 60)} hours`;
+}
+
+export function emailVerificationEmail(ctx: AccountEmailContext): RenderedEmail {
+  const subject = "Confirm your email address";
+  const text = [
+    `Hi ${ctx.name},`,
+    ``,
+    `Confirm your email address to finish setting up your Tripistic account:`,
+    ctx.actionUrl,
+    ``,
+    `This link expires in ${expiryPhrase(ctx.expiresAt)}.`,
+    ``,
+    `If you did not create a Tripistic account, you can ignore this email.`,
+  ].join("\n");
+
+  const html = wrapHtml(
+    "Tripistic",
+    `<p>Hi ${escapeHtml(ctx.name)},</p>
+     <p>Confirm your email address to finish setting up your Tripistic account.</p>
+     <p><a href="${ctx.actionUrl}" style="display:inline-block;background:#18181b;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">Confirm email address</a></p>`,
+    `This link expires in ${escapeHtml(expiryPhrase(ctx.expiresAt))}. If you did not create a Tripistic account, you can ignore this email.`,
+  );
+
+  return { subject, text, html };
+}
+
+export function passwordResetEmail(ctx: AccountEmailContext): RenderedEmail {
+  const subject = "Reset your Tripistic password";
+  const text = [
+    `Hi ${ctx.name},`,
+    ``,
+    `Someone asked to reset the password for this Tripistic account. If it was you, use this link:`,
+    ctx.actionUrl,
+    ``,
+    `This link expires in ${expiryPhrase(ctx.expiresAt)} and can only be used once.`,
+    ``,
+    // Said plainly rather than implied: the reader needs to know that ignoring
+    // this is safe, or a phishing-shaped email trains them to click.
+    `If you did not ask for this, no action is needed — your password has not changed.`,
+  ].join("\n");
+
+  const html = wrapHtml(
+    "Tripistic",
+    `<p>Hi ${escapeHtml(ctx.name)},</p>
+     <p>Someone asked to reset the password for this Tripistic account.</p>
+     <p><a href="${ctx.actionUrl}" style="display:inline-block;background:#18181b;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">Reset password</a></p>`,
+    `This link expires in ${escapeHtml(expiryPhrase(ctx.expiresAt))} and can only be used once. If you did not ask for this, no action is needed — your password has not changed.`,
+  );
+
+  return { subject, text, html };
+}
+
+export function passwordChangedEmail(ctx: { name: string }): RenderedEmail {
+  const subject = "Your Tripistic password was changed";
+  const text = [
+    `Hi ${ctx.name},`,
+    ``,
+    `Your Tripistic password was just changed, and you have been signed out everywhere else.`,
+    ``,
+    // The point of this email. If the reader did not do it, this is the moment
+    // they find out — so it has to say what to do next, not just report.
+    `If this wasn't you, reset your password immediately and contact support.`,
+  ].join("\n");
+
+  const html = wrapHtml(
+    "Tripistic",
+    `<p>Hi ${escapeHtml(ctx.name)},</p>
+     <p>Your Tripistic password was just changed, and you have been signed out everywhere else.</p>`,
+    `If this wasn't you, reset your password immediately and contact support.`,
+  );
+
+  return { subject, text, html };
+}

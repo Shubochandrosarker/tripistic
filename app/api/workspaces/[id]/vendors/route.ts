@@ -12,7 +12,7 @@ export async function GET(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "suppliers" });
     if (!canViewVendors(membership.role)) {
       throw forbidden("You do not have permission to view vendors.");
     }
@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "suppliers" });
     if (!canManageVendors(membership.role)) {
       throw forbidden("Only workspace owners and admins can manage vendors.");
     }

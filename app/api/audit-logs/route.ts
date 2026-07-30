@@ -6,7 +6,15 @@ import { canViewAuditLogs } from "@/lib/auth/permissions";
 import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { manualAuditEventSchema } from "@/lib/validation";
 
-/** Workspace-scoped audit log (owner/admin only). ?workspaceId= is required. */
+/**
+ * Workspace-scoped audit log (owner/admin only). ?workspaceId= is required.
+ *
+ * Gated on the `audit_logs` entitlement, which Operator and above include and
+ * Solo does not. Only this customer-facing surface is gated — the platform
+ * keeps recording audit events for every workspace regardless of plan, because
+ * the record is a security control rather than a feature. What a cheaper plan
+ * loses is the ability to read and write it here, not the trail itself.
+ */
 export async function GET(request: Request) {
   try {
     const user = await requireUserApi();
@@ -17,7 +25,7 @@ export async function GET(request: Request) {
     const limitParam = Number(url.searchParams.get("limit") ?? 50);
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 100) : 50;
 
-    const membership = await requireWorkspaceAccess(user.id, workspaceId);
+    const membership = await requireWorkspaceAccess(user.id, workspaceId, { feature: "audit_logs" });
     if (!canViewAuditLogs(membership.role)) {
       throw forbidden("Only workspace owners and admins can view audit logs.");
     }
@@ -52,7 +60,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null);
     const data = manualAuditEventSchema.parse(body);
 
-    const membership = await requireWorkspaceAccess(user.id, data.workspaceId);
+    const membership = await requireWorkspaceAccess(user.id, data.workspaceId, { feature: "audit_logs" });
     if (!canViewAuditLogs(membership.role)) {
       throw forbidden("Only workspace owners and admins can record audit events.");
     }

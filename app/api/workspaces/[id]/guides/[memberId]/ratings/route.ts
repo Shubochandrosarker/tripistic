@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const { id, memberId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "guide_scheduling" });
     if (!canViewWorkforce(membership.role)) {
       throw forbidden("You do not have permission to view ratings.");
     }
@@ -27,7 +27,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const { id, memberId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "guide_scheduling" });
     if (!canManageWorkforce(membership.role)) {
       throw forbidden("Only workspace owners and admins can record ratings.");
     }

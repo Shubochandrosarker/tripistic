@@ -83,13 +83,17 @@ describe("subscription backfill", () => {
     const afterFirst = await prisma.subscription.findMany({ where: { workspaceId: workspace.id } });
     expect(afterFirst).toHaveLength(1);
 
-    const second = await backfillMissingSubscriptions(prisma);
+    await backfillMissingSubscriptions(prisma);
     const afterSecond = await prisma.subscription.findMany({ where: { workspaceId: workspace.id } });
 
+    // Idempotence is asserted on this workspace's rows, not on the sweep's
+    // global `created` count. The backfill scans every workspace in the
+    // database and test files run concurrently against one, so another file
+    // creating a workspace mid-run legitimately makes `created` non-zero —
+    // which says nothing about whether this workspace was touched twice.
     expect(afterSecond).toHaveLength(1);
     expect(afterSecond[0].id).toBe(afterFirst[0].id);
-    // The workspace is no longer a candidate at all on the second pass.
-    expect(second.created).toBe(0);
+    expect(afterSecond[0].createdAt).toEqual(afterFirst[0].createdAt);
   });
 
   it("does not touch a workspace that already has a subscription", async () => {

@@ -14,7 +14,7 @@ import { POST as createMaintenanceRoute } from "@/app/api/workspaces/[id]/vehicl
 import { POST as createFuelLogRoute } from "@/app/api/workspaces/[id]/vehicles/[vehicleId]/fuel-logs/route";
 import { GET as vehicleDashboardRoute } from "@/app/api/workspaces/[id]/vehicles/[vehicleId]/dashboard/route";
 import { POST as createAvailabilityRoute } from "@/app/api/workspaces/[id]/tours/[tourId]/availabilities/route";
-import { addMember, createTestTour, createTestUser, createTestWorkspace } from "./helpers";
+import { addMember, createTestTour, createTestUser, createTestWorkspace, entitleWorkspace } from "./helpers";
 
 const mockRequireUserApi = requireUserApi as unknown as ReturnType<typeof vi.fn>;
 
@@ -37,6 +37,7 @@ function futureDate(hoursFromNow: number) {
 async function setup() {
   const owner = await createTestUser();
   const workspace = await createTestWorkspace(owner.id);
+  await entitleWorkspace(workspace.id);
   await addMember(workspace.id, owner.id, "workspace_owner");
   const staffUser = await createTestUser();
   await addMember(workspace.id, staffUser.id, "staff");

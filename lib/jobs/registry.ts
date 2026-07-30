@@ -2,7 +2,9 @@ import { prisma } from "@/lib/db";
 import { pollCustomDomainHealth } from "@/lib/domains/service";
 import { sendDueReminders } from "@/lib/messaging/reminders";
 import { retryDueMessages } from "@/lib/messaging/service";
+import { pruneExpiredAuthTokens } from "@/lib/auth/tokens";
 import { sweepExpiredPendingBookings } from "@/lib/payments/expiration";
+import { pruneRateLimitCounters } from "@/lib/security/rate-limit";
 import type { JobDefinition } from "@/lib/jobs/runner";
 
 /**
@@ -110,7 +112,19 @@ const cleanupExpiredTokens: JobDefinition = {
       where: { status: "pending", expiresAt: { lt: new Date() } },
       data: { status: "expired" },
     });
-    return { invitationsExpired: expiredInvitations.count };
+
+    // Verification and reset tokens, and the rate-limit counters behind them.
+    // Both tables grow with traffic and neither is read after its window has
+    // passed, so without this they accumulate forever — the counters fastest,
+    // since every limited request writes one.
+    const authTokensPruned = await pruneExpiredAuthTokens();
+    const rateLimitsPruned = await pruneRateLimitCounters();
+
+    return {
+      invitationsExpired: expiredInvitations.count,
+      authTokensPruned,
+      rateLimitsPruned,
+    };
   },
 };
 

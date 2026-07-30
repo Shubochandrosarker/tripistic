@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const user = await requireUserApi();
     const { id, domainId } = await params;
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "custom_domain" });
     if (!canManageWorkspace(membership.role)) {
       throw forbidden("Only workspace owners and admins can activate domains.");
     }

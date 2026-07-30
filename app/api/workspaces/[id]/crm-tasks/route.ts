@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "crm_pipeline" });
     if (!canViewCrm(membership.role)) {
       throw forbidden("You do not have permission to view tasks.");
     }
@@ -39,7 +39,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "crm_pipeline" });
     if (!canManageCrm(membership.role)) {
       throw forbidden("Only workspace owners, admins, and staff can manage tasks.");
     }

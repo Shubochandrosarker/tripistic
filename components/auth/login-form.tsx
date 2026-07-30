@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,11 @@ export function LoginForm() {
           required
         />
       </Field>
+      <div className="flex justify-end">
+        <Link href="/forgot-password" className="text-sm text-muted-foreground hover:underline">
+          Forgot your password?
+        </Link>
+      </div>
       {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
       <Button type="submit" className="w-full" disabled={busy}>
         {busy ? "Signing in…" : "Sign in"}

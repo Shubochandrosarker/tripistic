@@ -12,7 +12,7 @@ import { requireUserApi } from "@/lib/auth/session";
 import { createBooking } from "@/lib/bookings/service";
 import { GET as waiverTemplateRoute, PUT as publishWaiverRoute } from "@/app/api/workspaces/[id]/waiver-template/route";
 import { GET as publicWaiverGetRoute, POST as publicWaiverPostRoute } from "@/app/api/public/bookings/[publicToken]/waiver/route";
-import { addMember, createBookableFixture, createTestUser, createTestWorkspace, prisma } from "./helpers";
+import { addMember, createBookableFixture, createTestUser, createTestWorkspace, prisma, entitleWorkspace } from "./helpers";
 
 const mockRequireUserApi = requireUserApi as unknown as ReturnType<typeof vi.fn>;
 
@@ -63,6 +63,7 @@ describe("waiver template versioning", () => {
   it("publishing creates version 1; publishing again creates version 2 without mutating version 1", async () => {
     const owner = await createTestUser();
     const workspace = await createTestWorkspace(owner.id);
+    await entitleWorkspace(workspace.id);
     await addMember(workspace.id, owner.id, "workspace_owner");
 
     const first = await publishSampleWaiver(workspace.id, owner, "Liability Waiver");
@@ -94,6 +95,7 @@ describe("waiver template versioning", () => {
   it("staff cannot publish a waiver version (403)", async () => {
     const owner = await createTestUser();
     const workspace = await createTestWorkspace(owner.id);
+    await entitleWorkspace(workspace.id);
     await addMember(workspace.id, owner.id, "workspace_owner");
     const staffUser = await createTestUser();
     await addMember(workspace.id, staffUser.id, "staff");

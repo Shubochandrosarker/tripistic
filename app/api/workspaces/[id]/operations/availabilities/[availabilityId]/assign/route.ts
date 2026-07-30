@@ -13,7 +13,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const { id, availabilityId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "operations_dispatch" });
     if (!canManageOperations(membership.role)) {
       throw forbidden("Only workspace owners, admins, and staff can assign departures.");
     }

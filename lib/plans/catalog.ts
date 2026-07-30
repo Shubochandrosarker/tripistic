@@ -301,3 +301,15 @@ export function effectiveMonthlyPriceCents(plan: CanonicalPlan): number | null {
   if (plan.yearlyPriceCents === null) return null;
   return Math.round(plan.yearlyPriceCents / 12);
 }
+
+/**
+ * Non-throwing lookup by arbitrary slug.
+ *
+ * `getCanonicalPlan` throws on an unknown slug, which is right for code paths
+ * that own the slug. This one is for reading a slug that came from the
+ * database, where a plan seeded by an older release — or a custom enterprise
+ * plan — is a legitimate state that must not crash a request.
+ */
+export function findCanonicalPlan(slug: string): CanonicalPlan | undefined {
+  return canonicalPlans.find((item) => item.slug === slug);
+}

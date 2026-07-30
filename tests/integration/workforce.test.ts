@@ -15,7 +15,7 @@ import { POST as createRatingRoute } from "@/app/api/workspaces/[id]/guides/[mem
 import { POST as createAvailabilityRoute } from "@/app/api/workspaces/[id]/tours/[tourId]/availabilities/route";
 import { GET as matchStaffRoute } from "@/app/api/workspaces/[id]/tours/[tourId]/availabilities/[availabilityId]/match/route";
 import { DELETE as removeMemberRoute } from "@/app/api/workspaces/[id]/members/[memberId]/route";
-import { addMember, createTestTour, createTestUser, createTestWorkspace, prisma } from "./helpers";
+import { addMember, createTestTour, createTestUser, createTestWorkspace, prisma, entitleWorkspace } from "./helpers";
 
 const mockRequireUserApi = requireUserApi as unknown as ReturnType<typeof vi.fn>;
 
@@ -38,6 +38,7 @@ function futureDate(hoursFromNow: number) {
 async function setup() {
   const owner = await createTestUser();
   const workspace = await createTestWorkspace(owner.id);
+  await entitleWorkspace(workspace.id);
   await addMember(workspace.id, owner.id, "workspace_owner");
   const guideUser = await createTestUser();
   const guideMember = await addMember(workspace.id, guideUser.id, "guide");

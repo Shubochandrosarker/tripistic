@@ -4,6 +4,7 @@ import type { WorkspaceRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { notFound } from "@/lib/api";
 import { ACTIVE_WORKSPACE_COOKIE } from "@/lib/constants";
+import type { PlanFeatureKey } from "@/lib/plans/catalog";
 
 /**
  * Tenancy helpers — the single path to workspace scope.
@@ -62,7 +63,24 @@ export const getActiveWorkspace = cache(
  * API guard: verify the user is an active member of the workspace.
  * Throws 404 (not 403) so out-of-tenant resource existence is not leaked.
  */
-export async function requireWorkspaceAccess(userId: string, workspaceId: string) {
+/**
+ * Verifies membership and, optionally, plan entitlement.
+ *
+ * The `feature` option puts the Phase 8 gate exactly where tenancy is already
+ * checked. Every workspace-scoped route already calls this as its first act,
+ * so gating here is one added argument per route rather than a new call
+ * everybody has to remember — and a route that forgets tenancy is already
+ * broken in a way that gets caught immediately.
+ *
+ * Ordering matters: membership is checked first, so a non-member gets the same
+ * "Workspace not found" they always did. Answering "your plan does not include
+ * this" to someone with no access would confirm the workspace exists.
+ */
+export async function requireWorkspaceAccess(
+  userId: string,
+  workspaceId: string,
+  options: { feature?: PlanFeatureKey } = {},
+) {
   const membership = await prisma.workspaceMember.findFirst({
     where: {
       userId,
@@ -73,6 +91,12 @@ export async function requireWorkspaceAccess(userId: string, workspaceId: string
     include: { workspace: true },
   });
   if (!membership) throw notFound("Workspace not found");
+
+  if (options.feature) {
+    const { assertFeature } = await import("@/lib/plans/entitlements");
+    await assertFeature(workspaceId, options.feature);
+  }
+
   return membership;
 }
 

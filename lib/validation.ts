@@ -68,15 +68,43 @@ export const emailSchema = z
   .email("Enter a valid email address")
   .max(254);
 
+/**
+ * Phase 7 — account security.
+ *
+ * The password rule is shared between registration and reset so a reset can
+ * never set a password that registration would have refused. A 128-character
+ * ceiling is not cosmetic: bcrypt-family hashes are slow by design, so an
+ * unbounded password is a CPU-exhaustion vector on an unauthenticated route.
+ */
+const accountPasswordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password must be at most 128 characters");
+
 export const registerSchema = z.object({
   name: z.string().trim().min(2, "Name is too short").max(80),
   email: emailSchema,
-  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+  password: accountPasswordSchema,
 });
 
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1).max(128),
+});
+
+export const passwordResetRequestSchema = z.object({
+  email: emailSchema,
+});
+
+export const passwordResetConfirmSchema = z.object({
+  // Generous ceiling, but bounded — an unbounded token field is a free way to
+  // make the server hash megabytes.
+  token: z.string().trim().min(16).max(512),
+  password: accountPasswordSchema,
+});
+
+export const verifyEmailSchema = z.object({
+  token: z.string().trim().min(16).max(512),
 });
 
 const countrySchema = z

@@ -9,6 +9,15 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUserPage();
+
+  // Verification is enforced from here forward, not retroactively: the Phase 7
+  // migration backfilled `emailVerifiedAt` for every account that already
+  // existed, so shipping this locks nobody out. Sign-in itself still succeeds —
+  // the user needs a session to reach the resend form.
+  if (!user.emailVerifiedAt) {
+    redirect("/verify-email");
+  }
+
   const active = await getActiveWorkspace(user.id);
 
   if (!active) {

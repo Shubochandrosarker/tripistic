@@ -11,7 +11,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const { id } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "advanced_ai" });
     if (!canViewBusinessBrain(membership.role)) {
       throw forbidden("Only workspace owners and admins can view the business brain.");
     }

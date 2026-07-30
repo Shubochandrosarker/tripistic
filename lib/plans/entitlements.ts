@@ -1,5 +1,6 @@
-import { conflict } from "@/lib/api";
+import { ApiError, conflict } from "@/lib/api";
 import { prisma } from "@/lib/db";
+import { findCanonicalPlan, type PlanFeatureKey } from "@/lib/plans/catalog";
 import { getPlanLimit, getWorkspaceSubscription, isUnlimited } from "@/lib/plans/limits";
 
 export type LimitEvaluation = {
@@ -99,4 +100,103 @@ export async function assertCanAddCustomDomain(workspaceId: string, increment = 
     );
   }
   return evaluation;
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * Phase 8 — server-side feature entitlement
+ * ---------------------------------------------------------------------------
+ *
+ * The gap this closes. The plan catalog defines 22 feature flags and four
+ * tiers that differ almost entirely by which of them are on. Until now nothing
+ * checked them on the server: the flags drove pricing copy and which nav links
+ * rendered, and that was all. A Solo customer who opened devtools, or simply
+ * typed the URL, had working access to CRM, operations dispatch, vehicles,
+ * suppliers, itineraries, guide scheduling, advanced AI and audit logs — every
+ * paid tier's differentiator, on the cheapest plan. Hiding a nav link is not
+ * an entitlement; the server has to refuse.
+ */
+
+/**
+ * Resolution order: workspace override -> plan row in the database -> the
+ * canonical catalog -> denied.
+ *
+ * The catalog fallback is the important one and is deliberate. `FeatureFlag`
+ * rows are written by the seed, and a deployment whose seed had not run, or
+ * had run against an older catalog, would otherwise resolve every unseeded
+ * flag to `false` — turning a partial seed into a total feature outage for
+ * paying customers. Falling back to the code that defines the plans means a
+ * missing row degrades to the correct answer rather than to "off".
+ *
+ * A workspace override still wins over both, which is what makes per-tenant
+ * grants and emergency kill switches possible.
+ */
+export async function hasFeature(workspaceId: string, featureKey: PlanFeatureKey): Promise<boolean> {
+  const override = await prisma.featureFlag.findFirst({
+    where: { workspaceId, featureKey },
+    orderBy: { updatedAt: "desc" },
+    select: { enabled: true },
+  });
+  if (override) return override.enabled;
+
+  const subscription = await getWorkspaceSubscription(workspaceId);
+  // No entitled subscription at all — trialing, active and past_due all count
+  // as entitled (see getWorkspaceSubscription); anything else does not.
+  if (!subscription) return false;
+
+  const planRow = await prisma.featureFlag.findFirst({
+    where: { planId: subscription.planId, workspaceId: null, featureKey },
+    orderBy: { updatedAt: "desc" },
+    select: { enabled: true },
+  });
+  if (planRow) return planRow.enabled;
+
+  const catalogPlan = findCanonicalPlan(subscription.plan.slug);
+  return catalogPlan?.flags[featureKey] ?? false;
+}
+
+/**
+ * Names each gated feature the way a customer would recognise it, so the
+ * refusal explains what to buy rather than leaking an internal flag key.
+ */
+const FEATURE_LABELS: Partial<Record<PlanFeatureKey, string>> = {
+  crm_pipeline: "The CRM pipeline",
+  itinerary_builder: "The itinerary builder",
+  operations_dispatch: "Operations dispatch",
+  vehicles: "Fleet management",
+  suppliers: "Supplier and vendor management",
+  guide_scheduling: "Guide scheduling",
+  white_label: "White-label branding",
+  custom_domain: "Custom domains",
+  storefront_builder: "The storefront builder",
+  advanced_ai: "Advanced AI",
+  api_access: "API access",
+  audit_logs: "Audit logs",
+  digital_waivers: "Digital waivers",
+  csv_export: "CSV export",
+  sso_saml: "SSO / SAML",
+};
+
+export function featureLabel(featureKey: PlanFeatureKey): string {
+  return FEATURE_LABELS[featureKey] ?? featureKey.replace(/_/g, " ");
+}
+
+/**
+ * Throws unless the workspace's plan includes the feature.
+ *
+ * 402 rather than 403: this is not "you may not", it is "your plan does not
+ * include this" — a distinction that matters to the client, which should
+ * offer an upgrade rather than an error. 403 is reserved for the role checks
+ * that already sit alongside these calls, where a different plan would not
+ * help.
+ */
+export async function assertFeature(
+  workspaceId: string,
+  featureKey: PlanFeatureKey,
+): Promise<void> {
+  if (await hasFeature(workspaceId, featureKey)) return;
+  throw new ApiError(
+    402,
+    `${featureLabel(featureKey)} is not included in your current plan. Upgrade to enable it.`,
+  );
 }

@@ -21,6 +21,18 @@ export const getCurrentUser = cache(async () => {
   const user = await prisma.user.findFirst({
     where: { id: sessionUser.id, deletedAt: null, status: "active" },
   });
+  if (!user) return null;
+
+  // Sessions are stateless JWTs, so there is no server-side record to delete
+  // when every session must stop working. The version is stamped into the
+  // token at sign-in and compared here: a password reset increments the column,
+  // and every token issued before it stops resolving to a user. Without this,
+  // someone resetting their password because an attacker had it would leave
+  // that attacker signed in — the reset would feel like it worked and change
+  // nothing.
+  const tokenVersion = sessionUser.sessionVersion ?? 0;
+  if (tokenVersion !== user.sessionVersion) return null;
+
   return user;
 });
 

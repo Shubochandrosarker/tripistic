@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const { id, vehicleId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "vehicles" });
     if (!canViewVehicles(membership.role)) {
       throw forbidden("You do not have permission to view the fleet.");
     }
@@ -27,7 +27,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const { id, vehicleId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "vehicles" });
     if (!canManageVehicles(membership.role)) {
       throw forbidden("Only workspace owners and admins can manage the fleet.");
     }
@@ -62,7 +62,7 @@ export async function DELETE(request: Request, { params }: Params) {
   try {
     const { id, vehicleId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "vehicles" });
     if (!canManageVehicles(membership.role)) {
       throw forbidden("Only workspace owners and admins can manage the fleet.");
     }

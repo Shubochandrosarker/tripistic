@@ -49,6 +49,35 @@ async function main() {
     update: { role: "workspace_owner", status: "active" },
   });
 
+  // Phase 8 made feature access depend on an entitled subscription, and this
+  // fixture writes rows directly instead of going through
+  // `POST /api/workspaces`, which is what normally creates one. Without it the
+  // seeded workspace has no plan and every gated feature — waivers, guides,
+  // custom domains — correctly answers 402, which is a fixture gap rather than
+  // a product defect. Seeded on `enterprise` so the fixture exercises the
+  // product rather than the paywall.
+  const plan = await prisma.plan.upsert({
+    where: { slug: "enterprise" },
+    create: {
+      name: "Enterprise",
+      slug: "enterprise",
+      priceMonthly: 0,
+      priceYearly: 0,
+      currency: "USD",
+      limits: { users: -1, active_tours: -1, custom_domains: -1 },
+    },
+    update: {},
+  });
+
+  const existingSubscription = await prisma.subscription.findFirst({
+    where: { workspaceId: workspace.id },
+  });
+  if (!existingSubscription) {
+    await prisma.subscription.create({
+      data: { workspaceId: workspace.id, planId: plan.id, status: "active" },
+    });
+  }
+
   await prisma.customDomain.upsert({
     where: { hostname: E2E_CUSTOM_DOMAIN },
     create: {

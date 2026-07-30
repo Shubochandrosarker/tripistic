@@ -13,7 +13,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const { id, invoiceId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "suppliers" });
     if (!canManageVendors(membership.role)) {
       throw forbidden("Only workspace owners and admins can manage vendor invoices.");
     }

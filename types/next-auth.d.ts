@@ -6,11 +6,14 @@ declare module "next-auth" {
     user: {
       id: string;
       isPlatformAdmin: boolean;
+      /** Re-checked against the database so a password reset can invalidate this token. */
+      sessionVersion: number;
     } & DefaultSession["user"];
   }
 
   interface User {
     isPlatformAdmin?: boolean;
+    sessionVersion?: number;
   }
 }
 
@@ -18,5 +21,6 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     userId?: string;
     isPlatformAdmin?: boolean;
+    sessionVersion?: number;
   }
 }

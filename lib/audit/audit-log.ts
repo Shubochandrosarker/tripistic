@@ -7,6 +7,13 @@ import { logger } from "@/lib/observability/logger";
 export type AuditAction =
   | "user_registered"
   | "user_login"
+  // Phase 7 — account security. Separate actions rather than one
+  // "account_event" so an operator can answer "was a reset ever completed on
+  // this account, and when" without parsing metadata.
+  | "user_verification_sent"
+  | "user_email_verified"
+  | "user_password_reset_requested"
+  | "user_password_reset_completed"
   | "workspace_created"
   | "workspace_updated"
   | "member_invited"

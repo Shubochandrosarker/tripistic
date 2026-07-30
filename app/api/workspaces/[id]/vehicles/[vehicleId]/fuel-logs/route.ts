@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const { id, vehicleId } = await params;
     const user = await requireUserApi();
-    const membership = await requireWorkspaceAccess(user.id, id);
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "vehicles" });
     if (!canManageVehicles(membership.role)) {
       throw forbidden("Only workspace owners and admins can log fuel costs.");
     }
