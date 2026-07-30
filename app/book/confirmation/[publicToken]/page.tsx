@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { formatMoney } from "@/lib/utils";
+import { formatDepartureInTz, formatMoney } from "@/lib/utils";
 import { serializePublicBookingConfirmation } from "@/lib/bookings/serializers";
 import { getLatestPaymentForBooking } from "@/lib/payments/service";
 import { serializePublicPayment } from "@/lib/payments/serializers";
@@ -23,20 +23,24 @@ export default async function BookingConfirmationPage({ params }: Params) {
   const { publicToken } = await params;
   const record = await prisma.booking.findUnique({
     where: { publicToken },
-    include: { participants: true, addonSelections: true },
+    include: {
+      participants: true,
+      addonSelections: true,
+      // Needed to render the departure in the operator's timezone rather
+      // than the server's — see below.
+      workspace: { select: { timezone: true } },
+    },
   });
   if (!record) notFound();
   const booking = serializePublicBookingConfirmation(record);
   const payment = serializePublicPayment(await getLatestPaymentForBooking(record.workspaceId, record.id));
 
-  const departureLocal = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(booking.departureStartsAt));
+  // Rendered in the workspace's timezone. Without an explicit `timeZone` this
+  // used the *server's* zone, so a guest could be told a different departure
+  // time than the operator sees on the manifest — and the time would change if
+  // the app were deployed to a different region. Emails already did this
+  // correctly via formatDateTimeInTz; this page did not.
+  const departureLocal = formatDepartureInTz(booking.departureStartsAt, record.workspace.timezone);
 
   const awaitingPayment = booking.status === "pending" && payment != null;
   const paymentDidNotSucceed = payment != null && (payment.status === "failed" || payment.status === "cancelled");

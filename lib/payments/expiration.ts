@@ -21,9 +21,20 @@ export async function expirePendingBooking(paymentId: string): Promise<ExpireOut
   const result = await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findUnique({ where: { id: paymentId } });
     if (!payment) return null;
-    if (payment.status !== "requires_payment" && payment.status !== "processing") {
-      // Already settled (paid/failed/cancelled/refunded) by something else
-      // since the sweep listed this row — nothing to expire.
+    const expirable = ["requires_payment", "processing", "failed"] as const;
+    if (!expirable.includes(payment.status as (typeof expirable)[number])) {
+      // Already settled (paid/cancelled/refunded) by something else since the
+      // sweep listed this row — nothing to expire.
+      return null;
+    }
+
+    // The window is re-checked here, not just in `findExpiredPendingPaymentIds`.
+    // `failed` became expirable so that a declined card cannot hold seats
+    // forever (§6.1), but a decline *inside* the window is a guest who can
+    // still retry — cancelling them would be worse than the bug being fixed.
+    // Enforcing it at the point of cancellation means no future caller can
+    // reintroduce that by passing an id the sweep would never have selected.
+    if (!payment.expiresAt || payment.expiresAt >= new Date()) {
       return null;
     }
 
@@ -84,13 +95,43 @@ export async function expirePendingBooking(paymentId: string): Promise<ExpireOut
 export async function findExpiredPendingPaymentIds(now: Date = new Date()): Promise<string[]> {
   const rows = await prisma.payment.findMany({
     where: {
-      status: { in: ["requires_payment", "processing"] },
+      // `failed` is included deliberately. markPaymentFailed leaves the
+      // booking `pending` so the guest can retry inside the payment window,
+      // but the sweep previously matched only requires_payment/processing —
+      // so once the window closed, a declined attempt held its seats forever
+      // and no code path could ever release them. Including it here means the
+      // window governs the hold regardless of how the attempt ended.
+      status: { in: ["requires_payment", "processing", "failed"] },
       expiresAt: { lt: now },
       booking: { status: "pending" },
     },
-    select: { id: true },
+    select: { id: true, bookingId: true, expiresAt: true },
+    orderBy: { createdAt: "desc" },
   });
-  return rows.map((row) => row.id);
+
+  // A retry creates a new Payment row without settling the previous one, so a
+  // booking can carry several attempts. Only the newest matters: cancelling on
+  // a stale row would kill a booking whose guest is mid-checkout on a live
+  // session. Keep one candidate per booking, and only when that newest attempt
+  // has itself expired.
+  const newestByBooking = new Map<string, { id: string; expiresAt: Date | null }>();
+  for (const row of rows) {
+    if (!newestByBooking.has(row.bookingId)) {
+      newestByBooking.set(row.bookingId, { id: row.id, expiresAt: row.expiresAt });
+    }
+  }
+
+  const liveAttempts = await prisma.payment.findMany({
+    where: {
+      bookingId: { in: [...newestByBooking.keys()] },
+      status: { in: ["requires_payment", "processing"] },
+      expiresAt: { gt: now },
+    },
+    select: { bookingId: true },
+  });
+  for (const live of liveAttempts) newestByBooking.delete(live.bookingId);
+
+  return [...newestByBooking.values()].map((row) => row.id);
 }
 
 /**

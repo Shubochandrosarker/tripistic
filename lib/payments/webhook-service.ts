@@ -4,6 +4,7 @@ import { prisma, type Db } from "@/lib/db";
 import { recordAuditEvent, type AuditAction } from "@/lib/audit/audit-log";
 import { uniqueViolationTargets } from "@/lib/prisma-errors";
 import { transitionBookingStatusInTx } from "@/lib/bookings/status-service";
+import { canTransition } from "@/lib/bookings/status";
 import { sendBookingConfirmationEmail } from "@/lib/messaging/service";
 import { upsertWorkspacePaymentAccountFromStripe } from "@/lib/payments/connect";
 import { fromStripeAmount } from "@/lib/payments/stripe-client";
@@ -90,19 +91,90 @@ async function confirmPaymentAndBooking(
     });
   }
 
-  await transitionBookingStatusInTx(tx, {
-    workspaceId: payment.workspaceId,
-    bookingId: payment.bookingId,
-    toStatus: "confirmed",
-    actor: { kind: "system" },
-    note: "Payment succeeded",
+  // Money has arrived for a booking that may no longer be confirmable — the
+  // expiry sweep or an operator may have cancelled it while the guest was in
+  // checkout. Previously this called transitionBookingStatusInTx
+  // unconditionally, which threw `conflict` from cancelled -> confirmed and
+  // rolled back the WHOLE transaction *including the PaymentEvent
+  // idempotency row*. Stripe then retried, hit the identical failure, and
+  // looped indefinitely: money captured, seat released to someone else, no
+  // reconciliation record, and a webhook failing forever.
+  //
+  // The payment status update above is what must survive. Whether the booking
+  // can follow is a separate question, and a "no" is a reconciliation case,
+  // not an error to throw at Stripe.
+  const booking = await tx.booking.findUnique({
+    where: { id: payment.bookingId },
+    select: { status: true },
+  });
+
+  // Stripe sends two distinct events for one successful checkout —
+  // `checkout.session.completed` and `payment_intent.succeeded` — and both
+  // reach here. The second arrives with the booking already `confirmed`, which
+  // is not a transition the state machine allows (nothing may go
+  // `confirmed -> confirmed`) but is emphatically not a discrepancy either.
+  // Treating "already in the target status" as anything other than success
+  // would stamp `paid_after_cancellation` on the most ordinary payment there
+  // is and tell an operator to refund a booking that is perfectly fine.
+  const alreadyConfirmed = booking?.status === "confirmed";
+  const confirmable = booking ? canTransition(booking.status, "confirmed") : false;
+
+  if (alreadyConfirmed) {
+    return {
+      workspaceId: payment.workspaceId,
+      bookingId: payment.bookingId,
+      paymentId: payment.id,
+      auditAction: "payment_succeeded",
+    };
+  }
+
+  if (confirmable) {
+    await transitionBookingStatusInTx(tx, {
+      workspaceId: payment.workspaceId,
+      bookingId: payment.bookingId,
+      toStatus: "confirmed",
+      actor: { kind: "system" },
+      note: "Payment succeeded",
+    });
+
+    return {
+      workspaceId: payment.workspaceId,
+      bookingId: payment.bookingId,
+      paymentId: payment.id,
+      auditAction: "payment_succeeded",
+    };
+  }
+
+  // Record the discrepancy against the booking's own history so an operator
+  // sees it where they already look, and flag the payment for review. The
+  // seats are NOT reclaimed: they may already belong to another guest, and
+  // silently double-booking a departure would be worse than holding a refund.
+  await tx.bookingStatusEvent.create({
+    data: {
+      workspaceId: payment.workspaceId,
+      bookingId: payment.bookingId,
+      fromStatus: booking?.status ?? "cancelled",
+      toStatus: booking?.status ?? "cancelled",
+      actorUserId: null,
+      note: `Payment succeeded after the booking was ${booking?.status ?? "removed"} — refund required`,
+    },
+  });
+
+  await tx.payment.update({
+    where: { id: payment.id },
+    data: {
+      failureCode: "paid_after_cancellation",
+      failureMessage: `Payment captured after the booking became ${booking?.status ?? "unavailable"}. Needs refund or manual reconciliation.`,
+    },
   });
 
   return {
     workspaceId: payment.workspaceId,
     bookingId: payment.bookingId,
     paymentId: payment.id,
-    auditAction: "payment_succeeded",
+    // A distinct action so this is searchable in the audit log rather than
+    // buried among ordinary successes.
+    auditAction: "payment_requires_reconciliation",
   };
 }
 

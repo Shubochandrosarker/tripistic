@@ -40,5 +40,11 @@ COPY --chown=nextjs:nodejs docker/entrypoint.sh ./docker/entrypoint.sh
 
 USER nextjs
 EXPOSE 3000
+
+# Liveness only: a readiness probe here would restart the container during a
+# brief database blip, converting a recoverable dependency outage into a
+# full one. Orchestration should route on /api/health/ready separately.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 ENTRYPOINT ["sh", "/app/docker/entrypoint.sh"]
 CMD ["node", "server.js"]
