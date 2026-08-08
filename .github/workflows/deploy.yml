@@ -14,6 +14,25 @@
 # Recommended: create a GitHub Environment named "production" (Settings ->
 # Environments) and add yourself as a required reviewer for a manual approval
 # gate before each auto-deploy, without editing this file.
+#
+# VPS-specific note (2026-08-08): the production env file on this VPS is
+# named `.env`, not `.env.docker` (the compose file's own default). This
+# workflow sources `.env` explicitly rather than relying on the default.
+#
+# It also picks up `docker-compose.override.yml` when present in the deploy
+# path. On this VPS that file rebinds the app's published port to the
+# server's public IP instead of 0.0.0.0, because a Hostinger-managed Traefik
+# container also listens on the docker0 bridge gateway at the same port
+# number and a wildcard bind collides with it. The override is VPS-local
+# (not committed here) since it depends on that VPS's own IP and Traefik
+# setup — see docker-compose.override.yml on the VPS for the full comment.
+#
+# Because that override binds to a specific IP rather than 0.0.0.0, the
+# in-script health check below can't always reach it via 127.0.0.1. Set
+# HEALTHCHECK_HOST in `.env` to whatever host:port is actually reachable
+# from the VPS's own shell (on this VPS: HEALTHCHECK_HOST=147.93.104.126).
+# Defaults to 127.0.0.1 when unset, which is correct for a plain 0.0.0.0
+# publish.
 
 name: Deploy to VPS
 
@@ -50,20 +69,28 @@ jobs:
             set -euo pipefail
             cd "${{ secrets.VPS_DEPLOY_PATH }}"
 
-            # Load HTTP_PORT (and anything else) from .env.docker for the
-            # health check below. Compose reads this file itself; this just
+            # This VPS's real env file is `.env` (not compose's default of
+            # `.env.docker`). Export it both ways: TRIPISTIC_ENV_FILE feeds
+            # the compose file's own `env_file: ${TRIPISTIC_ENV_FILE:-...}`
+            # directive (what containers receive), and sourcing it here
             # makes the same values visible to this shell script.
+            export TRIPISTIC_ENV_FILE=.env
             set -a
             # shellcheck disable=SC1091
-            [ -f .env.docker ] && . ./.env.docker
+            [ -f .env ] && . ./.env
             set +a
+
+            # Pick up the VPS-local port-binding override if it exists.
+            # See the header comment above for why.
+            COMPOSE_FILES=(-f docker-compose.hostinger.yml)
+            [ -f docker-compose.override.yml ] && COMPOSE_FILES+=(-f docker-compose.override.yml)
 
             PREV_COMMIT="$(git rev-parse HEAD)"
             echo "== current commit before deploy: ${PREV_COMMIT} =="
 
             mkdir -p backups
             echo "== pre-deploy database backup =="
-            docker compose -f docker-compose.hostinger.yml exec -T db \
+            docker compose "${COMPOSE_FILES[@]}" exec -T db \
               pg_dump -U "${POSTGRES_USER:-tripistic}" "${POSTGRES_DB:-tripistic}" \
               | gzip > "backups/pre-deploy-$(date +%F-%H%M%S).sql.gz"
 
@@ -73,12 +100,12 @@ jobs:
             echo "== deploying commit: $(git rev-parse HEAD) =="
 
             echo "== building and releasing (migrate -> seed -> backfill -> app) =="
-            docker compose --env-file .env.docker -f docker-compose.hostinger.yml up -d --build
+            docker compose "${COMPOSE_FILES[@]}" up -d --build
 
             echo "== waiting for /api/health/ready =="
             ok=false
             for i in $(seq 1 30); do
-              if curl -fsS "http://127.0.0.1:${HTTP_PORT:-8080}/api/health/ready" >/dev/null 2>&1; then
+              if curl -fsS "http://${HEALTHCHECK_HOST:-127.0.0.1}:${HTTP_PORT:-8080}/api/health/ready" >/dev/null 2>&1; then
                 ok=true
                 break
               fi
@@ -87,13 +114,13 @@ jobs:
 
             if [ "$ok" != "true" ]; then
               echo "!! app did not become healthy within 150s — rolling back to ${PREV_COMMIT} !!" >&2
-              docker compose -f docker-compose.hostinger.yml logs --tail=200 app || true
-              docker compose -f docker-compose.hostinger.yml logs --tail=100 release || true
+              docker compose "${COMPOSE_FILES[@]}" logs --tail=200 app || true
+              docker compose "${COMPOSE_FILES[@]}" logs --tail=100 release || true
               git reset --hard "${PREV_COMMIT}"
-              docker compose --env-file .env.docker -f docker-compose.hostinger.yml up -d --build
+              docker compose "${COMPOSE_FILES[@]}" up -d --build
               echo "rolled back to ${PREV_COMMIT}" >&2
               exit 1
             fi
 
             echo "== deploy successful: $(git rev-parse HEAD) =="
-            docker compose -f docker-compose.hostinger.yml ps
+            docker compose "${COMPOSE_FILES[@]}" ps
