@@ -19,6 +19,15 @@ import { cn } from "@/lib/utils";
  * Every component here checks `useReducedMotion()` and degrades to a static
  * render, so the global `prefers-reduced-motion` guard in globals.css is
  * reinforced rather than relied upon alone.
+ *
+ * Anything that animates *opacity from zero* also carries `data-reveal`. The
+ * root layout has one `<noscript>` rule that forces those back to visible, so
+ * a visitor with JavaScript disabled — or one whose hydration fails — never
+ * gets a blank page. Without the marker the server HTML ships
+ * `style="opacity:0"` and nothing ever removes it: verified on /pricing, where
+ * every plan CTA rendered invisible with scripting off.
+ *
+ * A new primitive that starts at `opacity: 0` must add the attribute too.
  */
 
 /** Staggered container — children animate in sequence as the group enters view. */
@@ -60,6 +69,7 @@ export function StaggerItem({
 
   return (
     <motion.div
+      data-reveal
       className={className}
       variants={
         reduced
@@ -190,6 +200,7 @@ export function PageTransition({ children }: { children: ReactNode }) {
 
   return (
     <motion.div
+      data-reveal
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28, ease: "easeOut" }}

@@ -37,7 +37,7 @@ export default function FeaturesPage() {
             description="Every feature is designed to remove a disconnected tool, reduce manual work, or help operators make better decisions from their own data."
           />
           <div className="mt-12">
-            <FeatureGrid />
+            <FeatureGrid aboveFold={3} />
           </div>
         </div>
       </main>
