@@ -123,7 +123,20 @@ export type AuditAction =
   | "custom_domain_created"
   | "custom_domain_verified"
   | "custom_domain_activated"
-  | "custom_domain_disabled";
+  | "custom_domain_disabled"
+  // V3 Site Builder. Publishing and rollback are separate actions because
+  // "who put this live, and did anyone roll it back" is the question asked
+  // after a bad deploy, and it should not require reading metadata.
+  | "site_created"
+  | "site_settings_updated"
+  | "site_published"
+  | "site_preview_deployed"
+  | "site_rolled_back"
+  | "site_deleted"
+  | "site_domain_bound"
+  | "site_domain_unbound"
+  | "knowledge_source_indexed"
+  | "knowledge_source_deleted";
 
 export interface AuditEventInput {
   action: AuditAction;

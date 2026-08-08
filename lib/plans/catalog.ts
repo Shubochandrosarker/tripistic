@@ -10,7 +10,13 @@ export type PlanLimitKey =
   | "ai_credits_monthly"
   | "storage_gb"
   | "monthly_bookings"
-  | "workspaces";
+  | "workspaces"
+  // V3 Site Builder. Read by lib/sites/service.ts, which defaults
+  // conservatively (1 site, 12 pages) rather than to unlimited when a plan
+  // seeded before V3 has no value — an unmetered feature reaching production
+  // is the failure mode worth defaulting against.
+  | "sites"
+  | "site_pages";
 
 export type PlanFeatureKey =
   | "booking_engine"
@@ -34,7 +40,13 @@ export type PlanFeatureKey =
   | "advanced_ai"
   | "api_access"
   | "audit_logs"
-  | "sso_saml";
+  | "sso_saml"
+  // V3. Split from `storefront_builder`, which stays the gate on the builder
+  // itself, so AI generation and the public copilot can be sold and disabled
+  // independently of it.
+  | "site_ai_generation"
+  | "ai_copilot"
+  | "ai_private_knowledge";
 
 export type CanonicalPlan = {
   slug: CanonicalPlanSlug;
@@ -75,6 +87,9 @@ const baseFlags: Record<PlanFeatureKey, boolean> = {
   api_access: false,
   audit_logs: false,
   sso_saml: false,
+  site_ai_generation: false,
+  ai_copilot: false,
+  ai_private_knowledge: false,
 };
 
 export const TRIPISTIC_TRIAL_DAYS = 14;
@@ -126,11 +141,15 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       storage_gb: 5,
       monthly_bookings: -1,
       workspaces: 1,
+      sites: 1,
+      site_pages: 12,
     },
     flags: {
       ...baseFlags,
       white_label: true,
       custom_domain: true,
+      site_ai_generation: true,
+      ai_copilot: true,
     },
   },
   {
@@ -169,6 +188,8 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       storage_gb: 25,
       monthly_bookings: -1,
       workspaces: 1,
+      sites: 1,
+      site_pages: 25,
     },
     flags: {
       ...baseFlags,
@@ -179,6 +200,9 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       vehicles: true,
       crm_pipeline: true,
       audit_logs: true,
+      site_ai_generation: true,
+      ai_copilot: true,
+      ai_private_knowledge: true,
     },
   },
   {
@@ -217,6 +241,8 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       storage_gb: 100,
       monthly_bookings: -1,
       workspaces: 5,
+      sites: 5,
+      site_pages: 60,
     },
     flags: {
       ...baseFlags,
@@ -231,6 +257,9 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       advanced_ai: true,
       api_access: true,
       audit_logs: true,
+      site_ai_generation: true,
+      ai_copilot: true,
+      ai_private_knowledge: true,
     },
   },
   {
@@ -268,6 +297,8 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       storage_gb: -1,
       monthly_bookings: -1,
       workspaces: -1,
+      sites: -1,
+      site_pages: -1,
     },
     flags: {
       ...baseFlags,
@@ -282,6 +313,9 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       advanced_ai: true,
       api_access: true,
       audit_logs: true,
+      site_ai_generation: true,
+      ai_copilot: true,
+      ai_private_knowledge: true,
       // No SAML/SSO implementation exists yet — auth is credentials-only.
       // The key is retained so seeded entitlement rows stay resolvable.
       sso_saml: false,

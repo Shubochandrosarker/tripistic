@@ -4,6 +4,8 @@ import { sendDueReminders } from "@/lib/messaging/reminders";
 import { retryDueMessages } from "@/lib/messaging/service";
 import { pruneExpiredAuthTokens } from "@/lib/auth/tokens";
 import { sweepExpiredPendingBookings } from "@/lib/payments/expiration";
+import { reindexStaleSources } from "@/lib/ai/rag/indexer";
+import { purgeExpiredNonces } from "@/lib/cloudflare/replay";
 import { pruneRateLimitCounters } from "@/lib/security/rate-limit";
 import type { JobDefinition } from "@/lib/jobs/runner";
 
@@ -119,12 +121,34 @@ const cleanupExpiredTokens: JobDefinition = {
     // since every limited request writes one.
     const authTokensPruned = await pruneExpiredAuthTokens();
     const rateLimitsPruned = await pruneRateLimitCounters();
+    // Signed-request nonces are only meaningful for the signature skew window;
+    // past it the timestamp check already rejects the request. Kept out of the
+    // request path so a Worker call never pays for someone else's cleanup.
+    const noncesPurged = await purgeExpiredNonces();
 
     return {
       invitationsExpired: expiredInvitations.count,
       authTokensPruned,
       rateLimitsPruned,
+      noncesPurged,
     };
+  },
+};
+
+/**
+ * Re-embeds knowledge whose source content changed.
+ *
+ * Editing a tour marks its knowledge source stale rather than re-embedding
+ * inline: the operator's save should not wait on a model call, and a provider
+ * outage should delay indexing rather than block the edit. This is what
+ * eventually makes the index agree with the database again.
+ */
+const reindexKnowledge: JobDefinition = {
+  name: "ai.reindex-knowledge",
+  description: "Re-embed knowledge sources whose content changed or whose last index failed",
+  run: async () => {
+    const { processed, failed } = await reindexStaleSources();
+    return { processed, failed };
   },
 };
 
@@ -135,6 +159,7 @@ export const JOBS: JobDefinition[] = [
   pollDomains,
   expireGracePeriods,
   cleanupExpiredTokens,
+  reindexKnowledge,
 ];
 
 export function findJob(name: string): JobDefinition | undefined {
