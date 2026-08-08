@@ -4,6 +4,7 @@ import { sendDueReminders } from "@/lib/messaging/reminders";
 import { retryDueMessages } from "@/lib/messaging/service";
 import { pruneExpiredAuthTokens } from "@/lib/auth/tokens";
 import { sweepExpiredPendingBookings } from "@/lib/payments/expiration";
+import { purgeExpiredNonces } from "@/lib/cloudflare/replay";
 import { pruneRateLimitCounters } from "@/lib/security/rate-limit";
 import type { JobDefinition } from "@/lib/jobs/runner";
 
@@ -119,11 +120,16 @@ const cleanupExpiredTokens: JobDefinition = {
     // since every limited request writes one.
     const authTokensPruned = await pruneExpiredAuthTokens();
     const rateLimitsPruned = await pruneRateLimitCounters();
+    // Signed-request nonces are only meaningful for the signature skew window;
+    // past it the timestamp check already rejects the request. Kept out of the
+    // request path so a Worker call never pays for someone else's cleanup.
+    const noncesPurged = await purgeExpiredNonces();
 
     return {
       invitationsExpired: expiredInvitations.count,
       authTokensPruned,
       rateLimitsPruned,
+      noncesPurged,
     };
   },
 };

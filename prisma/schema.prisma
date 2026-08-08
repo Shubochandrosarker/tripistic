@@ -261,6 +261,11 @@ model User {
   incidentReportsFiled         IncidentReport[]
   itinerariesCreated           Itinerary[]
   itineraryVersionsCreated     ItineraryVersion[]
+  sitesCreated                 Site[]                        @relation("SiteCreatedBy")
+  siteRevisionsCreated         SiteRevision[]                @relation("SiteRevisionCreatedBy")
+  siteDeploymentsTriggered     SiteDeployment[]              @relation("SiteDeploymentTriggeredBy")
+  knowledgeSourcesCreated      KnowledgeSource[]             @relation("KnowledgeSourceCreatedBy")
+  aiConversations              AiConversation[]              @relation("AiConversationUser")
 
   @@map("users")
 }
@@ -330,6 +335,18 @@ model Workspace {
   mediaAssets               WorkspaceMediaAsset[]
   storefrontRevisions       WorkspaceStorefrontRevision[]
   customDomains             CustomDomain[]
+  sites                     Site[]
+  sitePages                 SitePage[]
+  siteRevisions             SiteRevision[]
+  siteDeployments           SiteDeployment[]
+  knowledgeSources          KnowledgeSource[]
+  knowledgeDocuments        KnowledgeDocument[]
+  knowledgeChunkRefs        KnowledgeChunkRef[]
+  knowledgeIndexJobs        KnowledgeIndexJob[]
+  aiConversations           AiConversation[]
+  aiUsageEvents             AiUsageEvent[]
+  x402Payments              X402Payment[]
+  x402AccessGrants          X402AccessGrant[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -2232,10 +2249,21 @@ model CustomDomain {
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  /// Which site this hostname serves. Null means "the workspace's default
+  /// public surface", which is what every pre-V3 row means and why the column
+  /// is nullable rather than backfilled: a domain added before the Site
+  /// Builder existed still routes exactly as it did.
+  siteId String? @map("site_id")
+
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// SetNull, not Cascade. Deleting a site must not silently delete the
+  /// customer's verified hostname and its issued certificate — that is hours
+  /// of DNS propagation to undo a mistake. The domain survives, unbound.
+  site      Site?     @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, status])
   @@index([status, lastCheckedAt])
+  @@index([siteId])
   @@map("custom_domains")
 }
 
@@ -2458,4 +2486,469 @@ model RateLimitCounter {
 
   @@index([expiresAt])
   @@map("rate_limit_counters")
+}
+
+// ===========================================================================
+// V3 — Cloudflare platform expansion
+// ===========================================================================
+
+/// Replay protection for signed service-to-service requests.
+///
+/// `lib/cloudflare/signatures.ts` proves a request is authentic, unmodified
+/// and recent. Recent is not the same as unrepeated: anything that captures a
+/// request inside the skew window can send it again. For a read that is
+/// merely wasteful; for `publishSite` or an x402 settlement it is a duplicate
+/// side effect.
+///
+/// The nonce is the primary key, so the insert itself is the check — a unique
+/// violation *is* the replay detection, with no read-then-write race between
+/// two concurrent copies of the same request.
+model ServiceRequestNonce {
+  nonce     String   @id
+  /// Namespaces nonces by caller, so an unlucky collision between two
+  /// independent services cannot reject a legitimate request.
+  purpose   String
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([expiresAt])
+  @@map("service_request_nonces")
+}
+
+enum SiteStatus {
+  draft
+  generating
+  ready
+  publishing
+  published
+  failed
+  suspended
+}
+
+enum SiteDeploymentStatus {
+  queued
+  building
+  deploying
+  live
+  failed
+  rolled_back
+}
+
+/// A tenant website built with the Site Builder and served from Workers for
+/// Platforms.
+///
+/// Distinct from `WorkspaceStorefront`, which is the fixed-shape v2 booking
+/// storefront and stays exactly as it is. A workspace can run both: the
+/// storefront answers on `/book/<slug>` regardless, and a published Site takes
+/// over the subdomain and any bound custom domain.
+model Site {
+  id                  String     @id @default(cuid())
+  workspaceId         String     @map("workspace_id")
+  name                String
+  /// URL-safe identity inside the workspace.
+  slug                String
+  status              SiteStatus @default(draft)
+  templateKey         String     @map("template_key")
+  /// Label of the Tripistic-owned hostname: `<subdomain>.tripistic.site`.
+  /// Globally unique because it is a hostname, not a per-tenant name.
+  subdomain           String     @unique
+  homePageId          String?    @map("home_page_id")
+  publishedRevisionId String?    @map("published_revision_id")
+  draftRevisionId     String?    @map("draft_revision_id")
+  /// Brand tokens (colours, fonts, radii) as a validated JSON blob. Schema
+  /// lives in lib/sites/schema.ts, not in the database, so a template can add
+  /// a token without a migration.
+  theme               Json       @default("{}")
+  /// Site-wide SEO defaults; per-page values override these.
+  seo                 Json       @default("{}")
+  navigation          Json       @default("{}")
+  createdById         String?    @map("created_by")
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  publishedAt         DateTime?  @map("published_at") @db.Timestamptz(6)
+  deletedAt           DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User?            @relation("SiteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  pages       SitePage[]
+  revisions   SiteRevision[]
+  deployments SiteDeployment[]
+  domains     CustomDomain[]
+
+  @@unique([workspaceId, slug])
+  /// Composite unique so child rows can carry `workspaceId` and reference the
+  /// site through it — the same tenant-safe foreign key pattern the booking
+  /// subtree already uses. A child row physically cannot point at another
+  /// tenant's site.
+  @@unique([workspaceId, id])
+  @@index([workspaceId, status])
+  @@map("sites")
+}
+
+/// One page of a site. Content is a structured section array, never raw HTML.
+model SitePage {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  siteId      String   @map("site_id")
+  /// Leading-slash path: `/`, `/tours`, `/about`.
+  path        String
+  title       String
+  /// `{ version: 1, sections: [{ type, props }] }`, validated by Zod on
+  /// every write. Storing arbitrary HTML here would make every tenant page a
+  /// stored-XSS vector against every other visitor on that hostname.
+  content     Json     @default("{}")
+  seo         Json     @default("{}")
+  enabled     Boolean  @default(true)
+  position    Int      @default(0)
+  /// Set for pages the template owns (`/tours/[slug]`), which the operator
+  /// may edit but not delete.
+  systemKey   String?  @map("system_key")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  site      Site      @relation(fields: [workspaceId, siteId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@unique([siteId, path])
+  @@index([workspaceId, siteId, position])
+  @@map("site_pages")
+}
+
+/// An immutable snapshot of a whole site, taken on publish.
+///
+/// The published revision — not the live `SitePage` rows — is what gets
+/// rendered into a Worker bundle. That separation is what makes rollback a
+/// real operation rather than an apology: editing a draft can never change
+/// what visitors are currently being served.
+model SiteRevision {
+  id            String   @id @default(cuid())
+  workspaceId   String   @map("workspace_id")
+  siteId        String   @map("site_id")
+  versionNumber Int      @map("version_number")
+  /// Full site + pages snapshot.
+  snapshot      Json
+  /// SHA-256 of the rendered bundle, so an unchanged publish is detectable.
+  checksum      String
+  note          String?
+  createdById   String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  site        Site             @relation(fields: [workspaceId, siteId], references: [workspaceId, id], onDelete: Cascade)
+  createdBy   User?            @relation("SiteRevisionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  deployments SiteDeployment[]
+
+  @@unique([siteId, versionNumber])
+  @@index([workspaceId, createdAt])
+  @@map("site_revisions")
+}
+
+/// One attempt to put a revision live on the edge.
+model SiteDeployment {
+  id            String               @id @default(cuid())
+  workspaceId   String               @map("workspace_id")
+  siteId        String               @map("site_id")
+  revisionId    String               @map("revision_id")
+  status        SiteDeploymentStatus @default(queued)
+  environment   String               @default("production")
+  /// Dispatch-namespace script name. Derived server-side; see
+  /// lib/cloudflare/workers-platform.ts::siteScriptName.
+  scriptName    String?              @map("script_name")
+  previewUrl    String?              @map("preview_url")
+  liveUrl       String?              @map("live_url")
+  /// Populated only on failure, and only with a message safe to show an
+  /// operator — never a provider token or a stack trace.
+  errorMessage  String?              @map("error_message")
+  healthCheckAt DateTime?            @map("health_check_at") @db.Timestamptz(6)
+  startedAt     DateTime?            @map("started_at") @db.Timestamptz(6)
+  finishedAt    DateTime?            @map("finished_at") @db.Timestamptz(6)
+  triggeredById String?              @map("triggered_by")
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  site        Site         @relation(fields: [workspaceId, siteId], references: [workspaceId, id], onDelete: Cascade)
+  revision    SiteRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  triggeredBy User?        @relation("SiteDeploymentTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, siteId, createdAt])
+  @@index([status, createdAt])
+  @@map("site_deployments")
+}
+
+/// Retrieval scope of a knowledge document. Mirrors the `visibility` metadata
+/// written onto every vector, and the two must not diverge — see
+/// lib/ai/rag/indexer.ts.
+enum KnowledgeScope {
+  /// Tripistic's own product documentation. Readable by every surface.
+  global
+  /// Curated public travel content. Readable by the public advisor.
+  public
+  /// Tenant-owned. Readable only with the owning workspace's filter.
+  private
+}
+
+enum KnowledgeIndexStatus {
+  pending
+  indexing
+  indexed
+  failed
+  stale
+}
+
+/// A thing that produces knowledge documents: an uploaded file, a tour
+/// record, a business profile, a URL.
+model KnowledgeSource {
+  id          String               @id @default(cuid())
+  /// Null for `global` and `public` scopes, which no workspace owns.
+  workspaceId String?              @map("workspace_id")
+  scope       KnowledgeScope
+  sourceType  String               @map("source_type")
+  /// Id of the originating record when there is one (a tour, a page).
+  sourceId    String?              @map("source_id")
+  title       String
+  status      KnowledgeIndexStatus @default(pending)
+  /// Content hash. Re-indexing is skipped when it has not moved, which is the
+  /// difference between an embedding bill that tracks edits and one that
+  /// tracks cron ticks.
+  checksum    String?
+  language    String               @default("en")
+  version     Int                  @default(1)
+  metadata    Json                 @default("{}")
+  indexedAt   DateTime?            @map("indexed_at") @db.Timestamptz(6)
+  createdById String?              @map("created_by")
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User?               @relation("KnowledgeSourceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  documents KnowledgeDocument[]
+  indexJobs KnowledgeIndexJob[]
+
+  @@unique([scope, sourceType, sourceId])
+  @@index([workspaceId, scope, status])
+  @@map("knowledge_sources")
+}
+
+/// Normalised text extracted from a source, ready to chunk and embed.
+model KnowledgeDocument {
+  id          String               @id @default(cuid())
+  workspaceId String?              @map("workspace_id")
+  sourceId    String               @map("source_id")
+  scope       KnowledgeScope
+  title       String
+  /// Extracted plain text. Kept so a reindex does not have to re-fetch or
+  /// re-parse the original, and so a retrieved chunk can be shown in context.
+  body        String
+  checksum    String
+  language    String               @default("en")
+  version     Int                  @default(1)
+  status      KnowledgeIndexStatus @default(pending)
+  chunkCount  Int                  @default(0) @map("chunk_count")
+  indexedAt   DateTime?            @map("indexed_at") @db.Timestamptz(6)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  source    KnowledgeSource     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  chunks    KnowledgeChunkRef[]
+
+  @@index([workspaceId, scope, status])
+  @@index([sourceId, version])
+  @@map("knowledge_documents")
+}
+
+/// Pointer to a vector that exists in Vectorize.
+///
+/// The embedding itself is deliberately *not* duplicated here — it is large,
+/// it is derived, and PostgreSQL is not where it is queried. What is stored is
+/// the id, so deletion is exact: when a document goes away, this table says
+/// precisely which vectors must go with it. Without it, cleanup would be a
+/// prefix scan against a store that does not offer one, and orphaned private
+/// vectors would stay retrievable after the tenant deleted the source.
+model KnowledgeChunkRef {
+  id          String   @id @default(cuid())
+  workspaceId String?  @map("workspace_id")
+  documentId  String   @map("document_id")
+  chunkIndex  Int      @map("chunk_index")
+  vectorId    String   @unique @map("vector_id")
+  /// First ~200 characters, for showing a source reference without a second
+  /// round trip. Never used as the retrieved content itself.
+  preview     String
+  tokenCount  Int      @default(0) @map("token_count")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  document  KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([workspaceId])
+  @@map("knowledge_chunk_refs")
+}
+
+model KnowledgeIndexJob {
+  id          String               @id @default(cuid())
+  workspaceId String?              @map("workspace_id")
+  sourceId    String               @map("source_id")
+  status      KnowledgeIndexStatus @default(pending)
+  attempts    Int                  @default(0)
+  lastError   String?              @map("last_error")
+  startedAt   DateTime?            @map("started_at") @db.Timestamptz(6)
+  finishedAt  DateTime?            @map("finished_at") @db.Timestamptz(6)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  source    KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([workspaceId, status])
+  @@map("knowledge_index_jobs")
+}
+
+enum AiSurface {
+  /// Public travel advisor on tripistic.com. Anonymous callers allowed.
+  public_advisor
+  /// Workspace copilot in the dashboard. Always authenticated.
+  workspace_copilot
+  /// Contextual assistant embedded in a dashboard module.
+  contextual
+  /// Non-conversational generation (site copy, SEO), still metered.
+  system
+}
+
+model AiConversation {
+  id          String    @id @default(cuid())
+  /// Null for anonymous public-advisor conversations.
+  workspaceId String?   @map("workspace_id")
+  userId      String?   @map("user_id")
+  surface     AiSurface
+  title       String?
+  /// Opaque, high-entropy handle for an anonymous public session. Lets a
+  /// visitor keep their thread without an account, and lets them convert it to
+  /// one later. Unique so it cannot be guessed into another visitor's thread.
+  publicToken String?   @unique @map("public_token")
+  /// Rolling summary of older turns. Full history is never resent to the
+  /// model; recent turns plus this is what goes in the context window.
+  summary     String?
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace?              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?                   @relation("AiConversationUser", fields: [userId], references: [id], onDelete: SetNull)
+  messages  AiConversationMessage[]
+
+  @@index([workspaceId, updatedAt])
+  @@index([userId, updatedAt])
+  @@map("ai_conversations")
+}
+
+model AiConversationMessage {
+  id             String   @id @default(cuid())
+  conversationId String   @map("conversation_id")
+  /// `user` | `assistant` | `tool`. Not an enum: the set tracks whatever the
+  /// provider protocol supports and should not need a migration to widen.
+  role           String
+  content        String
+  /// Tool calls and their results, when the turn made any.
+  toolCalls      Json     @default("[]") @map("tool_calls")
+  /// Retrieved chunk references backing this answer, for source display and
+  /// for after-the-fact review of what the model was actually shown.
+  citations      Json     @default("[]")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_conversation_messages")
+}
+
+/// One model call. The unit both metering and cost attribution are built on.
+model AiUsageEvent {
+  id            String    @id @default(cuid())
+  workspaceId   String?   @map("workspace_id")
+  userId        String?   @map("user_id")
+  surface       AiSurface
+  task          String
+  provider      String
+  model         String
+  inputTokens   Int       @default(0) @map("input_tokens")
+  outputTokens  Int       @default(0) @map("output_tokens")
+  /// Millicents. Integer arithmetic, because a per-call cost of $0.0003 in a
+  /// float accumulates a visible error over a month of billing.
+  estimatedCost Int       @default(0) @map("estimated_cost_millicents")
+  latencyMs     Int       @default(0) @map("latency_ms")
+  success       Boolean   @default(true)
+  errorType     String?   @map("error_type")
+  requestId     String?   @map("request_id")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([surface, createdAt])
+  @@map("ai_usage_events")
+}
+
+enum X402PaymentStatus {
+  pending
+  verified
+  rejected
+  expired
+}
+
+/// An x402 machine payment for a protected API route.
+///
+/// Entirely separate from `Payment`, which is a traveler paying for a booking
+/// through Stripe. Conflating them would put an experimental settlement rail
+/// in the path of the revenue that actually pays the bills; the V3 brief
+/// forbids it and the schema keeps them apart.
+model X402Payment {
+  id                   String            @id @default(cuid())
+  /// Null when the caller is an unaffiliated agent rather than a workspace.
+  workspaceId          String?           @map("workspace_id")
+  requestId            String            @unique @map("request_id")
+  route                String
+  amount               String
+  currency             String
+  network              String
+  payer                String?
+  /// On-chain or facilitator reference. Unique, because the same settlement
+  /// must never be credited twice — this constraint is the replay defence,
+  /// not a convention.
+  transactionReference String?           @unique @map("transaction_reference")
+  status               X402PaymentStatus @default(pending)
+  verifiedAt           DateTime?         @map("verified_at") @db.Timestamptz(6)
+  accessExpiresAt      DateTime?         @map("access_expires_at") @db.Timestamptz(6)
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  grants    X402AccessGrant[]
+
+  @@index([status, createdAt])
+  @@index([workspaceId, createdAt])
+  @@map("x402_payments")
+}
+
+/// Time-boxed access to a protected route, bought by a verified payment.
+model X402AccessGrant {
+  id          String   @id @default(cuid())
+  workspaceId String?  @map("workspace_id")
+  paymentId   String   @map("payment_id")
+  route       String
+  /// SHA-256 of the bearer token handed back to the caller. The token itself
+  /// is never stored: a leaked grants table must not be a set of working
+  /// credentials.
+  tokenHash   String   @unique @map("token_hash")
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz(6)
+  usedCount   Int      @default(0) @map("used_count")
+  maxUses     Int      @default(0) @map("max_uses")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  payment   X402Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("x402_access_grants")
 }
