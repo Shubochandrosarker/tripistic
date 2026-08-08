@@ -75,6 +75,39 @@ Strategy source documents (business plan, product system, roadmap, etc.) live at
 - Secrets come from environment only — see [`.env.example`](.env.example). The app boots with all optional integrations (Stripe, SMTP, AI, storage) unset.
 - **Rate limiting is intentionally not implemented in-app** (an unreliable in-memory limiter would not survive multiple server instances and would misrepresent production safety). For production, put the public booking surface (`POST /api/public/[workspaceSlug]/bookings` especially) behind a WAF/CDN rate limit — e.g. a Cloudflare rate-limiting rule of roughly 20–30 requests/minute per IP on `POST /api/public/*`, tighter on the booking-creation path specifically, with a stricter burst rule on repeated 4xx/409 responses. Full abuse-control infrastructure is scoped to Phase 11.
 
+
+## V3 — Cloudflare platform expansion
+
+Version 3 adds an edge platform layer on top of the v2 application. Tripistic
+Core stays on Hostinger and PostgreSQL remains the only system of record;
+Cloudflare stores derived state only.
+
+| Capability | State | Docs |
+|---|---|---|
+| Cloudflare integration layer, per-capability detection | shipped | [CLOUDFLARE.md](docs/v3/CLOUDFLARE.md) |
+| Signed Worker↔Core auth with replay protection | shipped | [CLOUDFLARE.md](docs/v3/CLOUDFLARE.md) |
+| Site Builder content model, templates, renderer, publish | backend shipped, editor not built | [SITE_BUILDER.md](docs/v3/SITE_BUILDER.md) |
+| Workers for Platforms deployment and rollback | user Workers shipped; dispatch Worker external | [WORKERS_FOR_PLATFORMS.md](docs/v3/WORKERS_FOR_PLATFORMS.md) |
+| Custom domain → site binding | shipped | [CUSTOM_DOMAINS.md](docs/v3/CUSTOM_DOMAINS.md) |
+| AI tasks, metering, permission-aware tools, safety | shipped | [AI_ARCHITECTURE.md](docs/v3/AI_ARCHITECTURE.md) |
+| RAG with enforced tenant isolation | shipped | [RAG.md](docs/v3/RAG.md) |
+| AI chat surfaces (public advisor, copilot) | not built | [FINAL_QA_REPORT.md](docs/v3/FINAL_QA_REPORT.md) |
+| x402 machine payments | not implemented | [X402.md](docs/v3/X402.md) |
+
+**Every Cloudflare capability is optional.** With no Cloudflare account the
+application boots unchanged, every pre-V3 route works, and the admin health view
+reports each service as Not Configured rather than as a failure.
+
+Start with the [Phase 0 audit](docs/v3/CURRENT_STATE_AUDIT.md) for what the
+codebase actually contained, and the
+[final QA report](docs/v3/FINAL_QA_REPORT.md) for what shipped, what did not,
+and why the release is marked NOT READY FOR PRODUCTION.
+
+Environment variables: [ENVIRONMENT.md](docs/v3/ENVIRONMENT.md).
+Deployment: [STAGING_DEPLOYMENT.md](docs/v3/STAGING_DEPLOYMENT.md) →
+[PRODUCTION_DEPLOYMENT.md](docs/v3/PRODUCTION_DEPLOYMENT.md) →
+[ROLLBACK.md](docs/v3/ROLLBACK.md).
+
 ## Documentation
 
 | Doc | Contents |

@@ -5,6 +5,7 @@ import { recordAuditEvent } from "@/lib/audit/audit-log";
 import { canManageWorkspace } from "@/lib/auth/permissions";
 import { requireUserApi } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { assertFeature } from "@/lib/plans/entitlements";
 import { getSite } from "@/lib/sites/service";
 import { requireWorkspaceAccess } from "@/lib/tenancy/workspace";
 
@@ -27,7 +28,11 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const user = await requireUserApi();
     const { id, siteId } = await params;
-    const membership = await requireWorkspaceAccess(user.id, id, { feature: "custom_domain" });
+    // Both entitlements are required, and both are checked: the builder gates
+    // the site, custom domains gate the hostname. A plan with one and not the
+    // other must not be able to bind.
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "storefront_builder" });
+    await assertFeature(id, "custom_domain");
     if (!canManageWorkspace(membership.role)) {
       throw forbidden("Only workspace owners and admins can bind a domain.");
     }
@@ -66,7 +71,8 @@ export async function DELETE(request: Request, { params }: Params) {
   try {
     const user = await requireUserApi();
     const { id, siteId } = await params;
-    const membership = await requireWorkspaceAccess(user.id, id, { feature: "custom_domain" });
+    const membership = await requireWorkspaceAccess(user.id, id, { feature: "storefront_builder" });
+    await assertFeature(id, "custom_domain");
     if (!canManageWorkspace(membership.role)) {
       throw forbidden("Only workspace owners and admins can unbind a domain.");
     }

@@ -175,6 +175,9 @@ const FEATURE_LABELS: Partial<Record<PlanFeatureKey, string>> = {
   digital_waivers: "Digital waivers",
   csv_export: "CSV export",
   sso_saml: "SSO / SAML",
+  site_ai_generation: "AI website generation",
+  ai_copilot: "The Tripistic AI Copilot",
+  ai_private_knowledge: "Private workspace knowledge for AI",
 };
 
 export function featureLabel(featureKey: PlanFeatureKey): string {

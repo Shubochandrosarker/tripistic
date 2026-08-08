@@ -43,6 +43,11 @@ const GATED_AREAS: Record<string, PlanFeatureKey> = {
   storefront: "white_label",
   "business-brain": "advanced_ai",
   "waiver-template": "digital_waivers",
+  // V3. `sites` is gated on the builder itself; the one route under it that
+  // also touches domains asserts `custom_domain` separately in its body, so
+  // both entitlements are enforced without weakening this sweep.
+  sites: "storefront_builder",
+  knowledge: "ai_private_knowledge",
 };
 
 function findRouteFiles(dir: string): string[] {

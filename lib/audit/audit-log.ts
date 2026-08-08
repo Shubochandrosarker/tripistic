@@ -134,7 +134,9 @@ export type AuditAction =
   | "site_rolled_back"
   | "site_deleted"
   | "site_domain_bound"
-  | "site_domain_unbound";
+  | "site_domain_unbound"
+  | "knowledge_source_indexed"
+  | "knowledge_source_deleted";
 
 export interface AuditEventInput {
   action: AuditAction;

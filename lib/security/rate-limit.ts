@@ -53,6 +53,19 @@ export const RATE_LIMITS = {
   verificationResend: { bucket: "auth:verify:resend", limit: 5, windowMs: 60 * 60_000 },
   contactForm: { bucket: "marketing:contact", limit: 5, windowMs: 60 * 60_000 },
   newsletter: { bucket: "marketing:newsletter", limit: 5, windowMs: 60 * 60_000 },
+  /**
+   * V3 surfaces. Keyed on the *workspace* rather than the caller, because what
+   * is being protected is spend, not an authentication surface: every AI call
+   * and every knowledge upload costs money attributable to the workspace,
+   * whichever member or office IP happens to make it. The public advisor is
+   * the exception and stays IP-keyed, since it has no workspace.
+   */
+  aiWorkspaceChat: { bucket: "ai:chat:workspace", limit: 120, windowMs: 60 * 60_000 },
+  aiPublicChat: { bucket: "ai:chat:public", limit: 30, windowMs: 60 * 60_000 },
+  knowledgeUpload: { bucket: "ai:knowledge:upload", limit: 60, windowMs: 60 * 60_000 },
+  sitePublish: { bucket: "sites:publish", limit: 20, windowMs: 60 * 60_000 },
+  siteGeneration: { bucket: "sites:ai-generate", limit: 10, windowMs: 60 * 60_000 },
+  domainVerification: { bucket: "domains:verify", limit: 30, windowMs: 60 * 60_000 },
 } as const satisfies Record<string, RateLimitRule>;
 
 /**
