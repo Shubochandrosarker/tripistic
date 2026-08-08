@@ -4,6 +4,7 @@ import { sendDueReminders } from "@/lib/messaging/reminders";
 import { retryDueMessages } from "@/lib/messaging/service";
 import { pruneExpiredAuthTokens } from "@/lib/auth/tokens";
 import { sweepExpiredPendingBookings } from "@/lib/payments/expiration";
+import { reindexStaleSources } from "@/lib/ai/rag/indexer";
 import { purgeExpiredNonces } from "@/lib/cloudflare/replay";
 import { pruneRateLimitCounters } from "@/lib/security/rate-limit";
 import type { JobDefinition } from "@/lib/jobs/runner";
@@ -134,6 +135,23 @@ const cleanupExpiredTokens: JobDefinition = {
   },
 };
 
+/**
+ * Re-embeds knowledge whose source content changed.
+ *
+ * Editing a tour marks its knowledge source stale rather than re-embedding
+ * inline: the operator's save should not wait on a model call, and a provider
+ * outage should delay indexing rather than block the edit. This is what
+ * eventually makes the index agree with the database again.
+ */
+const reindexKnowledge: JobDefinition = {
+  name: "ai.reindex-knowledge",
+  description: "Re-embed knowledge sources whose content changed or whose last index failed",
+  run: async () => {
+    const { processed, failed } = await reindexStaleSources();
+    return { processed, failed };
+  },
+};
+
 export const JOBS: JobDefinition[] = [
   expirePendingPayments,
   sendReminders,
@@ -141,6 +159,7 @@ export const JOBS: JobDefinition[] = [
   pollDomains,
   expireGracePeriods,
   cleanupExpiredTokens,
+  reindexKnowledge,
 ];
 
 export function findJob(name: string): JobDefinition | undefined {
