@@ -104,3 +104,25 @@ test("the homepage headline is in the server HTML, not only after hydration", as
   const html = await response.text();
   expect(html).toContain("The modern operating system for tour operators.");
 });
+
+/**
+ * A malformed session cookie must never 500.
+ *
+ * Not a regression test for an observed failure — `next-auth@5.0.0-beta.32`
+ * handles this correctly today, verified by minting a JWE under one
+ * `AUTH_SECRET` and serving under another. It is a contract test: the
+ * middleware matcher covers `/login`, so if a future version throws on a
+ * cookie it cannot decrypt, every user is locked out of the page they would
+ * use to recover. This fails loudly if that ever becomes true.
+ */
+test.describe("a bad session cookie never locks a user out", () => {
+  for (const path of ["/login", "/dashboard", "/admin"]) {
+    test(`${path} does not 500 with an undecryptable session cookie`, async ({ request }) => {
+      const response = await request.get(path, {
+        headers: { Cookie: "authjs.session-token=not-a-real-jwt" },
+        maxRedirects: 0,
+      });
+      expect(response.status(), `${path} returned ${response.status()}`).toBeLessThan(500);
+    });
+  }
+});
