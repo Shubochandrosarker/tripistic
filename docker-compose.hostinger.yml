@@ -15,8 +15,19 @@ services:
       PORT: 3000
       HOSTNAME: 0.0.0.0
       DATABASE_URL: postgresql://${POSTGRES_USER:-tripistic}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}@db:5432/${POSTGRES_DB:-tripistic}?schema=public
+    # BIND_ADDR exists because this VPS runs a managed Traefik that already
+    # holds 172.16.0.1:8080. Publishing on 0.0.0.0 collides with it, and the
+    # collision is invisible until the container fails to start. Setting
+    # BIND_ADDR=<vps-ip> in .env binds Tripistic to its own address and leaves
+    # Traefik alone.
+    #
+    # This replaces a docker-compose.override.yml that existed only on the
+    # VPS: Compose *concatenates* `ports:` across -f files rather than
+    # replacing them, so the override needed `!override` to work at all, and
+    # rebuilding the box or deploying elsewhere silently lost the fix.
+    # Defaulting to 0.0.0.0 keeps every other environment behaving as before.
     ports:
-      - "${HTTP_PORT:-8080}:3000"
+      - "${BIND_ADDR:-0.0.0.0}:${HTTP_PORT:-8080}:3000"
 
   # Single gate every deploy passes through: migrate -> seed -> backfill.
   # The app waits on this completing successfully, so it can never serve
