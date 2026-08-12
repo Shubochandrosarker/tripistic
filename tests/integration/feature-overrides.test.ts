@@ -23,11 +23,13 @@ import {
 /**
  * A workspace on the cheapest catalogue plan.
  *
- * `crm_pipeline` is the feature under test throughout, because `solo` does not
- * include it — an override on a feature the plan already grants would pass
- * every assertion here while proving nothing.
+ * `guide_scheduling` is the feature under test throughout. Two reasons: `solo`
+ * does not include it — an override on a feature the plan already grants would
+ * pass every assertion here while proving nothing — and it is one of the keys
+ * both `hasFeature` and the older `isFeatureEnabled` accept, so the two
+ * resolvers can be compared directly.
  */
-const WITHHELD_FEATURE = "crm_pipeline" as const;
+const WITHHELD_FEATURE = "guide_scheduling" as const;
 
 async function soloWorkspace() {
   const owner = await createTestUser();
@@ -99,18 +101,18 @@ describe("temporary grants", () => {
    */
   it("resolves expiry identically in both feature resolvers", async () => {
     const { workspace } = await soloWorkspace();
-    const live = await override(workspace.id, "crm_pipeline", new Date(Date.now() + 86_400_000));
+    const live = await override(workspace.id, WITHHELD_FEATURE, new Date(Date.now() + 86_400_000));
 
-    expect(await hasFeature(workspace.id, "crm_pipeline")).toBe(true);
-    expect(await isFeatureEnabled(workspace.id, "crm_pipeline")).toBe(true);
+    expect(await hasFeature(workspace.id, WITHHELD_FEATURE)).toBe(true);
+    expect(await isFeatureEnabled(workspace.id, WITHHELD_FEATURE)).toBe(true);
 
     await prisma.featureFlag.update({
       where: { id: live.id },
       data: { expiresAt: new Date(Date.now() - 1_000) },
     });
 
-    expect(await hasFeature(workspace.id, "crm_pipeline")).toBe(false);
-    expect(await isFeatureEnabled(workspace.id, "crm_pipeline")).toBe(false);
+    expect(await hasFeature(workspace.id, WITHHELD_FEATURE)).toBe(false);
+    expect(await isFeatureEnabled(workspace.id, WITHHELD_FEATURE)).toBe(false);
   });
 });
 

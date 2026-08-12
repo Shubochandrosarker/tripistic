@@ -13,3 +13,14 @@ export const E2E_CUSTOM_DOMAIN = "e2e-custom.tripistic.test";
 
 /** Deliberately unlike "Tripistic", so a branded page is unambiguous in an assertion. */
 export const E2E_BRAND_NAME = "Kestrel Expeditions";
+
+/** Site Builder fixture. The subdomain is globally unique, so it is namespaced. */
+export const E2E_SITE_NAME = "Kestrel Expeditions Website";
+export const E2E_SITE_SUBDOMAIN = "e2e-kestrel";
+/**
+ * Copy that appears nowhere else in the application.
+ *
+ * The editor and preview assertions match on this string, so a passing test
+ * cannot be one that found the same words in the dashboard chrome.
+ */
+export const E2E_SITE_HERO_HEADLINE = "Ridgeline crossings with Kestrel";

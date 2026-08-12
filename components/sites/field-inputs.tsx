@@ -28,9 +28,57 @@ const labelClass = "block text-xs font-medium text-muted-foreground";
 const inputClass =
   "mt-1 w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-accent";
 
-function Help({ text }: { text?: string }) {
+function Help({ text, id }: { text?: string; id?: string }) {
   if (!text) return null;
-  return <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{text}</p>;
+  return (
+    <p id={id} className="mt-1 text-[11px] leading-4 text-muted-foreground">
+      {text}
+    </p>
+  );
+}
+
+/**
+ * A labelled field whose help text is *described by*, not *named by*, the input.
+ *
+ * Putting the hint inside the `<label>` folds it into the accessible name, so a
+ * screen reader announces "Image overlay Darkens the image behind the text.
+ * Raise it if the headline is hard to read, spin button" every time focus lands
+ * — and the same concatenation makes `getByLabel("Headline")` ambiguous with
+ * "Subheadline". `aria-describedby` keeps the name short and the hint reachable.
+ */
+function Field({
+  label,
+  help,
+  fieldId,
+  children,
+}: {
+  label: string;
+  help?: string;
+  fieldId: string;
+  children: (props: { id: string; "aria-describedby"?: string }) => React.ReactNode;
+}) {
+  const helpId = help ? `${fieldId}-help` : undefined;
+  return (
+    <div>
+      <label className={labelClass} htmlFor={fieldId}>
+        {label}
+      </label>
+      {children({ id: fieldId, "aria-describedby": helpId })}
+      <Help text={help} id={helpId} />
+    </div>
+  );
+}
+
+/**
+ * A DOM id for one input.
+ *
+ * Prefixed by the caller, because repeaters render the same descriptor once per
+ * item: without a per-item prefix every "Heading" input in a five-column footer
+ * would share an id, and a `<label for>` would point at whichever the browser
+ * saw first — so clicking the third column's label would focus the first.
+ */
+function fieldIdFor(prefix: string, key: string, label: string): string {
+  return `sf-${prefix}${key}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 }
 
 function asRecord(value: FieldValue): Record<string, unknown> {
@@ -205,11 +253,13 @@ function RepeaterInput({
   value,
   onChange,
   tours,
+  idPrefix,
 }: {
   field: Extract<FieldDescriptor, { kind: "repeater" }>;
   value: FieldValue;
   onChange: Setter;
   tours: TourOption[];
+  idPrefix: string;
 }) {
   const items = asArray(value).map(asRecord);
 
@@ -276,6 +326,7 @@ function RepeaterInput({
                   value={item[child.key]}
                   onChange={(next) => patchItem(index, child.key, next)}
                   tours={tours}
+                  idPrefix={`${idPrefix}${field.key}-${index}-`}
                 />
               ))}
             </div>
@@ -304,31 +355,34 @@ function TourSelect({
   label,
   help,
   tours,
+  idPrefix,
 }: {
   value: FieldValue;
   onChange: Setter;
   label: string;
   help?: string;
   tours: TourOption[];
+  idPrefix: string;
 }) {
   return (
-    <label className={labelClass}>
-      {label}
-      <select
-        className={inputClass}
-        value={String(value ?? "")}
-        onChange={(event) => onChange(event.target.value || undefined)}
-      >
-        <option value="">Not set</option>
-        {tours.map((tour) => (
-          <option key={tour.id} value={tour.id}>
-            {tour.title}
-            {tour.status !== "active" ? ` (${tour.status})` : ""}
-          </option>
-        ))}
-      </select>
-      <Help text={help} />
-    </label>
+    <Field label={label} help={help} fieldId={fieldIdFor(idPrefix, "tour", label)}>
+      {(inputProps) => (
+        <select
+          {...inputProps}
+          className={inputClass}
+          value={String(value ?? "")}
+          onChange={(event) => onChange(event.target.value || undefined)}
+        >
+          <option value="">Not set</option>
+          {tours.map((tour) => (
+            <option key={tour.id} value={tour.id}>
+              {tour.title}
+              {tour.status !== "active" ? ` (${tour.status})` : ""}
+            </option>
+          ))}
+        </select>
+      )}
+    </Field>
   );
 }
 
@@ -384,105 +438,117 @@ export function FieldInput({
   value,
   onChange,
   tours,
+  idPrefix = "",
 }: {
   field: FieldDescriptor;
   value: FieldValue;
   onChange: Setter;
   tours: TourOption[];
+  /** Namespaces DOM ids so repeated descriptors do not collide. */
+  idPrefix?: string;
 }) {
   switch (field.kind) {
     case "text":
     case "url":
     case "link":
       return (
-        <label className={labelClass}>
-          {field.label}
-          <input
-            className={inputClass}
-            value={String(value ?? "")}
-            maxLength={field.kind === "text" ? field.maxLength : 2000}
-            placeholder={field.kind === "text" ? field.placeholder : undefined}
-            onChange={(event) => onChange(event.target.value)}
-          />
-          <Help text={field.help} />
-        </label>
+        <Field label={field.label} help={field.help} fieldId={fieldIdFor(idPrefix, field.key, field.label)}>
+          {(inputProps) => (
+            <input
+              {...inputProps}
+              className={inputClass}
+              value={String(value ?? "")}
+              maxLength={field.kind === "text" ? field.maxLength : 2000}
+              placeholder={field.kind === "text" ? field.placeholder : undefined}
+              onChange={(event) => onChange(event.target.value)}
+            />
+          )}
+        </Field>
       );
 
     case "textarea":
       return (
-        <label className={labelClass}>
-          {field.label}
-          <textarea
-            className={cn(inputClass, "resize-y")}
-            rows={field.rows ?? 3}
-            maxLength={field.maxLength}
-            value={String(value ?? "")}
-            onChange={(event) => onChange(event.target.value)}
-          />
-          <Help text={field.help} />
-        </label>
+        <Field label={field.label} help={field.help} fieldId={fieldIdFor(idPrefix, field.key, field.label)}>
+          {(inputProps) => (
+            <textarea
+              {...inputProps}
+              className={cn(inputClass, "resize-y")}
+              rows={field.rows ?? 3}
+              maxLength={field.maxLength}
+              value={String(value ?? "")}
+              onChange={(event) => onChange(event.target.value)}
+            />
+          )}
+        </Field>
       );
 
     case "number":
       return (
-        <label className={labelClass}>
-          {field.label}
-          <input
-            type="number"
-            className={inputClass}
-            min={field.min}
-            max={field.max}
-            step={field.step ?? 1}
-            value={value === undefined || value === null ? "" : String(value)}
-            onChange={(event) => {
-              // An empty box means "unset", not zero. Coercing it to 0 would
-              // silently move a map to the equator.
-              const raw = event.target.value;
-              onChange(raw === "" ? undefined : Number(raw));
-            }}
-          />
-          <Help text={field.help} />
-        </label>
+        <Field label={field.label} help={field.help} fieldId={fieldIdFor(idPrefix, field.key, field.label)}>
+          {(inputProps) => (
+            <input
+              {...inputProps}
+              type="number"
+              className={inputClass}
+              min={field.min}
+              max={field.max}
+              step={field.step ?? 1}
+              value={value === undefined || value === null ? "" : String(value)}
+              onChange={(event) => {
+                // An empty box means "unset", not zero. Coercing it to 0 would
+                // silently move a map to the equator.
+                const raw = event.target.value;
+                onChange(raw === "" ? undefined : Number(raw));
+              }}
+            />
+          )}
+        </Field>
       );
 
-    case "boolean":
+    case "boolean": {
+      const id = fieldIdFor(idPrefix, field.key, field.label);
+      const helpId = field.help ? `${id}-help` : undefined;
       return (
-        <label className="flex items-start gap-2 text-sm text-foreground">
+        <div className="flex items-start gap-2 text-sm text-foreground">
           <input
+            id={id}
             type="checkbox"
             className="mt-0.5"
+            aria-describedby={helpId}
             checked={Boolean(value)}
             onChange={(event) => onChange(event.target.checked)}
           />
           <span>
-            {field.label}
-            <Help text={field.help} />
+            <label htmlFor={id}>{field.label}</label>
+            <Help text={field.help} id={helpId} />
           </span>
-        </label>
+        </div>
       );
+    }
 
     case "select":
       return (
-        <label className={labelClass}>
-          {field.label}
-          <select
-            className={inputClass}
-            value={String(value ?? field.options[0]?.value ?? "")}
-            onChange={(event) => {
-              // `columns` is a numeric union in the schema but a string in the
-              // DOM. Coercing digits back keeps the saved value parseable.
-              const raw = event.target.value;
-              onChange(/^\d+$/.test(raw) ? Number(raw) : raw);
-            }}
-          >
-            {field.options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <Help text={field.help} />
-        </label>
+        <Field label={field.label} help={field.help} fieldId={fieldIdFor(idPrefix, field.key, field.label)}>
+          {(inputProps) => (
+            <select
+              {...inputProps}
+              className={inputClass}
+              value={String(value ?? field.options[0]?.value ?? "")}
+              onChange={(event) => {
+                // `columns` is a numeric union in the schema but a string in
+                // the DOM. Coercing digits back keeps the saved value parseable.
+                const raw = event.target.value;
+                onChange(/^\d+$/.test(raw) ? Number(raw) : raw);
+              }}
+            >
+              {field.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
       );
 
     case "image":
@@ -503,7 +569,14 @@ export function FieldInput({
 
     case "tourId":
       return (
-        <TourSelect value={value} onChange={onChange} label={field.label} help={field.help} tours={tours} />
+        <TourSelect
+          value={value}
+          onChange={onChange}
+          label={field.label}
+          help={field.help}
+          tours={tours}
+          idPrefix={idPrefix}
+        />
       );
 
     case "tourIds":
@@ -521,7 +594,15 @@ export function FieldInput({
       return <BreakpointsInput value={value} onChange={onChange} label={field.label} help={field.help} />;
 
     case "repeater":
-      return <RepeaterInput field={field} value={value} onChange={onChange} tours={tours} />;
+      return (
+        <RepeaterInput
+          field={field}
+          value={value}
+          onChange={onChange}
+          tours={tours}
+          idPrefix={idPrefix}
+        />
+      );
   }
 }
 

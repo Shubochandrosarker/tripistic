@@ -13,6 +13,9 @@ import {
   E2E_CUSTOM_DOMAIN,
   E2E_OWNER_EMAIL,
   E2E_OWNER_PASSWORD,
+  E2E_SITE_HERO_HEADLINE,
+  E2E_SITE_NAME,
+  E2E_SITE_SUBDOMAIN,
   E2E_TOUR_SLUG,
   E2E_WAIVER_TOUR_SLUG,
   E2E_WORKSPACE_SLUG,
@@ -340,7 +343,64 @@ async function main() {
     });
   }
 
-  console.log(`✓ e2e fixture ready — workspace "${E2E_WORKSPACE_SLUG}", tour "${E2E_TOUR_SLUG}", waiver tour "${E2E_WAIVER_TOUR_SLUG}"`);
+  // A Site Builder site with a homepage, so the editor spec has something to
+  // open. Deliberately left in `draft` with no deployment: publishing needs a
+  // Cloudflare dispatch namespace, which CI does not have, and a fixture that
+  // pretended otherwise would make the editor test depend on infrastructure it
+  // is not testing.
+  const site = await prisma.site.upsert({
+    where: { subdomain: E2E_SITE_SUBDOMAIN },
+    create: {
+      workspaceId: workspace.id,
+      name: E2E_SITE_NAME,
+      slug: "kestrel-website",
+      subdomain: E2E_SITE_SUBDOMAIN,
+      templateKey: "adventure_operator",
+      status: "draft",
+      theme: {
+        primaryColor: "#0f766e",
+        secondaryColor: "#0f172a",
+        accentColor: "#f59e0b",
+        backgroundColor: "#ffffff",
+        textColor: "#111827",
+      },
+      seo: { defaultTitle: E2E_SITE_NAME, organizationName: E2E_BRAND_NAME },
+      navigation: { primary: [{ label: "Tours", href: "/tours" }], footer: [] },
+      createdById: owner.id,
+    },
+    update: { workspaceId: workspace.id, name: E2E_SITE_NAME },
+  });
+
+  const homePage = await prisma.sitePage.upsert({
+    where: { siteId_path: { siteId: site.id, path: "/" } },
+    create: {
+      workspaceId: workspace.id,
+      siteId: site.id,
+      path: "/",
+      title: "Home",
+      position: 0,
+      systemKey: "home",
+      content: {
+        version: 1,
+        sections: [
+          {
+            id: "hero-e2e",
+            type: "hero",
+            hidden: false,
+            layout: {},
+            props: { title: E2E_SITE_HERO_HEADLINE, subtitle: "Small groups, high places." },
+          },
+        ],
+      },
+      seo: {},
+    },
+    update: {},
+  });
+  await prisma.site.update({ where: { id: site.id }, data: { homePageId: homePage.id } });
+
+  console.log(
+    `✓ e2e fixture ready — workspace "${E2E_WORKSPACE_SLUG}", tour "${E2E_TOUR_SLUG}", waiver tour "${E2E_WAIVER_TOUR_SLUG}", site "${E2E_SITE_SUBDOMAIN}"`,
+  );
 }
 
 main()
