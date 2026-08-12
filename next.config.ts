@@ -29,6 +29,42 @@ const BASELINE_SECURITY_HEADERS = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
 ];
 
+/**
+ * Content-Security-Policy, in report-only mode.
+ *
+ * Report-only deliberately, and it must stay that way for at least a week of
+ * real traffic. Enforcing a first-draft CSP on a page that loads Stripe breaks
+ * checkout *silently* — the browser blocks the frame and the customer sees a
+ * dead button, with nothing in the server logs. Report-only produces the same
+ * violation reports with none of that risk.
+ *
+ * `'unsafe-inline'` in `script-src` is a known compromise, not an oversight.
+ * The theme bootstrap in `components/theme/theme-script.tsx` is an inline
+ * script that must run before first paint to avoid a flash of the wrong
+ * theme; removing the allowance requires nonce plumbing through that script,
+ * which is a separate change. Until then the policy is still worth having:
+ * `frame-ancestors`, `base-uri`, `form-action` and `object-src` all close real
+ * attack surface that inline script does not affect.
+ *
+ * To promote: collect violations for a week, tighten the lists to what is
+ * actually used, then rename the key to `Content-Security-Policy`.
+ */
+const CONTENT_SECURITY_POLICY_REPORT_ONLY = [
+  "default-src 'self'",
+  // Stripe.js for checkout; Cloudflare Insights for Web Analytics.
+  "script-src 'self' 'unsafe-inline' https://js.stripe.com https://static.cloudflareinsights.com",
+  "style-src 'self' 'unsafe-inline'",
+  // `https:` for operator-supplied logos and tour photography on storefronts.
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://api.stripe.com https://cloudflareinsights.com",
+  "frame-src https://js.stripe.com https://hooks.stripe.com",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join("; ");
+
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
@@ -39,6 +75,10 @@ const nextConfig: NextConfig = {
         source: "/((?!embed).*)",
         headers: [
           ...BASELINE_SECURITY_HEADERS,
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value: CONTENT_SECURITY_POLICY_REPORT_ONLY,
+          },
           // Clickjacking protection for the app itself, scoped away from
           // /embed on purpose: that route exists to be iframed on an
           // operator's own website, and a blanket DENY would silently break
@@ -50,7 +90,11 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/embed/:path*",
-        // Baseline headers, and deliberately no framing restriction.
+        // Baseline headers, and deliberately no framing restriction — and so
+        // deliberately no CSP either: the policy above carries
+        // `frame-ancestors 'none'`, which would report every legitimate
+        // embed of the booking widget on an operator's own website as a
+        // violation and would break them outright once it is enforced.
         headers: BASELINE_SECURITY_HEADERS,
       },
     ];

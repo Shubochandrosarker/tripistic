@@ -17,22 +17,34 @@
 | Prompt injection | delimiting, scanning, output validation — as signals behind real controls | implemented |
 | PII to model providers | tool selects exclude guest name/email/phone; gateway metadata is ids only | enforced |
 | Audit | every site and knowledge mutation records an `AuditAction` | enforced |
-| Application CSP | **not implemented** — see below | gap |
+| Application CSP | report-only, Stripe-aware, `/embed` excluded | shipped, not yet enforced |
 
 ## Application CSP
 
-The Next.js application still serves no `Content-Security-Policy`. It was named
-in the V3 brief and is genuinely absent.
+Now served, as **`Content-Security-Policy-Report-Only`** — and it must stay
+report-only until a week of real violation data says otherwise. Enforcing a
+first-draft policy on a page that loads Stripe breaks checkout *silently*: the
+browser blocks the frame, the customer sees a dead button, and nothing appears
+in the server logs. `tests/unit/security-headers.test.ts` fails if anyone
+promotes it in a tidy-up.
 
-It was not added in this release because doing it correctly requires nonce
-plumbing through the theme bootstrap script (`components/theme/theme-script.tsx`
-uses `dangerouslySetInnerHTML`), and a CSP added without it either breaks the
-theme on first paint or is weakened to `'unsafe-inline'`, at which point it
-protects very little while looking like it does. That is worse than its absence,
-because it stops anyone from asking again.
+`'unsafe-inline'` remains in `script-src`, and that is the honest limitation.
+The theme bootstrap (`components/theme/theme-script.tsx`) is an inline script
+that must run before first paint to avoid a flash of the wrong theme; removing
+the allowance needs nonce plumbing through it. The policy is still worth having
+without that: `frame-ancestors 'none'`, `base-uri`, `form-action` and
+`object-src 'none'` all close surface that inline script does not touch.
 
-The generated tenant Workers **do** carry a strict CSP, because they emit no
-scripts at all and so the strictest policy is also the correct one.
+`/embed/**` is deliberately excluded. It exists to be iframed on an operator's
+own website, so `frame-ancestors 'none'` would report every legitimate embed as
+a violation and break them outright once enforced.
+
+To promote: collect violations for a week, tighten the source lists to what is
+actually used, then rename the header key.
+
+The generated tenant Workers carry a strict *enforced* CSP with
+`script-src 'none'`, because they emit no scripts at all — there, the strictest
+policy is also the correct one.
 
 HSTS remains deliberately unset from the application, for the reason already
 documented in `next.config.ts`: the app answers on operator custom domains whose
@@ -55,7 +67,8 @@ has no workspace.
 
 ## Known gaps
 
-1. Application CSP (above).
+1. Application CSP is report-only and still allows `'unsafe-inline'` scripts
+   (above).
 2. Site-publish and domain-verification rate limits defined but not wired.
 3. Cloudflare-side WAF rules are account configuration, not repository code —
    see `PRODUCTION_DEPLOYMENT.md`.

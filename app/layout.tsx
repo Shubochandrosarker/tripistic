@@ -52,6 +52,17 @@ export default function RootLayout({
     >
       <head>
         <ThemeScript />
+        {/*
+          Last line of defence for reveal animations. Every AnimatedReveal
+          renders at `opacity: 0` and is brought in by Framer Motion, so a
+          visitor with JavaScript disabled — or one whose hydration fails —
+          would otherwise see a page of invisible content. The `immediate`
+          prop fixes the ordinary case; this covers the case where no script
+          runs at all.
+        */}
+        <noscript>
+          <style>{`[data-reveal]{opacity:1 !important;transform:none !important}`}</style>
+        </noscript>
         {/* Site-wide structured data; page-level schema is added per route. */}
         <JsonLd schema={[organizationSchema(), websiteSchema(), softwareApplicationSchema()]} />
       </head>

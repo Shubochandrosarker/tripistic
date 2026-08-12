@@ -79,7 +79,10 @@ export function HeroSection() {
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(5,8,10,.94),rgba(5,8,10,.75)_42%,rgba(5,8,10,.16)_100%)]" />
       <div className="absolute inset-x-0 bottom-0 -z-10 h-28 bg-gradient-to-t from-background to-transparent" />
       <div className="mx-auto flex min-h-[760px] max-w-7xl items-center px-4 py-24 sm:px-6">
-        <AnimatedReveal className="max-w-3xl">
+        {/* `immediate`: this is the first screen. Waiting on an intersection
+            callback here left the headline and both CTAs invisible until the
+            visitor scrolled — and a crawler never does. */}
+        <AnimatedReveal immediate className="max-w-3xl">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur">
             <Sparkles className="size-3.5 text-emerald-300" aria-hidden />
             Tripistic v2.0.0 · Tour Operations Platform
@@ -179,14 +182,25 @@ export function ProductPreview() {
   );
 }
 
-export function FeatureGrid({ limit }: { limit?: number }) {
+/**
+ * `aboveFold` marks how many leading cards animate on mount rather than on
+ * intersection. On `/features` the grid is the first real content, so its top
+ * row would otherwise be invisible to a visitor who never scrolls. Three is
+ * the widest row (`lg:grid-cols-3`); at narrower breakpoints those same three
+ * are simply the first stacked cards, which is harmless.
+ */
+export function FeatureGrid({ limit, aboveFold = 0 }: { limit?: number; aboveFold?: number }) {
   const items = typeof limit === "number" ? featureList.slice(0, limit) : featureList;
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((feature, index) => {
         const Icon = featureIcons[feature.slug] ?? Sparkles;
         return (
-          <AnimatedReveal key={feature.slug} delay={Math.min(index * 0.03, 0.18)}>
+          <AnimatedReveal
+            key={feature.slug}
+            immediate={index < aboveFold}
+            delay={Math.min(index * 0.03, 0.18)}
+          >
             <Link
               href={`/features/${feature.slug}`}
               className="group block h-full rounded-lg border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"

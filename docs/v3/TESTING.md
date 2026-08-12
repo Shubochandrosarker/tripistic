@@ -10,7 +10,8 @@ npm run typecheck           → pass
 npx prisma validate         → pass
 npm run test:unit           → 435 passed (27 files)
 npm run test:integration    → 396 passed (40 files)
-npm run build               → see FINAL_QA_REPORT
+npm run build               → pass
+npm run test:e2e            → 20 passed (7 files)
 ```
 
 Baseline before any V3 change: 279 unit, 330 integration. V3 added 156 unit and
@@ -67,10 +68,23 @@ ids, PII absent from results, proposals that mutate nothing.
 
 ## Not covered
 
-- Playwright specs for the Site Builder and AI flows. The five existing specs
-  are unchanged and untested in this environment (no browser run was performed).
+- Playwright specs for the Site Builder and AI flows.
 - Any test against real Cloudflare infrastructure.
 - Load and performance testing of generated sites.
+
+## `tests/e2e/above-the-fold.spec.ts`
+
+Added during the V3 remediation pass. Asserts that the first screen of `/`,
+`/pricing` and `/features` is visible without scrolling, **with and without
+JavaScript**, and that a malformed session cookie never 500s `/login`,
+`/dashboard` or `/admin`.
+
+The subtle part is why it measures *effective* opacity up the ancestor chain:
+`getComputedStyle(el).opacity` on an `<h1>` inside an `opacity: 0` wrapper
+returns `"1"`, so a check written the obvious way passes on a completely
+invisible page — verified, that is exactly what happened to the first draft of
+this spec. It was then confirmed to fail on the unfixed build before being
+accepted.
 
 ## Observed flake
 

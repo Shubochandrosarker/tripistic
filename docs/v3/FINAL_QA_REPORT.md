@@ -1,6 +1,6 @@
 # Tripistic V3 — Final QA Report
 
-Date: 2026-08-08
+Date: 2026-08-08 (V3) · updated 2026-08-09 (remediation pass)
 Branch: `claude/tripistic-production-upgrade-62u450`
 Baseline: `main` @ `471f007` (v2.0.0)
 Change: 52 files, +11,189 / −7
@@ -40,7 +40,7 @@ The blockers are listed at the end. None of them are "something is broken".
 | Phase 12 — x402 | **FAIL** | data model only; documented as unimplemented, flag removed from the catalogue |
 | Phase 13 — usage metering / entitlements | **PASS** | credits enforced, new feature and limit keys, coverage guard extended |
 | Phase 14 — SEO / performance / accessibility | **PARTIAL** | generated sites emit metadata, canonical, sitemap, robots, narrow structured data, skip link, WCAG-AA-gated theme; no Lighthouse or axe run performed |
-| Phase 15 — security hardening | **PARTIAL** | see `SECURITY.md`; application CSP is the named gap |
+| Phase 15 — security hardening | **PARTIAL** | see `SECURITY.md`; CSP now served report-only, still allows inline script |
 | Phase 16 — test suite | **PASS** | +222 tests, all green |
 | Phase 17 — staging validation | **NOT CONFIGURED** | no Cloudflare account available in this environment |
 | Phase 18 — documentation | **PASS** | 15 files under `docs/v3/` |
@@ -60,15 +60,17 @@ npm run test:unit          → 435 passed (27 files)
 npm run test:integration   → 396 passed (40 files)
 npm run build              → pass
 npx prisma migrate deploy  → pass (applied to the test database)
+npm run test:e2e           → 20 passed (7 files)   [added 2026-08-09]
 ```
 
 Baseline was 279 unit / 330 integration. No pre-existing test was modified
 except the entitlement-coverage gate map, which was **extended** — it now also
 sweeps the new `sites/` and `knowledge/` route areas.
 
-`npm run test:e2e` was **not run**: it needs a live application and a browser
-run that this environment did not perform. The five existing Playwright specs
-are unchanged.
+`npm run test:e2e` **was** run in the 2026-08-09 remediation pass: 20 passed,
+including 13 new assertions in `tests/e2e/above-the-fold.spec.ts`. The original
+statement in this report — that it had not been run — was correct when written
+and is superseded.
 
 ---
 
@@ -147,16 +149,18 @@ Each of these is a test, not a claim:
 - **Fix** — pages over `checkCloudflareHealth()`, `workspaceUsageSummary()` and
   `SiteDeployment`.
 
-### Application CSP — PARTIAL
-- **Problem** — the Next.js app still serves no `Content-Security-Policy`.
-- **Severity** — medium.
-- **Reason** — doing it correctly needs nonce plumbing through the theme
-  bootstrap script. A CSP added without it either breaks the theme on first
-  paint or is weakened to `'unsafe-inline'`, which protects little while
-  looking like it does — and stops anyone asking again.
-- **Fix** — nonce the theme script, then add the header.
-- **Production impact** — unchanged from v2.0.0. Generated tenant Workers do
-  carry a strict CSP.
+### Application CSP — PARTIAL (improved 2026-08-09)
+- **Was** — no `Content-Security-Policy` at all.
+- **Now** — `Content-Security-Policy-Report-Only` on every application route,
+  with Stripe's script/API/frame origins allowed and `frame-ancestors 'none'`,
+  `base-uri`, `form-action`, `object-src 'none'` set. `/embed/**` excluded so
+  operator-hosted booking widgets keep working.
+- **Remaining** — report-only, and `'unsafe-inline'` is still allowed in
+  `script-src` because the theme bootstrap must run before first paint.
+  Promoting to enforced needs a week of violation data; removing inline needs
+  nonce plumbing.
+- **Guarded by** — `tests/unit/security-headers.test.ts`, which fails if
+  anyone renames the header to the enforcing form.
 
 ### Rate limits partially wired — PARTIAL
 - **Problem** — rules exist for six V3 surfaces; only `knowledgeUpload` is
@@ -207,10 +211,30 @@ surface it. Recorded rather than hidden.
    `TRIPISTIC_AI_ENABLED=false`.
 4. Complete the staging checklist against a real Cloudflare account, including
    the Vectorize cross-tenant check.
-5. Add the application CSP with a nonced theme script.
+5. Promote the CSP from report-only to enforced after a week of violation
+   data, and nonce the theme script so `'unsafe-inline'` can be dropped.
 6. Wire the remaining rate limits as their routes ship.
-7. Run `npm run test:e2e` against a deployed staging environment.
+7. Run `npm run test:e2e` against a deployed staging environment. (It now
+   passes locally against a production build; staging is still untested.)
 8. Add Super Admin views for AI usage, cost and deployments.
+
+## Remediation pass — 2026-08-09
+
+A follow-up brief listed ten open production issues. Six of the ten need SSH
+access to the VPS, which this environment does not have; four were repository
+changes and are done. Full detail and the reality-vs-brief differences are in
+`docs/v3/REMEDIATION_2026-08-09.md`.
+
+Two of the brief's stated root causes did **not** reproduce and are documented
+as such rather than silently "fixed":
+
+- The invisible hero was attributed to `whileInView` not firing for
+  already-visible elements. With scripting on, it does fire. The reproducible
+  failure is scripting *off* — measured, fixed, and now covered by a test.
+- The `/login` lockout was attributed to NextAuth throwing on an undecryptable
+  JWT. Tested by minting a JWE under one `AUTH_SECRET` and serving under
+  another: `next-auth@5.0.0-beta.32` clears the cookie and carries on. The
+  fail-soft wrapper was kept as defence in depth, and its comment says so.
 
 ## What is safe to deploy today
 
