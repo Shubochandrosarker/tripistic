@@ -53,7 +53,7 @@ export type TaskProfile = {
 export const TASK_PROFILES: Record<AiTask, TaskProfile> = {
   fast_chat: {
     task: "fast_chat",
-    preferredModels: ["openrouter/openai/gpt-4o-mini", "groq/llama-3.1-8b-instant", "workers-ai/@cf/meta/llama-3.1-8b-instruct", "openai/gpt-4o-mini"],
+    preferredModels: ["groq/llama-3.3-70b-versatile", "openrouter/openai/gpt-4o-mini", "groq/llama-3.1-8b-instant", "workers-ai/@cf/meta/llama-3.1-8b-instruct", "openai/gpt-4o-mini"],
     maxInputTokens: 8_000,
     maxOutputTokens: 1_000,
     timeoutMs: 30_000,
@@ -63,7 +63,7 @@ export const TASK_PROFILES: Record<AiTask, TaskProfile> = {
   },
   rag_answer: {
     task: "rag_answer",
-    preferredModels: ["openrouter/openai/gpt-4o-mini", "groq/llama-3.1-8b-instant", "openai/gpt-4o-mini", "workers-ai/@cf/meta/llama-3.1-8b-instruct"],
+    preferredModels: ["groq/llama-3.3-70b-versatile", "openrouter/openai/gpt-4o-mini", "openai/gpt-4o-mini", "workers-ai/@cf/meta/llama-3.1-8b-instruct"],
     maxInputTokens: 16_000,
     maxOutputTokens: 1_200,
     timeoutMs: 45_000,
@@ -76,7 +76,7 @@ export const TASK_PROFILES: Record<AiTask, TaskProfile> = {
   },
   website_generation: {
     task: "website_generation",
-    preferredModels: ["openrouter/openai/gpt-4o", "openrouter/openai/gpt-4o-mini", "groq/llama-3.3-70b-versatile", "openai/gpt-4o", "openai/gpt-4o-mini"],
+    preferredModels: ["groq/openai/gpt-oss-120b", "groq/llama-3.3-70b-versatile", "openrouter/openai/gpt-4o", "openai/gpt-4o", "openai/gpt-4o-mini"],
     maxInputTokens: 24_000,
     maxOutputTokens: 8_000,
     timeoutMs: 120_000,
@@ -86,7 +86,7 @@ export const TASK_PROFILES: Record<AiTask, TaskProfile> = {
   },
   content_generation: {
     task: "content_generation",
-    preferredModels: ["openrouter/openai/gpt-4o-mini", "groq/llama-3.1-8b-instant", "openai/gpt-4o-mini", "workers-ai/@cf/meta/llama-3.1-8b-instruct"],
+    preferredModels: ["groq/llama-3.3-70b-versatile", "openrouter/openai/gpt-4o-mini", "openai/gpt-4o-mini", "workers-ai/@cf/meta/llama-3.1-8b-instruct"],
     maxInputTokens: 12_000,
     maxOutputTokens: 2_000,
     timeoutMs: 60_000,
@@ -96,7 +96,7 @@ export const TASK_PROFILES: Record<AiTask, TaskProfile> = {
   },
   classification: {
     task: "classification",
-    preferredModels: ["openrouter/openai/gpt-4o-mini", "groq/llama-3.1-8b-instant", "workers-ai/@cf/meta/llama-3.1-8b-instruct", "openai/gpt-4o-mini"],
+    preferredModels: ["groq/llama-3.1-8b-instant", "groq/llama-3.3-70b-versatile", "openrouter/openai/gpt-4o-mini", "workers-ai/@cf/meta/llama-3.1-8b-instruct", "openai/gpt-4o-mini"],
     maxInputTokens: 4_000,
     maxOutputTokens: 200,
     timeoutMs: 20_000,
@@ -106,7 +106,7 @@ export const TASK_PROFILES: Record<AiTask, TaskProfile> = {
   },
   summarization: {
     task: "summarization",
-    preferredModels: ["openrouter/openai/gpt-4o-mini", "groq/llama-3.1-8b-instant", "workers-ai/@cf/meta/llama-3.1-8b-instruct", "openai/gpt-4o-mini"],
+    preferredModels: ["groq/llama-3.1-8b-instant", "groq/llama-3.3-70b-versatile", "openrouter/openai/gpt-4o-mini", "workers-ai/@cf/meta/llama-3.1-8b-instruct", "openai/gpt-4o-mini"],
     maxInputTokens: 16_000,
     maxOutputTokens: 800,
     timeoutMs: 45_000,
@@ -116,7 +116,7 @@ export const TASK_PROFILES: Record<AiTask, TaskProfile> = {
   },
   reasoning: {
     task: "reasoning",
-    preferredModels: ["openrouter/openai/gpt-4o", "openrouter/openai/gpt-4o-mini", "groq/llama-3.3-70b-versatile", "openai/gpt-4o", "openai/gpt-4o-mini"],
+    preferredModels: ["groq/openai/gpt-oss-120b", "groq/llama-3.3-70b-versatile", "openrouter/openai/gpt-4o", "openai/gpt-4o", "openai/gpt-4o-mini"],
     maxInputTokens: 24_000,
     maxOutputTokens: 4_000,
     timeoutMs: 120_000,
