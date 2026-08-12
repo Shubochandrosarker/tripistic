@@ -419,7 +419,7 @@ export const httpChatInvoker: ChatInvoker = async function* httpChatInvoker(requ
       // 4xx other than 429 means the request itself is wrong; retrying the same
       // payload against a different model of the same shape will fail the same
       // way. 429 and 5xx are worth another model.
-      response.status === 429 || response.status >= 500,
+      response.status === 429 || response.status === 403 || response.status === 404 || response.status >= 500,
     );
   }
 
