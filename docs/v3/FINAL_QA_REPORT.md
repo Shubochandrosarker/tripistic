@@ -25,9 +25,18 @@
 >   → 201 with verification email actually sent via Resend SMTP; unverified login correctly
 >   refused; the 2026-08-06 stale-cookie 500 lockout no longer reproduces; above-the-fold
 >   hero renders on load.
-> - **AI:** `TRIPISTIC_AI_ENABLED=true`, routed through Cloudflare AI Gateway `42069`;
->   provider keys pending operator input (OpenRouter primary, Groq optional) via
->   `/root/set-ai-keys.sh` on the VPS.
+> - **AI Copilot: WORKING.** `TRIPISTIC_AI_ENABLED=true`; OpenRouter + Groq keys set.
+>   The Copilot at `/dashboard/ai` reads real workspace data via tools and answers
+>   (verified end-to-end: "5 bookings, $1,215.00"). Routing (commits `8216b31`,
+>   `c816733`, `882ee40`, `8ebec65`): OpenRouter `gpt-4o-mini` primary -> Groq
+>   `openai/gpt-oss-120b` fallback, with 403/404 + empty-response fall-through;
+>   currently serving via Groq `gpt-oss-120b`. OpenRouter tool calls are 404-blocked
+>   by the account's Zero-Data-Retention privacy toggles (turn OFF at
+>   openrouter.ai/settings/privacy to promote gpt-4o-mini, no redeploy). Cloudflare AI
+>   Gateway `42069` bypassed (needs an auth header the app can't send).
+> - **AI known limit:** the model sums booking amounts itself and can miscalculate a
+>   total (currency formatting is correct; the arithmetic is the model's). Use
+>   gpt-4o-mini or a tool-side aggregate for exact figures.
 > - **Still open (known, non-blocking):** Stripe self-serve prices unset (6/6 combos →
 >   checkout 409); Workers-for-Platforms site publishing deliberately dormant; local
 >   Ollama/omniroute AI needs a code-level base-URL override to be usable.
