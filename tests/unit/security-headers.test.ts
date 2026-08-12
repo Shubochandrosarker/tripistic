@@ -123,6 +123,17 @@ describe("content security policy", () => {
     expect(policy).toContain("https://hooks.stripe.com");
   });
 
+  /**
+   * The Site Builder preview is a `srcdoc` iframe, which is matched against
+   * `frame-src` using the embedding document's own URL. Without `'self'` the
+   * editor preview goes blank the day this policy is promoted to enforcing —
+   * and report-only mode hides that until exactly then.
+   */
+  it("allows the Site Builder's own preview frame", async () => {
+    const policy = (await appPolicy())!;
+    expect(policy).toMatch(/frame-src[^;]*'self'/);
+  });
+
   it("closes the surfaces that inline script does not affect", async () => {
     const policy = (await appPolicy())!;
     expect(policy).toContain("frame-ancestors 'none'");

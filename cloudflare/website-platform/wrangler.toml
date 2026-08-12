@@ -1,0 +1,57 @@
+#:schema node_modules/wrangler/config-schema.json
+#
+# The Tripistic dispatch Worker.
+#
+# Deployed once per environment, not once per tenant. Tenant Workers live
+# inside the dispatch namespace and are uploaded by Tripistic Core at publish
+# time (see lib/cloudflare/workers-platform.ts).
+#
+# Secrets are NEVER set here. `TRIPISTIC_WORKER_SIGNING_SECRET` is set with
+# `wrangler secret put` so it is not committed and not readable from the
+# dashboard's plain-text vars. Everything in `[vars]` below is public
+# configuration that would be harmless in a page's view-source.
+
+name = "tripistic-dispatch"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+# Routes are attached per environment rather than here, so a `wrangler deploy`
+# with no `--env` cannot take over production hostnames.
+
+[env.staging]
+name = "tripistic-dispatch-staging"
+
+[env.staging.vars]
+TRIPISTIC_API_ORIGIN = "https://staging.tripistic.com"
+ENVIRONMENT = "staging"
+ROUTE_CACHE_TTL_SECONDS = "30"
+ROUTE_NEGATIVE_TTL_SECONDS = "10"
+
+[[env.staging.dispatch_namespaces]]
+binding = "DISPATCHER"
+namespace = "tripistic-sites-staging"
+
+[[env.staging.routes]]
+pattern = "*.staging.tripistic.site/*"
+zone_name = "tripistic.site"
+
+[env.production]
+name = "tripistic-dispatch-production"
+
+[env.production.vars]
+TRIPISTIC_API_ORIGIN = "https://app.tripistic.com"
+ENVIRONMENT = "production"
+ROUTE_CACHE_TTL_SECONDS = "60"
+ROUTE_NEGATIVE_TTL_SECONDS = "15"
+
+[[env.production.dispatch_namespaces]]
+binding = "DISPATCHER"
+namespace = "tripistic-sites-production"
+
+[[env.production.routes]]
+pattern = "*.tripistic.site/*"
+zone_name = "tripistic.site"
+
+# Custom hostnames are attached to this Worker through Cloudflare for SaaS
+# (custom hostname → fallback origin), not as routes: there is one Worker and an
+# unbounded number of tenant domains, and a route per domain would not scale.

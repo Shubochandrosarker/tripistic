@@ -64,6 +64,20 @@ export type CanonicalPlan = {
   flags: Record<PlanFeatureKey, boolean>;
 };
 
+/**
+ * A note on `site_ai_generation`.
+ *
+ * It is `false` on every plan, including the ones whose price would justify it,
+ * because **nothing implements it**. `siteGenerationPrompt` exists and the
+ * section registry it would constrain output to exists, but no route calls
+ * them: the Site Builder editor is manual.
+ *
+ * The same treatment x402 got in the first V3 pass. A catalogue flag is a
+ * description of what a plan includes; leaving it on would make the plan
+ * catalogue describe a capability a customer cannot reach, and the first person
+ * to notice would be a customer who paid for it. Turn it back on in the same
+ * change that ships the generator.
+ */
 const baseFlags: Record<PlanFeatureKey, boolean> = {
   booking_engine: true,
   stripe_payments: true,
@@ -91,6 +105,33 @@ const baseFlags: Record<PlanFeatureKey, boolean> = {
   ai_copilot: false,
   ai_private_knowledge: false,
 };
+
+/**
+ * Every plan feature key, at runtime.
+ *
+ * Derived from `baseFlags` rather than written out again, so a key added to the
+ * union and to the flags cannot be missing here. The admin override form
+ * validates against this list: an unknown key would create a `FeatureFlag` row
+ * that nothing ever reads — an override that looks granted in the UI and
+ * changes nothing for the customer.
+ */
+export const PLAN_FEATURE_KEYS = Object.keys(baseFlags) as PlanFeatureKey[];
+
+/**
+ * Override keys that are not plan features.
+ *
+ * `ai_usage_override` lifts the monthly AI credit ceiling (see
+ * `lib/ai/usage.ts`). It is grantable by support but is not something a plan
+ * includes, so it lives beside the catalogue rather than in it.
+ */
+export const NON_PLAN_OVERRIDE_KEYS = ["ai_usage_override"] as const;
+
+export function isGrantableOverrideKey(key: string): boolean {
+  return (
+    (PLAN_FEATURE_KEYS as string[]).includes(key) ||
+    (NON_PLAN_OVERRIDE_KEYS as readonly string[]).includes(key)
+  );
+}
 
 export const TRIPISTIC_TRIAL_DAYS = 14;
 
@@ -148,7 +189,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       ...baseFlags,
       white_label: true,
       custom_domain: true,
-      site_ai_generation: true,
+      // Deliberately absent. See the note on `site_ai_generation` above.
       ai_copilot: true,
     },
   },
@@ -200,7 +241,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       vehicles: true,
       crm_pipeline: true,
       audit_logs: true,
-      site_ai_generation: true,
+      // Deliberately absent. See the note on `site_ai_generation` above.
       ai_copilot: true,
       ai_private_knowledge: true,
     },
@@ -257,7 +298,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       advanced_ai: true,
       api_access: true,
       audit_logs: true,
-      site_ai_generation: true,
+      // Deliberately absent. See the note on `site_ai_generation` above.
       ai_copilot: true,
       ai_private_knowledge: true,
     },
@@ -313,7 +354,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       advanced_ai: true,
       api_access: true,
       audit_logs: true,
-      site_ai_generation: true,
+      // Deliberately absent. See the note on `site_ai_generation` above.
       ai_copilot: true,
       ai_private_knowledge: true,
       // No SAML/SSO implementation exists yet — auth is credentials-only.

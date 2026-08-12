@@ -38,7 +38,21 @@ export type MarketingEvent =
   | "roi_calculated"
   | "docs_search"
   | "video_play"
-  | "comparison_view";
+  | "comparison_view"
+  /**
+   * Travel Advisor funnel.
+   *
+   * Recorded as ordinary marketing events, and named to describe what the
+   * visitor did rather than what caused it. `tour_opened` after `ai_session` is
+   * a correlation; calling it an AI-driven conversion would be a claim the data
+   * cannot support, and the V3 brief is explicit that it must not be made.
+   */
+  | "ai_session"
+  | "ai_mode_switch"
+  | "tour_recommended"
+  | "tour_opened"
+  | "booking_started"
+  | "signup_started";
 
 type EventProperties = Record<string, string | number | boolean | undefined>;
 

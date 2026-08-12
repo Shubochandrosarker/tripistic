@@ -373,6 +373,75 @@ describe("renderBundle", () => {
     expect(optedIn.payload.llmsTxt).toContain("# Acme Walks");
   });
 
+  /**
+   * Hiding a section must remove its text from the page, not merely from view.
+   * An operator who hides next season's pricing expects it to be unpublished;
+   * `display:none` would leave it in view-source and in the crawler's copy.
+   */
+  it("omits a hidden section's content from the rendered page entirely", () => {
+    const withHidden = bundle({
+      snapshot: {
+        ...snapshot,
+        pages: [
+          {
+            ...snapshot.pages[0],
+            content: {
+              version: 1,
+              sections: [
+                {
+                  id: "hero-visible",
+                  type: "hero",
+                  layout: {},
+                  props: { title: "Public headline" },
+                },
+                {
+                  id: "hero-hidden",
+                  type: "hero",
+                  hidden: true,
+                  layout: {},
+                  props: { title: "Unannounced 2027 pricing" },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+
+    const html = withHidden.payload.pages[0].html;
+    expect(html).toContain("Public headline");
+    expect(html).not.toContain("Unannounced 2027 pricing");
+    expect(html).not.toContain("hero-hidden");
+  });
+
+  it("does not ship tour slots for a hidden section", () => {
+    const withHidden = bundle({
+      snapshot: {
+        ...snapshot,
+        pages: [
+          {
+            ...snapshot.pages[0],
+            content: {
+              version: 1,
+              sections: [
+                {
+                  id: "tours-1",
+                  type: "tourCards",
+                  hidden: true,
+                  layout: {},
+                  props: { limit: 4, tourIds: ["tour_a"] },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+
+    expect(withHidden.payload.tourSlots["tours-1"]).toBeUndefined();
+    expect(withHidden.moduleSource).not.toContain("sunset-walk");
+  });
+
   it("never emits llms.txt for a preview build", () => {
     const preview = bundle({
       preview: true,

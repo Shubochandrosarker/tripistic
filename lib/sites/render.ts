@@ -463,7 +463,14 @@ export function renderPage(input: {
     (input.canonicalOrigin ? `${input.canonicalOrigin}${page.path === "/" ? "" : page.path}` : "");
   const socialImage = page.seo.socialImageUrl || siteSeo.socialImageUrl;
 
-  const body = page.content.sections.map((item) => renderSection(item, context)).join("");
+  // Hidden sections are dropped, not styled away. `display:none` would leave
+  // the text in the page source, so hiding an unannounced price or a draft
+  // policy would keep it readable in view-source and to any crawler that
+  // ignores CSS.
+  const body = page.content.sections
+    .filter((item) => !item.hidden)
+    .map((item) => renderSection(item, context))
+    .join("");
 
   const structuredData = buildStructuredData({ page, siteSeo, context, canonical });
 

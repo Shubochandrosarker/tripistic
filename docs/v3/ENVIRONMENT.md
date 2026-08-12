@@ -30,10 +30,37 @@ Names only. Values never appear in this repository. Full annotations live in
 | `TRIPISTIC_AI_ENABLED` | master switch, default `false` |
 | `OPENAI_API_KEY` | frontier-model tasks fall back to Workers AI |
 | `OPENROUTER_API_KEY` | one fewer fallback provider |
+| `GROQ_API_KEY` | one fewer fallback provider |
 
-## x402 (reserved, unimplemented)
+With none of the three set and no Cloudflare account, the chat surfaces render
+an honest "not configured" state. There is no fallback that synthesises an
+answer — see `docs/v3/AI_ARCHITECTURE.md`.
 
-`X402_ENABLED`, `X402_NETWORK`, `X402_PAY_TO`, `X402_FACILITATOR_URL`.
+## x402
+
+| Variable | Missing means |
+|---|---|
+| `X402_ENABLED` | off; the protected routes answer 404 rather than a price |
+| `X402_NETWORK` | defaults to `base-sepolia`, a testnet |
+| `X402_PAY_TO` | not ready; the admin screen names this as the reason |
+| `X402_FACILITATOR_URL` | not ready; nothing can be verified |
+| `X402_ALLOW_MAINNET` | a mainnet `X402_NETWORK` is refused |
+
+`X402_ALLOW_MAINNET` is a deliberate second key. One variable copied between
+environments must not be enough to start accepting real funds on an
+experimental rail.
+
+## Dispatch Worker
+
+Set in `cloudflare/website-platform/wrangler.toml` and by `wrangler secret`, not
+in the application's `.env`:
+
+| Variable | Missing means |
+|---|---|
+| `TRIPISTIC_API_ORIGIN` | routing lookups fail; every site serves the fallback page |
+| `TRIPISTIC_WORKER_SIGNING_SECRET` | every lookup 401s. Must be byte-identical to Core's |
+| `ROUTE_CACHE_TTL_SECONDS` | defaults to 60 |
+| `ROUTE_NEGATIVE_TTL_SECONDS` | defaults to 15 |
 
 ## Pre-existing, unchanged
 

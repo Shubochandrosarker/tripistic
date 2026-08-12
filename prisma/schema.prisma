@@ -266,6 +266,7 @@ model User {
   siteDeploymentsTriggered     SiteDeployment[]              @relation("SiteDeploymentTriggeredBy")
   knowledgeSourcesCreated      KnowledgeSource[]             @relation("KnowledgeSourceCreatedBy")
   aiConversations              AiConversation[]              @relation("AiConversationUser")
+  featureFlagsGranted          FeatureFlag[]                 @relation("FeatureFlagGrantedBy")
 
   @@map("users")
 }
@@ -773,20 +774,33 @@ model BlackoutDate {
 }
 
 model FeatureFlag {
-  id          String   @id @default(cuid())
-  workspaceId String?  @map("workspace_id")
-  planId      String?  @map("plan_id")
-  featureKey  String   @map("feature_key")
-  enabled     Boolean  @default(false)
-  limitValue  Int?     @map("limit_value")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id          String    @id @default(cuid())
+  workspaceId String?   @map("workspace_id")
+  planId      String?   @map("plan_id")
+  featureKey  String    @map("feature_key")
+  enabled     Boolean   @default(false)
+  limitValue  Int?      @map("limit_value")
+  /// When a per-workspace override stops applying.
+  ///
+  /// Null means permanent, which is what a plan-level row always is. For a
+  /// support grant it is the difference between "temporary" and "we forgot":
+  /// `hasFeature` treats an expired row as absent and falls through to the
+  /// plan, so a trial of a paid feature ends by itself instead of relying on
+  /// someone remembering to revoke it.
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(6)
+  /// Why this override exists. Required by the admin UI for workspace grants.
+  reason      String?
+  grantedById String?   @map("granted_by")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   plan      Plan?      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  grantedBy User?      @relation("FeatureFlagGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, featureKey])
   @@index([planId, featureKey])
+  @@index([expiresAt])
   @@map("feature_flags")
 }
 
@@ -2847,6 +2861,16 @@ model AiConversation {
 model AiConversationMessage {
   id             String   @id @default(cuid())
   conversationId String   @map("conversation_id")
+  /// Position within the thread, 1-based.
+  ///
+  /// Not derivable from `createdAt`: a user turn and the assistant turn that
+  /// answers it are written in one transaction, and PostgreSQL's `now()` is
+  /// transaction time — so both rows carry an identical timestamp and ordering
+  /// by it puts the answer before the question about half the time. An explicit
+  /// counter is the only ordering that survives that, and the unique index
+  /// makes a duplicate position an error rather than a silently scrambled
+  /// history.
+  sequence       Int
   /// `user` | `assistant` | `tool`. Not an enum: the set tracks whatever the
   /// provider protocol supports and should not need a migration to widen.
   role           String
@@ -2860,6 +2884,7 @@ model AiConversationMessage {
 
   conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
+  @@unique([conversationId, sequence])
   @@index([conversationId, createdAt])
   @@map("ai_conversation_messages")
 }

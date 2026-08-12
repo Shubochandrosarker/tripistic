@@ -58,7 +58,13 @@ const CONTENT_SECURITY_POLICY_REPORT_ONLY = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "connect-src 'self' https://api.stripe.com https://cloudflareinsights.com",
-  "frame-src https://js.stripe.com https://hooks.stripe.com",
+  // `'self'` covers the Site Builder's live preview, which is a `srcdoc`
+  // iframe. A srcdoc frame is matched against `frame-src` using the embedding
+  // document's own URL, so without `'self'` the editor preview goes blank the
+  // moment this policy is enforced — and report-only mode hides that until the
+  // day it is promoted. The frame itself carries `sandbox=""`, so allowing the
+  // origin here grants it nothing: no scripts, no forms, no same-origin access.
+  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

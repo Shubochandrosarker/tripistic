@@ -1,0 +1,16 @@
+{
+  "name": "@tripistic/dispatch-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Workers for Platforms dispatch Worker: routes tenant site hostnames to their generated Worker.",
+  "scripts": {
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "deploy:dry-run": "wrangler deploy --env production --dry-run --outdir .wrangler/dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "//": "Types and tests are covered by the repository root: `npm run typecheck` includes src/**/*.ts and `npm run test:unit` runs tests/unit/dispatch-worker.test.ts. This package exists for wrangler deployment only."
+}

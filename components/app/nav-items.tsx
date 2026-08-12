@@ -44,6 +44,7 @@ export const dashboardNav: NavSection[] = [
   {
     items: [
       { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+      { href: "/dashboard/ai", label: "Copilot", icon: Sparkles },
       { href: "/dashboard/onboarding", label: "Onboarding", icon: Rocket },
     ],
   },
@@ -79,6 +80,7 @@ export const dashboardNav: NavSection[] = [
     title: "Growth",
     items: [
       { href: "/dashboard/website", label: "Website", icon: Globe2 },
+      { href: "/dashboard/sites", label: "Site Builder", icon: Layers },
       { href: "/dashboard/domains", label: "Domains", icon: Globe2 },
       { href: "/dashboard/itineraries", label: "Itineraries", icon: Sparkles },
       { href: "/dashboard/growth", label: "Growth Insights", icon: Sparkles },
@@ -108,11 +110,29 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
+    title: "Website Platform",
+    items: [
+      { href: "/admin/sites", label: "Sites", icon: Layers },
+      { href: "/admin/deployments", label: "Deployments", icon: Rocket },
+      { href: "/admin/domains", label: "Domains", icon: Globe2 },
+    ],
+  },
+  {
+    title: "AI",
+    items: [
+      { href: "/admin/ai", label: "Usage & Cost", icon: Sparkles },
+      { href: "/admin/ai-providers", label: "Providers", icon: Cpu },
+    ],
+  },
+  {
+    title: "Commerce",
+    items: [{ href: "/admin/commerce/x402", label: "x402", icon: CreditCard }],
+  },
+  {
     title: "Enterprise",
     items: [
-      { href: "/admin/domains", label: "Domains", icon: Globe2 },
+      { href: "/admin/entitlements", label: "Entitlements", icon: ShieldAlert },
       { href: "/admin/white-labels", label: "White Labels", icon: SlidersHorizontal },
-      { href: "/admin/ai-providers", label: "AI Providers", icon: Cpu },
     ],
   },
   {
