@@ -169,6 +169,14 @@ export async function runChatTask(options: RunChatOptions): Promise<RunChatResul
 
       if (!response) throw new AiProviderError("Provider closed the stream early.", provider);
 
+      // An empty stream (no text and no tool calls) is a dead turn, not a
+      // valid answer. Some models occasionally return nothing on a complex
+      // tool payload; treat it as a retryable miss so the chain falls
+      // through to the next candidate instead of surfacing a blank reply.
+      if (!response.text.trim() && response.toolCalls.length === 0) {
+        throw new AiProviderError("Provider returned an empty response.", provider, undefined, true);
+      }
+
       const latencyMs = Date.now() - startedAt;
       // Providers that ignore `include_usage` report zeros. Falling back to the
       // local estimate keeps cost attribution roughly right rather than

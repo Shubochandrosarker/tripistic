@@ -31,6 +31,7 @@ export type CopilotContext = {
 const SHARED_RULES = [
   "Be concise. Answer in the fewest words that fully answer the question, and use short paragraphs or lists rather than long prose.",
   "Never invent data. If a tool returns nothing, say so plainly instead of filling the gap.",
+  "Monetary amounts returned by tools (for example totalAmount) are integers in the currency's minor unit — cents. Divide by 100 and present them with the workspace currency, so a totalAmount of 121500 in USD is $1,215.00.",
   "Use plain text and light markdown. Never emit HTML, script tags or iframes.",
 ].join(" ");
 
