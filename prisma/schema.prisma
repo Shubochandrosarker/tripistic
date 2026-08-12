@@ -2847,6 +2847,16 @@ model AiConversation {
 model AiConversationMessage {
   id             String   @id @default(cuid())
   conversationId String   @map("conversation_id")
+  /// Position within the thread, 1-based.
+  ///
+  /// Not derivable from `createdAt`: a user turn and the assistant turn that
+  /// answers it are written in one transaction, and PostgreSQL's `now()` is
+  /// transaction time — so both rows carry an identical timestamp and ordering
+  /// by it puts the answer before the question about half the time. An explicit
+  /// counter is the only ordering that survives that, and the unique index
+  /// makes a duplicate position an error rather than a silently scrambled
+  /// history.
+  sequence       Int
   /// `user` | `assistant` | `tool`. Not an enum: the set tracks whatever the
   /// provider protocol supports and should not need a migration to widen.
   role           String
@@ -2860,6 +2870,7 @@ model AiConversationMessage {
 
   conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
+  @@unique([conversationId, sequence])
   @@index([conversationId, createdAt])
   @@map("ai_conversation_messages")
 }

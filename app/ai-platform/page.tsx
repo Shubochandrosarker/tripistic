@@ -1,8 +1,9 @@
-import { Brain, Search, Sparkles, Wand2, Zap } from "lucide-react";
+import { Brain, Compass, Search, Sparkles, Wand2, Zap } from "lucide-react";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { JsonLd } from "@/components/marketing/json-ld";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { CtaBand, ProductPreview, SectionIntro } from "@/components/marketing/marketing-sections";
+import { ButtonLink } from "@/components/ui/button";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { webPageSchema } from "@/lib/seo/schema";
 
@@ -25,12 +26,15 @@ export const metadata = buildMetadata({
 });
 
 export default function AiPlatformPage() {
-  // Every entry below is backed by shipped code. Two former entries — "AI
-  // Copilot" and "AI Reports" — were removed rather than reworded, because no
-  // implementation of either exists. The remaining features are deterministic:
-  // they compute results from your data rather than calling a language model,
-  // which is why the numbers are reproducible and never invented.
+  // Every entry below is backed by shipped code. The list mixes two kinds of
+  // feature and says which is which, because the difference matters to the
+  // reader: the deterministic ones compute results from your data and are
+  // reproducible, while the Copilot and Advisor call a language model and can
+  // be wrong. Claiming a single "AI" capability would blur exactly the line a
+  // buyer needs to see.
   const items = [
+    [Sparkles, "Workspace Copilot", "Ask about bookings, tours and customers in plain language. It reads through your own permissions and drafts changes for you to approve — it never applies them itself."],
+    [Compass, "Travel Advisor", "A public assistant that plans trips and surfaces real tours from operators on Tripistic, with availability and prices looked up live."],
     [Search, "Workspace search", "Find bookings, customers, itineraries, and operational records from the command palette."],
     [Wand2, "Assignment matching", "Score guides, drivers, and vehicles against skills, capacity, and time off to suggest the best fit for a departure."],
     [Sparkles, "Itinerary builder", "Draft editable multi-day proposals from your own tours, vendors, and trip constraints."],
@@ -46,12 +50,22 @@ export default function AiPlatformPage() {
         <div className="mx-auto max-w-7xl">
           <Breadcrumbs items={[{ name: TITLE, href: PATH }]} />
           <div className="grid gap-10 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
-            <SectionIntro
-              align="left"
-              eyebrow="Automation & Insights"
-              title="AI that understands the travel operation behind the trip."
-              description="Tripistic AI is designed around operational context: bookings, customers, availability, guides, vehicles, vendors, payments, itineraries, and growth signals."
-            />
+            <div>
+              <SectionIntro
+                align="left"
+                eyebrow="Automation & Insights"
+                title="AI that understands the travel operation behind the trip."
+                description="Tripistic AI is designed around operational context: bookings, customers, availability, guides, vehicles, vendors, payments, itineraries, and growth signals."
+              />
+              <div className="mt-6 flex flex-wrap gap-3">
+                <ButtonLink href="/ai-platform/advisor" size="lg">
+                  Try the Travel Advisor
+                </ButtonLink>
+                <ButtonLink href="/register" size="lg" variant="secondary">
+                  Start free
+                </ButtonLink>
+              </div>
+            </div>
             <ProductPreview />
           </div>
           <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
