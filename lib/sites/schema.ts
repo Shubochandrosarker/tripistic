@@ -108,6 +108,21 @@ function section<TType extends string, T extends z.ZodRawShape>(type: TType, pro
   return z.object({
     id: z.string().trim().min(1).max(64),
     type: z.literal(type),
+    /**
+     * Excluded from the rendered page entirely.
+     *
+     * Distinct from `layout.visibleOn`, which hides a section at some
+     * breakpoints and cannot express "hidden everywhere" — the array requires
+     * at least one entry, deliberately, so that a section is never invisible on
+     * every device by accident. Draft-and-hide is a different intent and needs
+     * its own flag: the operator wants the content kept but not published yet.
+     *
+     * The renderer drops hidden sections rather than emitting them with
+     * `display:none`, so their text never reaches the page source. Hiding a
+     * section that mentions next season's pricing should not leave that pricing
+     * readable in view-source.
+     */
+    hidden: z.boolean().default(false),
     layout: layoutSchema,
     props: z.object(props),
   });

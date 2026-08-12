@@ -58,7 +58,15 @@ export type PublishResult = {
   message: string;
 };
 
-function appOrigin(): string {
+/**
+ * Where Tripistic Core answers.
+ *
+ * Exported so the preview route resolves the booking base URL the same way
+ * publishing does. A preview whose booking links point somewhere else is a
+ * preview that cannot be clicked through, and the divergence would only be
+ * noticed after a real publish.
+ */
+export function appOrigin(): string {
   const configured = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
   return (configured || "http://localhost:3000").replace(/\/+$/, "");
 }
@@ -178,7 +186,10 @@ export function renderBundle(input: {
   const tourSlots: WorkerPayload["tourSlots"] = {};
   const pages = input.snapshot.pages.map((page) => {
     const content: PageContent = validatePageContent(page.content);
-    for (const section of content.sections) {
+    // Hidden sections are not rendered, so they must not contribute tour slots
+    // either: the slot map ships to the edge in the Worker payload, and a
+    // hidden section's tour list would travel with it despite never appearing.
+    for (const section of content.sections.filter((item) => !item.hidden)) {
       if (section.type === "tourCards") {
         tourSlots[section.id] = {
           limit: section.props.limit,

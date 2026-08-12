@@ -48,6 +48,12 @@ export function RegisterForm() {
         return;
       }
 
+      // Adopt any anonymous Travel Advisor thread into the new account, so the
+      // itinerary someone spent ten minutes building survives sign-up. Failure
+      // is swallowed deliberately: losing a chat thread must never be a reason
+      // a successful registration looks broken.
+      await fetch("/api/ai/public/convert", { method: "POST" }).catch(() => null);
+
       router.push("/workspaces/new");
       router.refresh();
     } catch {
