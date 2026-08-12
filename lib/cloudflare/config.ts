@@ -106,6 +106,20 @@ export function cloudflareApiToken(): string | undefined {
   return read("CLOUDFLARE_API_TOKEN");
 }
 
+/**
+ * The AI Gateway's own "Authenticated Gateway" token.
+ *
+ * Separate from `cloudflareApiToken()` on purpose — it authenticates against
+ * a single gateway's `cf-aig-authorization` header, not the account-wide
+ * Cloudflare REST API, and a deployment can have one without the other.
+ * Never returned as part of `cloudflareConfig()`, for the same reason
+ * `cloudflareApiToken()` isn't: only the HTTP client should read it,
+ * immediately before building the header.
+ */
+export function aiGatewayToken(): string | undefined {
+  return read("CLOUDFLARE_AI_GATEWAY_TOKEN");
+}
+
 export function isCloudflareCapabilityConfigured(capability: CloudflareCapability): boolean {
   const config = cloudflareConfig();
   const hasToken = Boolean(cloudflareApiToken());

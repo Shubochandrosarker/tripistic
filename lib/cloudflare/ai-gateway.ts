@@ -1,4 +1,4 @@
-import { cloudflareConfig, isCloudflareCapabilityConfigured } from "@/lib/cloudflare/config";
+import { aiGatewayToken, cloudflareConfig, isCloudflareCapabilityConfigured } from "@/lib/cloudflare/config";
 
 /**
  * Cloudflare AI Gateway routing.
@@ -82,6 +82,13 @@ export function gatewayHeaders(
   options: GatewayHeaderOptions & { workspaceId?: string; surface?: string },
 ): Record<string, string> {
   const headers: Record<string, string> = {};
+
+  // Present only when the gateway's "Authenticated Gateway" setting is on and
+  // a token has been issued for it (Settings -> Authenticated Gateway ->
+  // Create authentication token). Omitted otherwise so an unauthenticated
+  // gateway keeps working with zero configuration.
+  const token = aiGatewayToken();
+  if (token) headers["cf-aig-authorization"] = `Bearer ${token}`;
 
   if (isCacheableIntent(options.intent)) {
     headers["cf-aig-cache-ttl"] = String(options.cacheTtlSeconds ?? 3600);

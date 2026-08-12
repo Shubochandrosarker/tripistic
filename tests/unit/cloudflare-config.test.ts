@@ -23,6 +23,7 @@ const CLOUDFLARE_KEYS = [
   "CLOUDFLARE_VECTORIZE_INDEX",
   "CLOUDFLARE_AI_GATEWAY_ID",
   "CLOUDFLARE_AI_GATEWAY_ACCOUNT_ID",
+  "CLOUDFLARE_AI_GATEWAY_TOKEN",
 ];
 
 let saved: Record<string, string | undefined> = {};
@@ -203,5 +204,22 @@ describe("ai gateway", () => {
       surface: "workspace_copilot",
       intent: "workspace_chat",
     });
+  });
+
+  /**
+   * Regression coverage for the 401 an Authenticated Gateway returns when the
+   * app sends no credential at all: the header must be absent (not empty)
+   * when unconfigured, so an unauthenticated gateway keeps working with zero
+   * setup, and present as a Bearer token the moment one is issued.
+   */
+  it("omits cf-aig-authorization when no gateway token is configured", () => {
+    expect(gatewayHeaders({ intent: "workspace_chat" })["cf-aig-authorization"]).toBeUndefined();
+  });
+
+  it("sends cf-aig-authorization as a bearer token when configured", () => {
+    process.env.CLOUDFLARE_AI_GATEWAY_TOKEN = "cfut_test_token";
+    expect(gatewayHeaders({ intent: "workspace_chat" })["cf-aig-authorization"]).toBe(
+      "Bearer cfut_test_token",
+    );
   });
 });
