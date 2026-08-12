@@ -92,6 +92,33 @@ const baseFlags: Record<PlanFeatureKey, boolean> = {
   ai_private_knowledge: false,
 };
 
+/**
+ * Every plan feature key, at runtime.
+ *
+ * Derived from `baseFlags` rather than written out again, so a key added to the
+ * union and to the flags cannot be missing here. The admin override form
+ * validates against this list: an unknown key would create a `FeatureFlag` row
+ * that nothing ever reads — an override that looks granted in the UI and
+ * changes nothing for the customer.
+ */
+export const PLAN_FEATURE_KEYS = Object.keys(baseFlags) as PlanFeatureKey[];
+
+/**
+ * Override keys that are not plan features.
+ *
+ * `ai_usage_override` lifts the monthly AI credit ceiling (see
+ * `lib/ai/usage.ts`). It is grantable by support but is not something a plan
+ * includes, so it lives beside the catalogue rather than in it.
+ */
+export const NON_PLAN_OVERRIDE_KEYS = ["ai_usage_override"] as const;
+
+export function isGrantableOverrideKey(key: string): boolean {
+  return (
+    (PLAN_FEATURE_KEYS as string[]).includes(key) ||
+    (NON_PLAN_OVERRIDE_KEYS as readonly string[]).includes(key)
+  );
+}
+
 export const TRIPISTIC_TRIAL_DAYS = 14;
 
 export const canonicalPlans: readonly CanonicalPlan[] = [

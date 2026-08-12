@@ -21,7 +21,14 @@ export async function isFeatureEnabled(
   featureKey: FeatureKeyValue,
 ): Promise<boolean> {
   const override = await prisma.featureFlag.findFirst({
-    where: { workspaceId, featureKey },
+    // Expired overrides fall through to the plan, matching `hasFeature`. Two
+    // resolvers that disagree about whether a grant is still live would mean a
+    // feature that is on in one code path and off in another.
+    where: {
+      workspaceId,
+      featureKey,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    },
     orderBy: { updatedAt: "desc" },
   });
   if (override) return override.enabled;

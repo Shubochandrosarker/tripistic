@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Building2, CreditCard, ScrollText, Users } from "lucide-react";
+import { Building2, CreditCard, Globe2, Layers, Rocket, ScrollText, Sparkles, Users } from "lucide-react";
+import { aiPlatformMetrics, formatMillicents, sitePlatformMetrics } from "@/lib/admin/v3-metrics";
 import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
@@ -13,8 +14,15 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminOverviewPage() {
-  const [workspaceCount, userCount, activeSubscriptions, trialingSubscriptions, recentLogs] =
-    await Promise.all([
+  const [
+    workspaceCount,
+    userCount,
+    activeSubscriptions,
+    trialingSubscriptions,
+    recentLogs,
+    siteMetrics,
+    aiMetrics,
+  ] = await Promise.all([
       prisma.workspace.count({ where: { deletedAt: null } }),
       prisma.user.count({ where: { deletedAt: null } }),
       prisma.subscription.count({ where: { status: "active" } }),
@@ -22,12 +30,14 @@ export default async function AdminOverviewPage() {
       prisma.auditLog.findMany({
         take: 8,
         orderBy: { createdAt: "desc" },
-        include: {
-          user: { select: { email: true } },
-          workspace: { select: { name: true } },
-        },
-      }),
-    ]);
+      include: {
+        user: { select: { email: true } },
+        workspace: { select: { name: true } },
+      },
+    }),
+    sitePlatformMetrics(),
+    aiPlatformMetrics(),
+  ]);
 
   return (
     <>
@@ -62,6 +72,48 @@ export default async function AdminOverviewPage() {
           hint="Workspaces in free trial"
         />
       </div>
+
+      <SectionCard
+        title="V3 platform"
+        description="Website platform and AI, at a glance. Every figure is counted over the window named beside it."
+        actions={
+          <div className="flex gap-2">
+            <ButtonLink href="/admin/sites" variant="secondary" size="sm">
+              Sites
+            </ButtonLink>
+            <ButtonLink href="/admin/ai" variant="secondary" size="sm">
+              AI
+            </ButtonLink>
+          </div>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            icon={Layers}
+            label="Tenant sites"
+            value={String(siteMetrics.totalSites)}
+            hint={`${siteMetrics.publishedSites} published · ${siteMetrics.suspendedSites} suspended`}
+          />
+          <MetricCard
+            icon={Rocket}
+            label="Deployments (24h)"
+            value={String(siteMetrics.deploymentsLast24h)}
+            hint={`${siteMetrics.failedDeploymentsLast24h} failed`}
+          />
+          <MetricCard
+            icon={Globe2}
+            label="Active domains"
+            value={String(siteMetrics.activeDomains)}
+            hint={`${siteMetrics.failedDomains} failed · ${siteMetrics.pendingDomains} verifying`}
+          />
+          <MetricCard
+            icon={Sparkles}
+            label="AI requests today"
+            value={String(aiMetrics.requestsToday)}
+            hint={`${aiMetrics.failuresToday} failed · ${formatMillicents(aiMetrics.estimatedCostMillicentsThisMonth)} est. this month`}
+          />
+        </div>
+      </SectionCard>
 
       <SectionCard
         title="Recent audit activity"

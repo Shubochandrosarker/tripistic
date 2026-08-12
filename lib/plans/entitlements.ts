@@ -133,7 +133,16 @@ export async function assertCanAddCustomDomain(workspaceId: string, increment = 
  */
 export async function hasFeature(workspaceId: string, featureKey: PlanFeatureKey): Promise<boolean> {
   const override = await prisma.featureFlag.findFirst({
-    where: { workspaceId, featureKey },
+    where: {
+      workspaceId,
+      featureKey,
+      // An expired override is treated as absent, so resolution falls through
+      // to the plan. This is what makes a support grant genuinely temporary:
+      // it lapses on its own rather than waiting for someone to remember it.
+      // A null `expiresAt` is permanent, which is what every pre-existing row
+      // and every plan-level row is.
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    },
     orderBy: { updatedAt: "desc" },
     select: { enabled: true },
   });

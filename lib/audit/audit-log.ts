@@ -135,6 +135,15 @@ export type AuditAction =
   | "site_deleted"
   | "site_domain_bound"
   | "site_domain_unbound"
+  // Platform-admin actions taken *on* a tenant's resources. Named apart from
+  // the operator's own `site_*` actions so a workspace reading its history can
+  // tell "we did this" from "Tripistic did this", which is the first question
+  // an operator asks when their site changes without them touching it.
+  | "admin_site_suspended"
+  | "admin_site_reactivated"
+  | "admin_site_rolled_back"
+  | "admin_feature_override_granted"
+  | "admin_feature_override_revoked"
   | "knowledge_source_indexed"
   | "knowledge_source_deleted";
 

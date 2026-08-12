@@ -57,7 +57,7 @@ export function PublishPanel({
         body: JSON.stringify(body),
       });
       const payload = (await response.json().catch(() => null)) as
-        | { result?: { ok?: boolean; message?: string; liveUrl?: string | null }; error?: string }
+        | { result?: { status?: string; message?: string; liveUrl?: string | null }; error?: string }
         | null;
 
       if (!response.ok) {
@@ -66,7 +66,7 @@ export function PublishPanel({
       }
       const result = payload?.result;
       setMessage({
-        tone: result?.ok === false ? "error" : "ok",
+        tone: result?.status === "failed" ? "error" : "ok",
         text: result?.message ?? "Done.",
       });
       router.refresh();

@@ -110,11 +110,29 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
+    title: "Website Platform",
+    items: [
+      { href: "/admin/sites", label: "Sites", icon: Layers },
+      { href: "/admin/deployments", label: "Deployments", icon: Rocket },
+      { href: "/admin/domains", label: "Domains", icon: Globe2 },
+    ],
+  },
+  {
+    title: "AI",
+    items: [
+      { href: "/admin/ai", label: "Usage & Cost", icon: Sparkles },
+      { href: "/admin/ai-providers", label: "Providers", icon: Cpu },
+    ],
+  },
+  {
+    title: "Commerce",
+    items: [{ href: "/admin/commerce/x402", label: "x402", icon: CreditCard }],
+  },
+  {
     title: "Enterprise",
     items: [
-      { href: "/admin/domains", label: "Domains", icon: Globe2 },
+      { href: "/admin/entitlements", label: "Entitlements", icon: ShieldAlert },
       { href: "/admin/white-labels", label: "White Labels", icon: SlidersHorizontal },
-      { href: "/admin/ai-providers", label: "AI Providers", icon: Cpu },
     ],
   },
   {

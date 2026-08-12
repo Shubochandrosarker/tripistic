@@ -70,7 +70,13 @@ async function creditLimit(workspaceId: string): Promise<number | null> {
  */
 async function hasUsageOverride(workspaceId: string): Promise<boolean> {
   const override = await prisma.featureFlag.findFirst({
-    where: { workspaceId, featureKey: OVERRIDE_FEATURE_KEY },
+    // An expired credit-ceiling lift must stop lifting the ceiling; otherwise
+    // "temporary extra credits for the season" is an unmetered account.
+    where: {
+      workspaceId,
+      featureKey: OVERRIDE_FEATURE_KEY,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    },
     orderBy: { updatedAt: "desc" },
     select: { enabled: true },
   });
