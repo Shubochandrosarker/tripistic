@@ -77,6 +77,14 @@ describe("blocking failures", () => {
     expect(errors(env)).toEqual([]);
   });
 
+  it("still rejects a test Stripe key when NODE_ENV=production and APP_ENVIRONMENT is unset", () => {
+    // Regression guard: every deployment today (including the live VPS) sets
+    // nothing new, so this must keep failing exactly as before.
+    const env: EnvSource = { ...VALID, STRIPE_SECRET_KEY: "sk_test_abc123" };
+    expect(env.APP_ENVIRONMENT).toBeUndefined();
+    expect(errors(env).map((i) => i.key)).toContain("STRIPE_SECRET_KEY");
+  });
+
   it("requires a webhook secret whenever Stripe is configured", () => {
     // Key without webhook secret is worse than no Stripe at all: checkout
     // starts, money is taken, and nothing ever confirms the booking.
@@ -97,6 +105,28 @@ describe("blocking failures", () => {
     expect(found).toContain("DATABASE_URL");
     expect(found).toContain("AUTH_SECRET");
     expect(found.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("APP_ENVIRONMENT overrides NODE_ENV for the production-only guards", () => {
+  it("allows a staging tier to run a test Stripe key even with NODE_ENV=production", () => {
+    // The case this exists for: a staging deployment runs the exact same
+    // production Next.js build (NODE_ENV=production, required for `next
+    // start` to serve it correctly) but is not the live, customer-facing
+    // site, so it must be allowed to use Stripe test-mode keys.
+    const env: EnvSource = { ...VALID, APP_ENVIRONMENT: "staging", STRIPE_SECRET_KEY: "sk_test_abc123" };
+    expect(env.NODE_ENV).toBe("production");
+    expect(errors(env)).toEqual([]);
+  });
+
+  it("still blocks an http APP_URL for a tier explicitly marked production", () => {
+    const env = { ...VALID, NODE_ENV: "staging", APP_ENVIRONMENT: "production", APP_URL: "http://tripistic.com" };
+    expect(warnings(env).map((i) => i.key)).toContain("APP_URL");
+  });
+
+  it("ignores blank APP_ENVIRONMENT and falls back to NODE_ENV", () => {
+    const env = { ...VALID, APP_ENVIRONMENT: "   ", STRIPE_SECRET_KEY: "sk_test_abc123" };
+    expect(errors(env).map((i) => i.key)).toContain("STRIPE_SECRET_KEY");
   });
 });
 

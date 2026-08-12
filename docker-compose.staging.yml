@@ -1,0 +1,111 @@
+services:
+  # Staging: a real deployment of the same Docker image as production, on
+  # the same VPS, kept fully isolated from it — separate container names,
+  # separate network (its own Compose project), separate Postgres volume,
+  # separate port. Point is to validate things (Stripe test-mode checkout,
+  # upgrades, migrations) against a live, running instance without any way
+  # to touch production data or take down the production containers.
+  #
+  # Bring up with its own project name so container/network/volume names
+  # never collide with the prod stack even if someone forgets a rename here:
+  #   docker compose -p tripistic-staging -f docker-compose.staging.yml \
+  #     --env-file .env.staging up -d --build
+  #
+  # APP_ENVIRONMENT=staging belongs in .env.staging (see
+  # .env.staging.example), not hardcoded here — it's what lets this stack run
+  # NODE_ENV=production (required for `next start` to serve the real
+  # optimized build, so staging actually mirrors prod) while still being
+  # allowed to run Stripe test-mode keys. See lib/config/env-check.ts.
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tripistic-staging-app
+    restart: unless-stopped
+    depends_on:
+      release:
+        condition: service_completed_successfully
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tripistic_staging}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.staging}@db:5432/${POSTGRES_DB:-tripistic_staging}?schema=public
+    # Distinct port from prod's HTTP_PORT (8080) so both can run at once
+    # behind the same shared Traefik. Route staging.tripistic.com to this
+    # port in the Cloudflare Tunnel config, same pattern as the prod hostname.
+    ports:
+      - "${BIND_ADDR:-0.0.0.0}:${HTTP_PORT:-8081}:3000"
+
+  release:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: tooling
+    container_name: tripistic-staging-release
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tripistic_staging}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.staging}@db:5432/${POSTGRES_DB:-tripistic_staging}?schema=public
+    command: npm run db:release
+    restart: "no"
+
+  # Optional but included so staging actually mirrors prod's job behaviour
+  # (trial expiry, abandoned-checkout release, dunning, etc.) rather than
+  # only the request/response path.
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: tooling
+    container_name: tripistic-staging-worker
+    restart: unless-stopped
+    depends_on:
+      release:
+        condition: service_completed_successfully
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tripistic_staging}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.staging}@db:5432/${POSTGRES_DB:-tripistic_staging}?schema=public
+    stop_grace_period: 30s
+    command: >-
+      sh -c "trap 'exit 0' TERM INT;
+      while true; do
+      npm run --silent jobs:run || echo '[worker] tick failed';
+      sleep 60 & wait $$!;
+      done"
+
+  # No `backup` service here on purpose. Staging holds synthetic test data
+  # only — nothing worth a verified nightly backup — and skipping it keeps
+  # the stack smaller. If that stops being true (e.g. staging starts holding
+  # data worth keeping), copy the `backup` service from
+  # docker-compose.hostinger.yml with its own BACKUP_HOST_DIR.
+
+  db:
+    image: postgres:16-alpine
+    container_name: tripistic-staging-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tripistic_staging}
+      POSTGRES_USER: ${POSTGRES_USER:-tripistic_staging}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.staging}
+    volumes:
+      # Distinct named volume from prod's `tripistic_postgres` — this is the
+      # one line that matters most. Never point staging at the production
+      # volume, and never copy live customer data into it; seed it fresh
+      # (the release job already does) or with synthetic fixtures only.
+      - tripistic_staging_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tripistic_staging} -d ${POSTGRES_DB:-tripistic_staging}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tripistic_staging_postgres:

@@ -41,6 +41,28 @@ function isPlaceholder(value: string): boolean {
 }
 
 /**
+ * Which deployment tier this process is running as, for guards below that
+ * must not fire outside the live, customer-facing deployment.
+ *
+ * Deliberately separate from a raw `NODE_ENV` check. `NODE_ENV=production`
+ * is what makes `next start` serve the optimized standalone build correctly
+ * — a staging tier legitimately wants that build (it's meant to mirror
+ * production) while still being allowed to run Stripe test-mode keys, an
+ * http-only preview URL, etc. Overloading `NODE_ENV` to mean both "run the
+ * production build" and "this is the live site" makes those two things
+ * impossible to have independently.
+ *
+ * Falls back to `NODE_ENV` when unset, so every deployment that has not set
+ * `APP_ENVIRONMENT` — which today is every existing one, including
+ * production — keeps exactly its current behaviour. Only a tier that
+ * explicitly opts in by setting `APP_ENVIRONMENT` diverges.
+ */
+function deploymentTier(env: EnvSource): string | undefined {
+  const explicit = env.APP_ENVIRONMENT?.trim();
+  return explicit ? explicit : env.NODE_ENV;
+}
+
+/**
  * Minimum entropy for a signing secret, in characters.
  *
  * 32 is the length of `openssl rand -base64 32` output truncated, and the
@@ -52,7 +74,7 @@ const MIN_SECRET_LENGTH = 24;
 
 export function checkEnvironment(env: EnvSource): ConfigIssue[] {
   const issues: ConfigIssue[] = [];
-  const isProduction = env.NODE_ENV === "production";
+  const isProduction = deploymentTier(env) === "production";
 
   const error = (key: string, message: string) => issues.push({ severity: "error", key, message });
   const warn = (key: string, message: string) => issues.push({ severity: "warning", key, message });
