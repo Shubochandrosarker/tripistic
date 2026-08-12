@@ -78,8 +78,43 @@ section explicitly opted in, and no Tour/Product markup at all — it needs pric
 and availability resolved at request time, and marking up a price the page may
 not be showing is the schema spam to avoid.
 
+## The editor
+
+`/dashboard/sites` and, per site, tabs for Overview, Editor, Pages, Brand, SEO,
+Domain and Settings.
+
+The editor is three panes: the section list (drag to reorder, add, duplicate,
+hide, delete), a live preview, and the properties of whatever is selected.
+
+**The preview is the real renderer.** `POST
+/api/workspaces/{id}/sites/{siteId}/pages/{pageId}/preview` calls
+`lib/sites/render.ts` — the same function the publish pipeline calls — and
+returns HTML that the editor frames with `sandbox=""`. A React approximation
+would be wrong in precisely the cases that matter: escaping, structured data,
+the attribution footer, and every section type nobody thought to mirror.
+
+**The properties panel is generated.** `lib/sites/section-registry.ts` carries a
+field descriptor per section prop, and one renderer walks them. Thirty
+hand-written panels would drift, and each drift is a section whose editor lets
+you save something the schema rejects at publish. A unit test walks the real Zod
+schema and fails CI if a default no longer validates, if a descriptor names a
+prop that does not exist, or if a required prop has no editor field.
+
+**History is a stack of whole documents.** A page is at most 60 sections of
+bounded JSON, so snapshotting is cheap and undo across a reorder-then-edit
+sequence is correct by construction. Autosave writes the draft after 1.5s idle;
+it never publishes.
+
+### Hidden sections
+
+`hidden` on a section removes it from the rendered page entirely — the renderer
+drops it rather than emitting `display:none`, so an unannounced price does not
+stay readable in view-source, and it contributes no tour slots to the Worker
+payload. This is distinct from `layout.visibleOn`, which hides a section at some
+breakpoints and cannot express "hidden everywhere": that array requires at least
+one entry, deliberately, so a section is never invisible on every device by
+accident.
+
 ## Not implemented in this release
 
-The visual drag-and-drop editor. The backend, schema, templates, renderer,
-publish pipeline and API are complete and tested; the dashboard UI for
-composing sections is not built. See `docs/v3/FINAL_QA_REPORT.md`.
+AI generation of page content. See `docs/v3/AI_ARCHITECTURE.md`.

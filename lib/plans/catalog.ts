@@ -64,6 +64,20 @@ export type CanonicalPlan = {
   flags: Record<PlanFeatureKey, boolean>;
 };
 
+/**
+ * A note on `site_ai_generation`.
+ *
+ * It is `false` on every plan, including the ones whose price would justify it,
+ * because **nothing implements it**. `siteGenerationPrompt` exists and the
+ * section registry it would constrain output to exists, but no route calls
+ * them: the Site Builder editor is manual.
+ *
+ * The same treatment x402 got in the first V3 pass. A catalogue flag is a
+ * description of what a plan includes; leaving it on would make the plan
+ * catalogue describe a capability a customer cannot reach, and the first person
+ * to notice would be a customer who paid for it. Turn it back on in the same
+ * change that ships the generator.
+ */
 const baseFlags: Record<PlanFeatureKey, boolean> = {
   booking_engine: true,
   stripe_payments: true,
@@ -175,7 +189,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       ...baseFlags,
       white_label: true,
       custom_domain: true,
-      site_ai_generation: true,
+      // Deliberately absent. See the note on `site_ai_generation` above.
       ai_copilot: true,
     },
   },
@@ -227,7 +241,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       vehicles: true,
       crm_pipeline: true,
       audit_logs: true,
-      site_ai_generation: true,
+      // Deliberately absent. See the note on `site_ai_generation` above.
       ai_copilot: true,
       ai_private_knowledge: true,
     },
@@ -284,7 +298,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       advanced_ai: true,
       api_access: true,
       audit_logs: true,
-      site_ai_generation: true,
+      // Deliberately absent. See the note on `site_ai_generation` above.
       ai_copilot: true,
       ai_private_knowledge: true,
     },
@@ -340,7 +354,7 @@ export const canonicalPlans: readonly CanonicalPlan[] = [
       advanced_ai: true,
       api_access: true,
       audit_logs: true,
-      site_ai_generation: true,
+      // Deliberately absent. See the note on `site_ai_generation` above.
       ai_copilot: true,
       ai_private_knowledge: true,
       // No SAML/SSO implementation exists yet — auth is credentials-only.

@@ -84,10 +84,59 @@ proposed by a model. It passes through `requireWorkspaceAccess`, the same
   rather than flagged. That is the implementation of "the LLM cannot bypass
   confirmation".
 
+## The provider layer
+
+`lib/ai/providers.ts` turns a model id into an HTTP request. One
+OpenAI-compatible client covers OpenAI, OpenRouter, Groq and Cloudflare Workers
+AI, routed through the AI Gateway whenever one is configured. A second wire
+dialect would be a second place for tool-call parsing to drift, and tool-call
+parsing is what decides whether a permission check runs.
+
+Two details are load-bearing:
+
+- **SSE is buffered to the frame terminator.** A chunk boundary lands mid-JSON
+  regularly under real network conditions; splitting per received chunk works
+  locally and truncates on a slow connection.
+- **Tool-call deltas are reassembled by array index.** The id and name arrive in
+  the first chunk only, so index is the only join key the protocol offers.
+
+**There is no fallback that synthesises an answer.** `lib/ai/rag/embeddings.ts`
+degrades to a deterministic hash when Workers AI is absent, and that is correct
+there — a meaningless vector still exercises the isolation filter. The same
+trick would be indefensible for chat: a fabricated reply is indistinguishable,
+to the person reading it, from a real one. With no provider configured the
+router raises a 503 and both surfaces render an honest "not configured" state.
+
+## The router
+
+`lib/ai/router.ts` runs one model turn in a fixed order: availability, then the
+plan's credit budget, then prompt size, then the call, and credits are charged
+only on success. A limit checked after the call is not a limit, it is an
+invoice. Failures still write a usage event — a month where 40% of calls errored
+is the most useful thing to know about an AI feature, and a table holding only
+successes cannot say so.
+
+Fallback walks the task profile's `preferredModels`, filtered to providers that
+are actually configured, and stops early on a non-retryable provider error: a
+malformed request fails identically against the next model.
+
+## The surfaces
+
+- **Workspace Copilot** — `/dashboard/ai`, gated on `ai_copilot`. Streams over
+  SSE, offers the authenticated tool set, and retrieves from the workspace's
+  private corpus plus Tripistic's global documentation when
+  `ai_private_knowledge` is included.
+- **Public Travel Advisor** — `/ai-platform/advisor`, unauthenticated. Public
+  and global retrieval scopes only, so there is no code path to a tenant's
+  private corpus. Sessions are an httpOnly cookie carrying a 32-byte token, and
+  registration adopts the thread into the new account.
+
+Both share `lib/ai/chat.ts`. Two surfaces with two turn loops would be two
+chances to forget the untrusted-content wrapper or the per-turn tool ceiling;
+here the difference between them is a surface value and a retrieval scope.
+
 ## Not implemented in this release
 
-The chat surfaces themselves — `/ai`, `/dashboard/ai`, the floating marketing
-assistant, conversation UI, and the provider call loop that turns a task profile
-into an HTTP request. The infrastructure they need (routing, metering, tools,
-retrieval, safety, conversation schema) is built and tested. See
-`docs/v3/FINAL_QA_REPORT.md`.
+AI-generated site content. `siteGenerationPrompt` and the section registry it
+constrains output to are in place, but no route calls them: the Site Builder
+editor is manual. See `docs/v3/FINAL_QA_REPORT.md`.

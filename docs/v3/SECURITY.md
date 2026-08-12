@@ -13,7 +13,14 @@
 | Secrets in Workers | none bound; sites read only the public tours API | enforced by construction |
 | Feature entitlement | `assertFeature` (402) on every new gated route | enforced, swept by `entitlement-coverage.test.ts` |
 | Usage limits | credits checked before the call, atomic increment, admin override | enforced |
-| Rate limiting | new buckets for AI chat, knowledge upload, publish, generation, domain verification | rules defined; wired on knowledge upload |
+| Rate limiting | AI chat (workspace + public), knowledge upload, x402 | wired; publish/generation/domain buckets still defined-only |
+| AI provider secrets | read at call time into an `Authorization` header only; never returned, never in gateway metadata | enforced, tested |
+| Anonymous advisor sessions | 32-byte token in an httpOnly, SameSite=Lax cookie; never in a URL | enforced, tested |
+| Conversation privacy | threads are per-user inside a workspace; membership is not consent to read a colleague's | enforced, tested |
+| Feature-override expiry | `expiresAt` honoured by all three resolvers; plan rows can never expire (CHECK) | enforced, tested |
+| x402 replay | unique index on `transaction_reference`, claimed before the facilitator is called | enforced, tested |
+| x402 grant redemption | conditional `UPDATE`; token stored as SHA-256 only; route-scoped | enforced, tested |
+| Dispatch routing exposure | `/api/internal/site-routing` behind signed edge auth | enforced |
 | Prompt injection | delimiting, scanning, output validation — as signals behind real controls | implemented |
 | PII to model providers | tool selects exclude guest name/email/phone; gateway metadata is ids only | enforced |
 | Audit | every site and knowledge mutation records an `AuditAction` | enforced |
@@ -65,12 +72,53 @@ is spend, and spend is attributable to the workspace whichever member or office
 IP submits it. The public advisor is the exception and stays IP-keyed, since it
 has no workspace.
 
+## The V3 surfaces added since the first pass
+
+**Chat endpoints.** Both the Copilot and the public Advisor resolve their
+workspace from the verified session, never from the request body — which is what
+makes a prompt-injected tool call unable to cross a tenant boundary. The Copilot
+is gated on `ai_copilot` and rate-limited per *workspace* (spend is attributable
+to the workspace whichever member incurs it); the Advisor is rate-limited per IP,
+which is the only ceiling an unauthenticated endpoint has.
+
+**The turn loop is bounded twice.** At most four model rounds and at most ten
+tool executions per user turn. Rounds bound cost and latency; the total bounds a
+single round that requests forty tools at once, which a confused model does and
+which the round limit alone would happily pay for.
+
+**Model output is validated before it is stored or shown.** Output containing
+what looks like a credential or executable markup is replaced with a notice, and
+the renderer never uses `dangerouslySetInnerHTML` — so the check is a second
+line of defence rather than the only one.
+
+**The Site Builder preview** renders on the app origin inside a `sandbox=""`
+iframe with `no-store` and `X-Robots-Tag: noindex`. It re-validates the draft
+content it is asked to render even though it is not saving it: a preview that
+renders something the schema would reject teaches the operator it is fine, and
+the error then appears at publish.
+
+**Platform-admin actions on tenant resources** (`admin_site_suspended`,
+`admin_site_rolled_back`, `admin_feature_override_*`) are named apart from the
+operator's own actions, so a workspace reading its history can tell "we did
+this" from "Tripistic did this" — the first question an operator asks when their
+site changes without them touching it. All of them require a typed reason.
+
 ## Known gaps
 
 1. Application CSP is report-only and still allows `'unsafe-inline'` scripts
-   (above).
-2. Site-publish and domain-verification rate limits defined but not wired.
+   (above). `frame-src` now includes `'self'` for the Site Builder preview;
+   without it the editor would have gone blank on the day the policy is
+   promoted, and report-only mode hides exactly that.
+2. Site-publish, site-generation and domain-verification rate limits are defined
+   but not wired to their routes.
 3. Cloudflare-side WAF rules are account configuration, not repository code —
    see `PRODUCTION_DEPLOYMENT.md`.
 4. Vectorize filter enforcement is verified against our own filter semantics,
    not against Cloudflare's implementation. Staging checklist item.
+5. No live model provider has been exercised in this environment. The provider
+   layer is unit-tested against a stubbed `fetch` covering framing, tool-call
+   reassembly, usage, error classes and secret handling; the conversation loop
+   is integration-tested through an injected invoker. What has *not* been
+   observed is a real provider's exact SSE dialect. Staging checklist item.
+6. No facilitator has been exercised against a live testnet. See
+   `docs/v3/X402.md`.
